@@ -17,31 +17,10 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-#[macro_use] extern crate clap;
 
-mod cli;
-mod cmd;
+use cli::CleanOpts;
 
-fn main() {
-
-    let app_matches = cli::app().get_matches();
-
-    let (name, matches) = app_matches.subcommand();
-
-    if let Some(matches) = matches {
-        match cli::subcommand(name, matches) {
-            Ok(cli::Command::Build(opts)) => {
-                cmd::build(opts);
-            },
-            Ok(cli::Command::Clean(opts)) => {
-                cmd::clean(opts);
-            },
-            Ok(cli::Command::Graph(opts)) => {
-                cmd::graph(opts);
-            },
-            Err(err) => {
-                println!("{}", err);
-            },
-        };
-    }
+/// Cleans your damn software.
+pub fn clean(opts: CleanOpts) {
+    println!("{:#?}", opts);
 }
