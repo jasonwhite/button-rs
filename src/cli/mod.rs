@@ -17,6 +17,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+extern crate num_cpus;
 
 pub mod opts;
 
@@ -48,8 +49,7 @@ pub fn app<'a, 'b>() -> clap::App<'a, 'b> {
         .help("The number of threads to use.")
         .takes_value(true)
         .long("threads")
-        .short("t")
-        .default_value("8");
+        .short("t");
 
     let color_opt = clap::Arg::with_name("color")
         .help("When to colorize the output.")
@@ -130,12 +130,14 @@ pub enum Command {
 }
 
 pub fn subcommand<'a>(name: &str, matches: &clap::ArgMatches<'a>) -> clap::Result<Command> {
+    let cpu_count = num_cpus::get();
+
     match name {
         "build" => Ok(Command::Build(opts::Build {
             file: matches.value_of("file").map(|f| PathBuf::from(f)),
             dryrun: matches.is_present("dryrun"),
             color: try!(value_t!(matches.value_of("color"), opts::Coloring)),
-            threads: try!(value_t!(matches, "threads", usize)),
+            threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
             autobuild: matches.is_present("auto"),
             delay: try!(value_t!(matches, "delay", usize)),
         })),
@@ -144,13 +146,13 @@ pub fn subcommand<'a>(name: &str, matches: &clap::ArgMatches<'a>) -> clap::Resul
             file: matches.value_of("file").map(|f| PathBuf::from(f)),
             dryrun: matches.is_present("dryrun"),
             color: try!(value_t!(matches.value_of("color"), opts::Coloring)),
-            threads: try!(value_t!(matches, "threads", usize)),
+            threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
             purge: matches.is_present("purge"),
         })),
 
         "graph" => Ok(Command::Graph(opts::Graph {
             file: matches.value_of("file").map(|f| PathBuf::from(f)),
-            threads: try!(value_t!(matches, "threads", usize)),
+            threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
             changes: matches.is_present("changes"),
             cached: matches.is_present("cached"),
             full: matches.is_present("full"),
