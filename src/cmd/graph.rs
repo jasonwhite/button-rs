@@ -18,9 +18,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use cli::GraphOpts;
+use cli::opts;
 
 /// Shows a pretty graph of your damn software.
-pub fn graph(opts: GraphOpts) {
+pub fn graph(opts: opts::Graph) {
     println!("{:#?}", opts);
 }

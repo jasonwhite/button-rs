@@ -18,8 +18,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+pub mod opts;
+
 use std::path::PathBuf;
-use std::str::FromStr;
 
 use clap;
 
@@ -122,110 +123,38 @@ pub fn app<'a, 'b>() -> clap::App<'a, 'b> {
         )
 }
 
-#[derive(Debug)]
-pub enum Coloring {
-    Auto,
-    Never,
-    Always
-}
-
-impl FromStr for Coloring {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "auto"   => Ok(Coloring::Auto),
-            "never"  => Ok(Coloring::Never),
-            "always" => Ok(Coloring::Always),
-            _        => Err("no match")
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum Edges {
-    Explicit,
-    Implicit,
-    Both
-}
-
-impl FromStr for Edges {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "explicit" => Ok(Edges::Explicit),
-            "implicit" => Ok(Edges::Implicit),
-            "both"     => Ok(Edges::Both),
-            _          => Err("no match")
-        }
-    }
-}
-
-/// 'build' subcommand options
-#[derive(Debug)]
-pub struct BuildOpts {
-    pub file: Option<PathBuf>,
-    pub dryrun: bool,
-    pub color: Coloring,
-    pub threads: usize,
-    pub autobuild: bool,
-    pub delay: usize,
-}
-
-/// 'clean' subcommand options
-#[derive(Debug)]
-pub struct CleanOpts {
-    pub file: Option<PathBuf>,
-    pub dryrun: bool,
-    pub color: Coloring,
-    pub threads: usize,
-    pub purge: bool,
-}
-
-/// 'graph' subcommand options
-#[derive(Debug)]
-pub struct GraphOpts {
-    pub file: Option<PathBuf>,
-    pub threads: usize,
-    pub changes: bool,
-    pub cached: bool,
-    pub full: bool,
-    pub edges: Edges,
-}
-
 pub enum Command {
-    Build(BuildOpts),
-    Clean(CleanOpts),
-    Graph(GraphOpts),
+    Build(opts::Build),
+    Clean(opts::Clean),
+    Graph(opts::Graph),
 }
 
 pub fn subcommand<'a>(name: &str, matches: &clap::ArgMatches<'a>) -> clap::Result<Command> {
     match name {
-        "build" => Ok(Command::Build(BuildOpts {
+        "build" => Ok(Command::Build(opts::Build {
             file: matches.value_of("file").map(|f| PathBuf::from(f)),
             dryrun: matches.is_present("dryrun"),
-            color: try!(value_t!(matches.value_of("color"), Coloring)),
+            color: try!(value_t!(matches.value_of("color"), opts::Coloring)),
             threads: try!(value_t!(matches, "threads", usize)),
             autobuild: matches.is_present("auto"),
             delay: try!(value_t!(matches, "delay", usize)),
         })),
 
-        "clean" => Ok(Command::Clean(CleanOpts {
+        "clean" => Ok(Command::Clean(opts::Clean {
             file: matches.value_of("file").map(|f| PathBuf::from(f)),
             dryrun: matches.is_present("dryrun"),
-            color: try!(value_t!(matches.value_of("color"), Coloring)),
+            color: try!(value_t!(matches.value_of("color"), opts::Coloring)),
             threads: try!(value_t!(matches, "threads", usize)),
             purge: matches.is_present("purge"),
         })),
 
-        "graph" => Ok(Command::Graph(GraphOpts {
+        "graph" => Ok(Command::Graph(opts::Graph {
             file: matches.value_of("file").map(|f| PathBuf::from(f)),
             threads: try!(value_t!(matches, "threads", usize)),
             changes: matches.is_present("changes"),
             cached: matches.is_present("cached"),
             full: matches.is_present("full"),
-            edges: try!(value_t!(matches.value_of("edges"), Edges)),
+            edges: try!(value_t!(matches.value_of("edges"), opts::Edges)),
         })),
 
         // If all subcommands are matched above, then this shouldn't happen.

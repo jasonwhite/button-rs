@@ -18,9 +18,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use cli::BuildOpts;
+use cli::opts;
 
 /// Builds your damn software.
-pub fn build(opts: BuildOpts) {
+pub fn build(opts: opts::Build) {
     println!("{:#?}", opts);
 }

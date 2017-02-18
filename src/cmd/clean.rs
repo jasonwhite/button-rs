@@ -18,9 +18,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use cli::CleanOpts;
+use cli::opts;
 
 /// Cleans your damn software.
-pub fn clean(opts: CleanOpts) {
+pub fn clean(opts: opts::Clean) {
     println!("{:#?}", opts);
 }
