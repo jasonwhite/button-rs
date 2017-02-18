@@ -57,7 +57,8 @@ pub fn app<'a, 'b>() -> clap::App<'a, 'b> {
         .possible_values(&["auto", "never", "always"])
         .default_value("auto");
 
-    let common_opts = &[verbose_opt, file_opt, dryrun_opt, threads_opt, color_opt];
+    let common_opts = &[verbose_opt.clone(), file_opt.clone(),
+        dryrun_opt.clone(), threads_opt.clone(), color_opt.clone()];
 
     clap::App::new("button")
         .version(crate_version!())
@@ -95,6 +96,30 @@ pub fn app<'a, 'b>() -> clap::App<'a, 'b> {
                     .long("purge"),
             ])
         )
+        .subcommand(clap::SubCommand::with_name("graph")
+            .about("Graphs your damn software.")
+            .arg(file_opt.clone())
+            .arg(threads_opt.clone())
+            .args(&[
+                clap::Arg::with_name("changes")
+                    .help("Only display the subgraph that will be traversed on \
+                          an update. This has to query the file system for \
+                          changes to resources.")
+                    .long("changes"),
+                clap::Arg::with_name("cached")
+                    .help("Display the cached graph from the previous build.")
+                    .long("cached"),
+                clap::Arg::with_name("full")
+                    .help("Displays the full name for each node.")
+                    .long("full"),
+                clap::Arg::with_name("edges")
+                    .help("Type of edges to show.")
+                    .takes_value(true)
+                    .possible_values(&["explicit", "implicit", "both"])
+                    .default_value("explicit")
+                    .long("edges"),
+            ])
+        )
 }
 
 #[derive(Debug)]
@@ -113,6 +138,26 @@ impl FromStr for Coloring {
             "never"  => Ok(Coloring::Never),
             "always" => Ok(Coloring::Always),
             _        => Err("no match")
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum Edges {
+    Explicit,
+    Implicit,
+    Both
+}
+
+impl FromStr for Edges {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "explicit" => Ok(Edges::Explicit),
+            "implicit" => Ok(Edges::Implicit),
+            "both"     => Ok(Edges::Both),
+            _          => Err("no match")
         }
     }
 }
@@ -138,9 +183,21 @@ pub struct CleanOpts {
     pub purge: bool,
 }
 
+/// 'graph' subcommand options
+#[derive(Debug)]
+pub struct GraphOpts {
+    pub file: Option<PathBuf>,
+    pub threads: usize,
+    pub changes: bool,
+    pub cached: bool,
+    pub full: bool,
+    pub edges: Edges,
+}
+
 pub enum Command {
     Build(BuildOpts),
     Clean(CleanOpts),
+    Graph(GraphOpts),
 }
 
 pub fn subcommand<'a>(name: &str, matches: &clap::ArgMatches<'a>) -> clap::Result<Command> {
@@ -160,6 +217,15 @@ pub fn subcommand<'a>(name: &str, matches: &clap::ArgMatches<'a>) -> clap::Resul
             color: try!(value_t!(matches.value_of("color"), Coloring)),
             threads: try!(value_t!(matches, "threads", usize)),
             purge: matches.is_present("purge"),
+        })),
+
+        "graph" => Ok(Command::Graph(GraphOpts {
+            file: matches.value_of("file").map(|f| PathBuf::from(f)),
+            threads: try!(value_t!(matches, "threads", usize)),
+            changes: matches.is_present("changes"),
+            cached: matches.is_present("cached"),
+            full: matches.is_present("full"),
+            edges: try!(value_t!(matches.value_of("edges"), Edges)),
         })),
 
         // If all subcommands are matched above, then this shouldn't happen.

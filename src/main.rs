@@ -35,6 +35,9 @@ fn main() {
             Ok(cli::Command::Clean(opts)) => {
                 println!("{:?}", opts);
             },
+            Ok(cli::Command::Graph(opts)) => {
+                println!("{:?}", opts);
+            },
             Err(err) => {
                 println!("{}", err);
             },
