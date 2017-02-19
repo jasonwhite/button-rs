@@ -46,7 +46,8 @@ pub fn app<'a, 'b>() -> clap::App<'a, 'b> {
         .short("n");
 
     let threads_opt = clap::Arg::with_name("threads")
-        .help("The number of threads to use.")
+        .help("The number of threads to use. Defaults to the number of cores \
+               on this machine.")
         .takes_value(true)
         .long("threads")
         .short("t");
