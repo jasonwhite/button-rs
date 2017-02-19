@@ -134,7 +134,7 @@ pub fn subcommand<'a>(name: &str, matches: &clap::ArgMatches<'a>) -> clap::Resul
 
     match name {
         "build" => Ok(Command::Build(opts::Build {
-            file: matches.value_of("file").map(|f| PathBuf::from(f)),
+            file: matches.value_of("file").map(PathBuf::from),
             dryrun: matches.is_present("dryrun"),
             color: try!(value_t!(matches.value_of("color"), opts::Coloring)),
             threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
@@ -143,7 +143,7 @@ pub fn subcommand<'a>(name: &str, matches: &clap::ArgMatches<'a>) -> clap::Resul
         })),
 
         "clean" => Ok(Command::Clean(opts::Clean {
-            file: matches.value_of("file").map(|f| PathBuf::from(f)),
+            file: matches.value_of("file").map(PathBuf::from),
             dryrun: matches.is_present("dryrun"),
             color: try!(value_t!(matches.value_of("color"), opts::Coloring)),
             threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
@@ -151,7 +151,7 @@ pub fn subcommand<'a>(name: &str, matches: &clap::ArgMatches<'a>) -> clap::Resul
         })),
 
         "graph" => Ok(Command::Graph(opts::Graph {
-            file: matches.value_of("file").map(|f| PathBuf::from(f)),
+            file: matches.value_of("file").map(PathBuf::from),
             threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
             changes: matches.is_present("changes"),
             cached: matches.is_present("cached"),
