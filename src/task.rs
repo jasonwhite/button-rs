@@ -18,8 +18,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use resource::Resource;
-
 /// A task is a routine to be executed that produces resources as outputs.
 ///
 /// Examples of a task include:

@@ -18,6 +18,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+use std::io;
+
+/// Placeholder checksum type until we start using a crypto library.
+pub type Checksum = [u8; 32];
+
+/// FIXME: Use a more abstract error type.
+pub type Error = io::Error;
+
 /// A resource is an abstract representation of some unit of system state. A
 /// resource can be a file, directory, environment variable. The only thing we
 /// are interested in doing with a resource is:
@@ -26,12 +34,12 @@
 ///  2. Deleting it when it is no longer needed.
 ///
 /// We don't need to know the complete value of a resource's contents.
-
-trait Resource {
+pub trait Resource {
     /// Gets the checksum of the resource.
-    fn checksum(&self) -> u8[32];
+    fn checksum(&self) -> Result<Checksum, Error>;
 
-    /// Deletes the resource. Care should be taken to not delete *input*
-    /// resources. That is, resources that the build system did not produce.
-    fn delete(&self);
+    /// Deletes the resource. Care should be taken by the caller to not delete
+    /// *input* resources. That is, resources that the build system did not
+    /// produce.
+    fn delete(&self) -> Result<(), Error>;
 }

@@ -27,6 +27,8 @@ use std::slice::Iter;
 
 use serde_json;
 
+use resources;
+
 #[derive(Debug)]
 pub enum Error {
     Io(io::Error),
@@ -75,10 +77,10 @@ impl error::Error for Error {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Rule {
     /// Inputs to the task.
-    pub inputs: Vec<String>,
+    pub inputs: Vec<resources::File>,
 
     /// Outputs from the task.
-    pub outputs: Vec<String>,
+    pub outputs: Vec<resources::File>,
 
     /// The sequence of command arguments to execute.
     pub task: Vec<Vec<String>>,
@@ -87,7 +89,7 @@ pub struct Rule {
     /// constructed from the task itself.
     pub display: Option<String>,
 
-    /// The working directory to execute the task in. If None, the working
+    /// The working directory to execute the task in. If `None`, the working
     /// directory of the build system is used.
     pub cwd: Option<String>,
 }
@@ -107,7 +109,7 @@ impl Rules {
 
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Rules, Error> {
         let f = try!(fs::File::open(path));
-        Ok(try!(Self::from_reader(f)))
+        Ok(try!(Self::from_reader(io::BufReader::new(f))))
     }
 
     pub fn from_reader<R>(reader: R) -> Result<Rules, Error>
@@ -131,6 +133,7 @@ impl Rules {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use resources::File;
 
     #[test]
     fn test_loading() {
@@ -147,8 +150,8 @@ mod tests {
         let rules = Rules::from_str(&data).unwrap();
 
         assert_eq!(rules, Rules::new(vec![Rule {
-            inputs: vec!["foo.c".to_owned(), "foo.h".to_owned()],
-            outputs: vec!["foo.o".to_owned()],
+            inputs: vec![File::from("foo.c"), File::from("foo.h")],
+            outputs: vec![File::from("foo.o")],
             task: vec![
                 vec!["gcc".to_owned(), "foo.c".to_owned()],
             ],

@@ -59,7 +59,9 @@ impl<'a> Build<'a> {
         }
 
         for rule in rules.iter() {
+            println!("{:?}", rule.inputs);
             println!("{:?}", rule.task);
+            println!("{:?}", rule.outputs);
         }
 
         Ok(())

@@ -19,6 +19,7 @@
 // THE SOFTWARE.
 #[macro_use] extern crate clap;
 #[macro_use] extern crate serde_derive;
+extern crate serde;
 extern crate serde_json;
 
 mod cli;
@@ -26,6 +27,9 @@ mod cmd;
 mod rules;
 mod build;
 mod error;
+mod resource;
+mod resources;
+mod task;
 
 use std::process::exit;
 
