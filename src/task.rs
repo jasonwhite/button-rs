@@ -18,11 +18,18 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use cli::opts;
+use resource::Resource;
 
-/// Shows a pretty graph of your damn software.
-pub fn graph(opts: opts::Graph) -> i32 {
-    println!("{:#?}", opts);
-
-    0
+/// A task is a routine to be executed that produces resources as outputs.
+///
+/// Examples of a task include:
+///  * A series of commands to run.
+///  * Copying a file.
+///  * Downloading a file.
+trait Task {
+    /// Executes the task. The result of a task are the resources it used and
+    /// the resources it output. These are its *implicit* inputs and outputs.
+    /// Ideally, the *explicit* inputs and outputs are a subset of the
+    /// *implicit* inputs and outputs.
+    fn execute(&self); // TODO: Return a result.
 }

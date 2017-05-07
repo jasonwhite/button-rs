@@ -18,11 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use cli::opts;
+mod build;
+mod clean;
+mod graph;
 
-/// Shows a pretty graph of your damn software.
-pub fn graph(opts: opts::Graph) -> i32 {
-    println!("{:#?}", opts);
-
-    0
-}
+pub use self::file::File;

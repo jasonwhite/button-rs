@@ -18,11 +18,28 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use cli::opts;
+use std::time::Duration;
 
-/// Shows a pretty graph of your damn software.
-pub fn graph(opts: opts::Graph) -> i32 {
-    println!("{:#?}", opts);
+/// Trait for receiving build events, typically for logging or display purposes.
+/// For example, printing to the console when a task has been executed.
+///
+/// Since builds can be recursive, one instantiation of this trait corresponds
+/// to just one level in a recursive build.
+///
+/// These functions cannot fail gracefully. If one of these fails, the only
+/// option is to `panic!()`. As such, all initialization that is likely to fail,
+/// such as opening a file, should happen while the `EventSink` is being
+/// constructed.
+trait EventSink {
+    /// Called when the build has started.
+    fn build_started(&mut self);
 
-    0
+    /// Called when the build has succeeded.
+    fn build_succeeded(&mut self, duration: Duration);
+
+    /// Called when the build has failed.
+    /// TODO: Pass the Error as a parameter.
+    fn build_failed(&mut self, duration: Duration);
+
+    // TODO: Add more.
 }

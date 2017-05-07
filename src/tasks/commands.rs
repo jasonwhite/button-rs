@@ -18,11 +18,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use cli::opts;
+/// A task that executes a series of commands.
 
-/// Shows a pretty graph of your damn software.
-pub fn graph(opts: opts::Graph) -> i32 {
-    println!("{:#?}", opts);
-
-    0
-}
+// TODO

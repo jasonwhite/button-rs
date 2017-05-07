@@ -1,0 +1,159 @@
+// Copyright (c) 2017 Jason White
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+
+use std::path::Path;
+use std::error;
+use std::io;
+use std::fs;
+use std::fmt;
+use std::slice::Iter;
+
+use serde_json;
+
+#[derive(Debug)]
+pub enum Error {
+    Io(io::Error),
+    Parse(serde_json::error::Error),
+}
+
+impl From<io::Error> for Error {
+    fn from(err: io::Error) -> Error {
+        Error::Io(err)
+    }
+}
+
+impl From<serde_json::error::Error> for Error {
+    fn from(err: serde_json::error::Error) -> Error {
+        Error::Parse(err)
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::Io(ref err)   => write!(f, "Failed reading rules: {}", err),
+            Error::Parse(ref err) => write!(f, "Failed parsing rules: {}", err),
+        }
+    }
+}
+
+impl error::Error for Error {
+    fn description(&self) -> &str {
+        match *self {
+            Error::Io(ref err) => err.description(),
+            Error::Parse(ref err) => err.description(),
+        }
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        match *self {
+            Error::Io(ref err) => Some(err),
+            Error::Parse(ref err) => Some(err),
+        }
+    }
+}
+
+/// A rule in the build description. A build description is simply a list of
+/// rules.
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct Rule {
+    /// Inputs to the task.
+    pub inputs: Vec<String>,
+
+    /// Outputs from the task.
+    pub outputs: Vec<String>,
+
+    /// The sequence of command arguments to execute.
+    pub task: Vec<Vec<String>>,
+
+    /// The string to display when executing the task. If None, one is
+    /// constructed from the task itself.
+    pub display: Option<String>,
+
+    /// The working directory to execute the task in. If None, the working
+    /// directory of the build system is used.
+    pub cwd: Option<String>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Rules {
+    pub rules: Vec<Rule>,
+}
+
+impl Rules {
+
+    // Mostly used for unit testing.
+    #[allow(dead_code)]
+    pub fn new(rules: Vec<Rule>) -> Rules {
+        Rules { rules: rules }
+    }
+
+    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Rules, Error> {
+        let f = try!(fs::File::open(path));
+        Ok(try!(Self::from_reader(f)))
+    }
+
+    pub fn from_reader<R>(reader: R) -> Result<Rules, Error>
+        where R: io::Read
+    {
+        Ok(Rules { rules: try!(serde_json::from_reader(reader)) })
+    }
+
+    // Mostly used for unit testing.
+    #[allow(dead_code)]
+    pub fn from_str<'a>(s: &'a str) -> Result<Rules, Error>
+    {
+        Ok(Rules { rules: try!(serde_json::from_str(s)) })
+    }
+
+    pub fn iter(&self) -> Iter<Rule> {
+        self.rules.iter()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_loading() {
+
+        let data = r#"[{
+            "inputs": ["foo.c", "foo.h"],
+            "outputs": ["foo.o"],
+            "task": [
+                ["gcc", "foo.c"]
+            ],
+            "display": "cc foo.c"
+        }]"#;
+
+        let rules = Rules::from_str(&data).unwrap();
+
+        assert_eq!(rules, Rules::new(vec![Rule {
+            inputs: vec!["foo.c".to_owned(), "foo.h".to_owned()],
+            outputs: vec!["foo.o".to_owned()],
+            task: vec![
+                vec!["gcc".to_owned(), "foo.c".to_owned()],
+            ],
+            display: Some("cc foo.c".to_owned()),
+            cwd: None,
+        }]));
+    }
+}

@@ -18,11 +18,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use cli::opts;
+use resource::Resource;
 
-/// Shows a pretty graph of your damn software.
-pub fn graph(opts: opts::Graph) -> i32 {
-    println!("{:#?}", opts);
+use std::path::PathBuf;
 
-    0
+struct File {
+    path: PathBuf,
 }

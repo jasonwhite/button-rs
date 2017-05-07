@@ -6,3 +6,6 @@ authors = ["Jason White"]
 [dependencies]
 clap = "~2.20.0"
 num_cpus = "1"
+serde = "0.9"
+serde_derive = "0.9"
+serde_json = "0.9"

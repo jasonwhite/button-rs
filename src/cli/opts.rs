@@ -50,14 +50,14 @@ pub enum Edges {
 }
 
 impl FromStr for Edges {
-    type Err = &'static str;
+    type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "explicit" => Ok(Edges::Explicit),
             "implicit" => Ok(Edges::Implicit),
             "both"     => Ok(Edges::Both),
-            _          => Err("no match")
+            _          => Err(())
         }
     }
 }

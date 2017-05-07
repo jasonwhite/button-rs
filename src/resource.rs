@@ -18,11 +18,20 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use cli::opts;
+/// A resource is an abstract representation of some unit of system state. A
+/// resource can be a file, directory, environment variable. The only thing we
+/// are interested in doing with a resource is:
+///
+///  1. Taking its checksum so that we can determine if it has changed.
+///  2. Deleting it when it is no longer needed.
+///
+/// We don't need to know the complete value of a resource's contents.
 
-/// Shows a pretty graph of your damn software.
-pub fn graph(opts: opts::Graph) -> i32 {
-    println!("{:#?}", opts);
+trait Resource {
+    /// Gets the checksum of the resource.
+    fn checksum(&self) -> u8[32];
 
-    0
+    /// Deletes the resource. Care should be taken to not delete *input*
+    /// resources. That is, resources that the build system did not produce.
+    fn delete(&self);
 }

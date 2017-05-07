@@ -18,11 +18,43 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use cli::opts;
+use std::error;
+use std::fmt;
 
-/// Shows a pretty graph of your damn software.
-pub fn graph(opts: opts::Graph) -> i32 {
-    println!("{:#?}", opts);
+use rules;
 
-    0
+/// The main error enum. All other errors should trickle down into this one. If
+/// a build fails, this is what it should return.
+#[derive(Debug)]
+pub enum Error {
+    /// Error reading or parsing rules.
+    Rules(rules::Error),
+}
+
+impl From<rules::Error> for Error {
+    fn from(err: rules::Error) -> Error {
+        Error::Rules(err)
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::Rules(ref err) => write!(f, "{}", err),
+        }
+    }
+}
+
+impl error::Error for Error {
+    fn description(&self) -> &str {
+        match *self {
+            Error::Rules(ref err) => err.description(),
+        }
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        match *self {
+            Error::Rules(ref err) => Some(err),
+        }
+    }
 }

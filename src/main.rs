@@ -18,9 +18,16 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 #[macro_use] extern crate clap;
+#[macro_use] extern crate serde_derive;
+extern crate serde_json;
 
 mod cli;
 mod cmd;
+mod rules;
+mod build;
+mod error;
+
+use std::process::exit;
 
 fn main() {
 
@@ -29,19 +36,20 @@ fn main() {
     let (name, matches) = app_matches.subcommand();
 
     if let Some(matches) = matches {
-        match cli::subcommand(name, matches) {
+        exit(match cli::subcommand(name, matches) {
             Ok(cli::Command::Build(opts)) => {
-                cmd::build(opts);
+                cmd::build(opts)
             },
             Ok(cli::Command::Clean(opts)) => {
-                cmd::clean(opts);
+                cmd::clean(opts)
             },
             Ok(cli::Command::Graph(opts)) => {
-                cmd::graph(opts);
+                cmd::graph(opts)
             },
             Err(err) => {
                 println!("{}", err);
+                1
             },
-        };
+        });
     }
 }

@@ -18,11 +18,24 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use cli::opts;
+use task;
 
-/// Shows a pretty graph of your damn software.
-pub fn graph(opts: opts::Graph) -> i32 {
-    println!("{:#?}", opts);
+/// A task that executes a single command. A command is simply a process to be
+/// spawned.
+pub struct Command {
+    /// Path to the program to execute.
+    program: String,
 
-    0
+    /// Arguments to run the process with.
+    args: Vec<String>,
+
+    /// Optional working directory to spawn the process in. If `None`, uses the
+    /// working directory of the parent process.
+    cwd: Option<&'a Path>,
+}
+
+impl Task for Command {
+    fn execute(&self) {
+        println!("Executing `{}` with args {:?}", program, args);
+    }
 }

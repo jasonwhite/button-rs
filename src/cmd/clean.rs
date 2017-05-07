@@ -21,6 +21,8 @@
 use cli::opts;
 
 /// Cleans your damn software.
-pub fn clean(opts: opts::Clean) {
+pub fn clean(opts: opts::Clean) -> i32 {
     println!("{:#?}", opts);
+
+    0
 }
