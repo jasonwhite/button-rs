@@ -18,20 +18,37 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-/// A task is a routine to be executed that produces resources as outputs.
-///
-/// Most tasks will be of the `Command` type. That is, the execution of a
-/// process with arguments.
-///
-/// Since a task is anything that can be executed, we can have other built-in
-/// tasks to aid with cross-platform compatibility. For example:
-///  * Copying a file or directory.
-///  * Downloading a file.
-///  * Creating a directory.
-trait Task {
-    /// Executes the task. The result of a task are the resources it used and
-    /// the resources it output. These are its *implicit* inputs and outputs.
-    /// Ideally, the *explicit* inputs and outputs are a subset of the
-    /// *implicit* inputs and outputs.
-    fn execute(&self); // TODO: Return a result.
+use std::fmt;
+
+use resource::{Resource, Checksum, Error};
+
+/// A single environment variable.
+#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq)]
+pub struct Env {
+    pub var: String,
+}
+
+impl fmt::Display for File {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self.path)
+    }
+}
+
+impl fmt::Debug for File {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self.path)
+    }
+}
+
+impl Resource for Env {
+    /// Returns checksum of the environment variable's contents.
+    fn checksum(&self) -> Result<Checksum, Error> {
+        unimplemented!()
+    }
+
+    /// Does nothing. Environment variables cannot be output resources and thus
+    /// it does not make sense to delete one.
+    fn delete(&self) -> Result<(), Error> {
+        Ok(())
+    }
 }

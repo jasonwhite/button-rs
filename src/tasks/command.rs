@@ -36,6 +36,6 @@ pub struct Command {
 
 impl Task for Command {
     fn execute(&self) {
-        println!("Executing `{}` with args {:?}", program, args);
+        println!("Executing `{}` with args {:?} in directory {:?}", program, args, cwd);
     }
 }

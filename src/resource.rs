@@ -23,6 +23,23 @@ use std::io;
 /// Placeholder checksum type until we start using a crypto library.
 pub type Checksum = [u8; 32];
 
+/// The state associated with a resource. This is stored in the database and
+/// used to determine if a resource has changed.
+#[allow(dead_code)]
+pub enum ResourceState {
+    /// The state of the resource has never been computed. In this case, the
+    /// resource must *never* be deleted. This state means that the build system
+    /// has not taken "ownership" of this resource and has no right to delete
+    /// it.
+    Unknown,
+
+    /// The resource does not exist.
+    Missing,
+
+    /// The resource exists and we have the checksum of its contents.
+    Checksum(Checksum),
+}
+
 /// FIXME: Use a more abstract error type.
 pub type Error = io::Error;
 
@@ -30,16 +47,19 @@ pub type Error = io::Error;
 /// resource can be a file, directory, environment variable. The only thing we
 /// are interested in doing with a resource is:
 ///
-///  1. Taking its checksum so that we can determine if it has changed.
+///  1. Getting its state so that we can determine if it has changed.
 ///  2. Deleting it when it is no longer needed.
 ///
-/// We don't need to know the complete value of a resource's contents.
+/// A resource is merely an *identifier*. It should not store any state about
+/// the actual thing it is referencing. The only state that can be stored with a
+/// resource is `ResourceState`.
 pub trait Resource {
-    /// Gets the checksum of the resource.
-    fn checksum(&self) -> Result<Checksum, Error>;
+    /// Gets the state of the resource. This is used to determine if it has
+    /// changed.
+    fn state(&self) -> Result<ResourceState, Error>;
 
     /// Deletes the resource. Care should be taken by the caller to not delete
     /// *input* resources. That is, resources that the build system did not
-    /// produce.
+    /// produce. Deleting output resources is perfectly fine.
     fn delete(&self) -> Result<(), Error>;
 }

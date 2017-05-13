@@ -24,7 +24,7 @@ use std::str::FromStr;
 
 use serde::{de, Deserialize, Deserializer};
 
-use resource::{Resource, Checksum, Error};
+use resource::{Resource, ResourceState, Error};
 
 use std::path::PathBuf;
 
@@ -83,7 +83,7 @@ impl Resource for File {
     /// If a file, the checksum is of the contents of the file. If a directory,
     /// the checksum is of the sorted list of directory entries. Thus, if a file
     /// is added or removed from a directory, the checksum changes.
-    fn checksum(&self) -> Result<Checksum, Error> {
+    fn state(&self) -> Result<ResourceState, Error> {
         unimplemented!()
     }
 

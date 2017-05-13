@@ -25,14 +25,14 @@ use std::fs;
 use std::fmt;
 use std::slice::Iter;
 
-use serde_json;
+use serde_json as json;
 
 use resources;
 
 #[derive(Debug)]
 pub enum Error {
     Io(io::Error),
-    Parse(serde_json::error::Error),
+    Parse(json::error::Error),
 }
 
 impl From<io::Error> for Error {
@@ -41,8 +41,8 @@ impl From<io::Error> for Error {
     }
 }
 
-impl From<serde_json::error::Error> for Error {
-    fn from(err: serde_json::error::Error) -> Error {
+impl From<json::error::Error> for Error {
+    fn from(err: json::error::Error) -> Error {
         Error::Parse(err)
     }
 }
@@ -101,12 +101,6 @@ pub struct Rules {
 
 impl Rules {
 
-    // Mostly used for unit testing.
-    #[allow(dead_code)]
-    pub fn new(rules: Vec<Rule>) -> Rules {
-        Rules { rules: rules }
-    }
-
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Rules, Error> {
         let f = try!(fs::File::open(path));
         Ok(try!(Self::from_reader(io::BufReader::new(f))))
@@ -115,14 +109,17 @@ impl Rules {
     pub fn from_reader<R>(reader: R) -> Result<Rules, Error>
         where R: io::Read
     {
-        Ok(Rules { rules: try!(serde_json::from_reader(reader)) })
+        Ok(Rules { rules: try!(json::from_reader(reader)) })
     }
 
-    // Mostly used for unit testing.
-    #[allow(dead_code)]
-    pub fn from_str<'a>(s: &'a str) -> Result<Rules, Error>
-    {
-        Ok(Rules { rules: try!(serde_json::from_str(s)) })
+    #[cfg(test)]
+    pub fn new(rules: Vec<Rule>) -> Rules {
+        Rules { rules: rules }
+    }
+
+    #[cfg(test)]
+    pub fn from_str<'a>(s: &'a str) -> Result<Rules, Error> {
+        Ok(Rules { rules: try!(json::from_str(s)) })
     }
 
     pub fn iter(&self) -> Iter<Rule> {
