@@ -95,6 +95,10 @@ pub struct CyclesError<'a> {
     pub cycles: Vec<Cycle<'a>>,
 }
 
+const CYCLE_EXPLANATION : &'static str = "\
+Cycles in the build graph cause incorrect builds and are strictly forbidden.
+Please edit the build description to remove the cycle(s) listed above.";
+
 impl<'a> fmt::Display for CyclesError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 
@@ -105,7 +109,7 @@ impl<'a> fmt::Display for CyclesError<'a> {
             write!(f, "{}\n", cycle)?;
         }
 
-        write!(f, "Edit the build description to remove the cycle(s) listed above.\n")?;
+        write!(f, "{}\n", CYCLE_EXPLANATION)?;
 
         Ok(())
     }
