@@ -22,39 +22,52 @@ use std::error;
 use std::fmt;
 
 use rules;
+use graph;
 
 /// The main error enum. All other errors should trickle down into this one. If
 /// a build fails, this is what it should return.
 #[derive(Debug)]
-pub enum Error {
-    /// Error reading or parsing rules.
+pub enum Error<'a> {
+    /// An error reading or parsing rules.
     Rules(rules::Error),
+
+    /// An error with the build graph.
+    Graph(graph::Error<'a>),
 }
 
-impl From<rules::Error> for Error {
-    fn from(err: rules::Error) -> Error {
+impl<'a> From<rules::Error> for Error<'a> {
+    fn from(err: rules::Error) -> Error<'a> {
         Error::Rules(err)
     }
 }
 
-impl fmt::Display for Error {
+impl<'a> From<graph::Error<'a>> for Error<'a> {
+    fn from(err: graph::Error<'a>) -> Error {
+        Error::Graph(err)
+    }
+}
+
+impl<'a> fmt::Display for Error<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::Rules(ref err) => write!(f, "{}", err),
+            Error::Graph(ref err) => write!(f, "{}", err),
         }
     }
 }
 
-impl error::Error for Error {
+impl<'a> error::Error for Error<'a> {
     fn description(&self) -> &str {
         match *self {
             Error::Rules(ref err) => err.description(),
+            Error::Graph(ref err) => err.description(),
         }
     }
 
     fn cause(&self) -> Option<&error::Error> {
         match *self {
             Error::Rules(ref err) => Some(err),
+            Error::Graph(ref err) => Some(err),
         }
     }
 }

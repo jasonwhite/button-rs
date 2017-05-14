@@ -23,7 +23,6 @@ use std::path::Path;
 use error;
 use graph;
 use rules::Rules;
-use petgraph::dot::Dot;
 
 /// Represents a build. This holds the context necessary for all build
 /// operations.
@@ -52,7 +51,7 @@ impl<'a> Build<'a> {
     }
 
     /// Runs a build.
-    pub fn build(&self, rules: &Rules) -> Result<(), error::Error> {
+    pub fn build<'b>(&self, rules: &'b Rules) -> Result<(), error::Error<'b>> {
 
         println!("Root directory: {:?}", self.root);
 
@@ -60,11 +59,8 @@ impl<'a> Build<'a> {
             println!("Note: This is a dry run. Nothing is affected.");
         }
 
-        let graph = graph::from_rules(&rules);
-
-        //println!("{:?}", Dot::new(&graph));
+        let graph = graph::from_rules(&rules)?;
 
         Ok(())
     }
 }
-
