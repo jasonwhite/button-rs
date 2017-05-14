@@ -28,6 +28,7 @@ use std::slice::Iter;
 use serde_json as json;
 
 use resources;
+use tasks;
 
 #[derive(Debug)]
 pub enum Error {
@@ -82,16 +83,8 @@ pub struct Rule {
     /// Outputs from the task.
     pub outputs: Vec<resources::File>,
 
-    /// The sequence of command arguments to execute.
-    pub task: Vec<Vec<String>>,
-
-    /// The string to display when executing the task. If None, one is
-    /// constructed from the task itself.
-    pub display: Option<String>,
-
-    /// The working directory to execute the task in. If `None`, the working
-    /// directory of the build system is used.
-    pub cwd: Option<String>,
+    /// The sequence of commands to execute.
+    pub tasks: Vec<tasks::Command>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -138,10 +131,9 @@ mod tests {
         let data = r#"[{
             "inputs": ["foo.c", "foo.h"],
             "outputs": ["foo.o"],
-            "task": [
+            "tasks": [
                 ["gcc", "foo.c"]
-            ],
-            "display": "cc foo.c"
+            ]
         }]"#;
 
         let rules = Rules::from_str(&data).unwrap();
@@ -149,11 +141,9 @@ mod tests {
         assert_eq!(rules, Rules::new(vec![Rule {
             inputs: vec![File::from("foo.c"), File::from("foo.h")],
             outputs: vec![File::from("foo.o")],
-            task: vec![
+            tasks: vec![
                 vec!["gcc".to_owned(), "foo.c".to_owned()],
             ],
-            display: Some("cc foo.c".to_owned()),
-            cwd: None,
         }]));
     }
 }

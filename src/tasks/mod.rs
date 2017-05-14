@@ -18,6 +18,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-/// A task that executes a series of commands.
+mod command;
 
-// TODO
+pub use self::command::Command;

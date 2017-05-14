@@ -28,7 +28,7 @@
 ///  * Copying a file or directory.
 ///  * Downloading a file.
 ///  * Creating a directory.
-trait Task {
+pub trait Task {
     /// Executes the task. The result of a task are the resources it used and
     /// the resources it output. These are its *implicit* inputs and outputs.
     /// Ideally, the *explicit* inputs and outputs are a subset of the

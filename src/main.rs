@@ -21,6 +21,7 @@
 #[macro_use] extern crate serde_derive;
 extern crate serde;
 extern crate serde_json;
+extern crate petgraph;
 
 mod cli;
 mod cmd;
@@ -30,6 +31,8 @@ mod error;
 mod resource;
 mod resources;
 mod task;
+mod tasks;
+mod graph;
 
 use std::process::exit;
 

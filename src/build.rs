@@ -18,10 +18,12 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use error;
-use rules::Rules;
-
 use std::path::Path;
+
+use error;
+use graph;
+use rules::Rules;
+use petgraph::dot::Dot;
 
 /// Represents a build. This holds the context necessary for all build
 /// operations.
@@ -58,12 +60,11 @@ impl<'a> Build<'a> {
             println!("Note: This is a dry run. Nothing is affected.");
         }
 
-        for rule in rules.iter() {
-            println!("{:?}", rule.inputs);
-            println!("{:?}", rule.task);
-            println!("{:?}", rule.outputs);
-        }
+        let graph = graph::from_rules(&rules);
+
+        //println!("{:?}", Dot::new(&graph));
 
         Ok(())
     }
 }
+

@@ -18,24 +18,47 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use task;
+use std::fmt;
+use std::path::PathBuf;
+
+use task::Task;
 
 /// A task that executes a single command. A command is simply a process to be
 /// spawned.
+#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct Command {
-    /// Path to the program to execute.
-    program: String,
-
-    /// Arguments to run the process with.
+    /// Process to spawn.
     args: Vec<String>,
 
     /// Optional working directory to spawn the process in. If `None`, uses the
     /// working directory of the parent process.
-    cwd: Option<&'a Path>,
+    cwd: Option<PathBuf>,
+
+    /// String to display when executing the task. If `None`, the command
+    /// arguments are displayed in full instead.
+    display: Option<String>,
+}
+
+impl fmt::Display for Command {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(ref display) = self.display {
+            write!(f, "{}", display)
+        }
+        else {
+            // TODO: Display as a bash command.
+            write!(f, "{:?}", self.args)
+        }
+    }
+}
+
+impl fmt::Debug for Command {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self.args)
+    }
 }
 
 impl Task for Command {
     fn execute(&self) {
-        println!("Executing `{}` with args {:?} in directory {:?}", program, args, cwd);
+        println!("Executing `{:?}` in directory {:?}", self.args, self.cwd);
     }
 }

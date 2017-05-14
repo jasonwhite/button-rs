@@ -29,7 +29,7 @@ use resource::{Resource, ResourceState, Error};
 use std::path::PathBuf;
 
 /// A file resource. This can actually be a file *or* directory.
-#[derive(Serialize, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Serialize, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct File {
     pub path: PathBuf,
 }
