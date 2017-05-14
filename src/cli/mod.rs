@@ -137,16 +137,16 @@ pub fn subcommand<'a>(name: &str, matches: &clap::ArgMatches<'a>) -> clap::Resul
         "build" => Ok(Command::Build(opts::Build {
             file: matches.value_of("file").map(PathBuf::from),
             dryrun: matches.is_present("dryrun"),
-            color: try!(value_t!(matches.value_of("color"), opts::Coloring)),
+            color: value_t!(matches.value_of("color"), opts::Coloring)?,
             threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
             autobuild: matches.is_present("auto"),
-            delay: try!(value_t!(matches, "delay", usize)),
+            delay: value_t!(matches, "delay", usize)?,
         })),
 
         "clean" => Ok(Command::Clean(opts::Clean {
             file: matches.value_of("file").map(PathBuf::from),
             dryrun: matches.is_present("dryrun"),
-            color: try!(value_t!(matches.value_of("color"), opts::Coloring)),
+            color: value_t!(matches.value_of("color"), opts::Coloring)?,
             threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
             purge: matches.is_present("purge"),
         })),
@@ -157,7 +157,7 @@ pub fn subcommand<'a>(name: &str, matches: &clap::ArgMatches<'a>) -> clap::Resul
             changes: matches.is_present("changes"),
             cached: matches.is_present("cached"),
             full: matches.is_present("full"),
-            edges: try!(value_t!(matches.value_of("edges"), opts::Edges)),
+            edges: value_t!(matches.value_of("edges"), opts::Edges)?,
         })),
 
         // If all subcommands are matched above, then this shouldn't happen.

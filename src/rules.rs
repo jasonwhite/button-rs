@@ -95,14 +95,14 @@ pub struct Rules {
 impl Rules {
 
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Rules, Error> {
-        let f = try!(fs::File::open(path));
-        Ok(try!(Self::from_reader(io::BufReader::new(f))))
+        let f = fs::File::open(path)?;
+        Ok(Self::from_reader(io::BufReader::new(f))?)
     }
 
     pub fn from_reader<R>(reader: R) -> Result<Rules, Error>
         where R: io::Read
     {
-        Ok(Rules { rules: try!(json::from_reader(reader)) })
+        Ok(Rules { rules: json::from_reader(reader)? })
     }
 
     #[cfg(test)]
@@ -112,7 +112,7 @@ impl Rules {
 
     #[cfg(test)]
     pub fn from_str<'a>(s: &'a str) -> Result<Rules, Error> {
-        Ok(Rules { rules: try!(json::from_str(s)) })
+        Ok(Rules { rules: json::from_str(s)? })
     }
 
     pub fn iter(&self) -> Iter<Rule> {
