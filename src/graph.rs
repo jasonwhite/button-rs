@@ -22,7 +22,7 @@ use std::error;
 use std::fmt;
 
 use petgraph::algo::tarjan_scc;
-use petgraph::graphmap;
+use petgraph::{graphmap, Direction};
 
 use resources;
 use tasks;
@@ -109,15 +109,78 @@ impl<'a> fmt::Display for CyclesError<'a> {
             write!(f, "{}\n", cycle)?;
         }
 
-        write!(f, "{}\n", CYCLE_EXPLANATION)?;
-
-        Ok(())
+        write!(f, "{}\n", CYCLE_EXPLANATION)
     }
 }
 
 impl<'a> error::Error for CyclesError<'a> {
     fn description(&self) -> &str {
-        "Cycle(s) detected in build graph."
+        "Cycle(s) detected in the build graph."
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        None
+    }
+}
+
+/// A race condition in the build graph.
+#[derive(Debug)]
+pub struct Race<N>
+{
+    /// The node with two or more incoming edges.
+    pub node: N,
+
+    /// The number of incoming edges.
+    pub count: usize,
+}
+
+impl<N> Race<N> {
+    fn new(node: N, count: usize) -> Race<N> {
+        Race {
+            node: node,
+            count: count,
+        }
+    }
+}
+
+impl<N> fmt::Display for Race<N>
+    where N: fmt::Display
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} (output of {} tasks)", self.node, self.count)
+    }
+}
+
+/// Error when one or more race conditions are detected in the build graph.
+#[derive(Debug)]
+pub struct RaceError<'a> {
+    pub races: Vec<Race<&'a resources::File>>,
+}
+
+const RACE_EXPLANATION : &'static str = "\
+Race conditions in the build graph cause incorrect incremental builds and are
+strictly forbidden. The resources listed above are the output of more than one
+task. Depending on the order in which the task is executed, one task will
+overwrite the output of the other. Please edit the build description to fix the
+race condition(s).";
+
+impl<'a> fmt::Display for RaceError<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+
+        write!(f, "{} race condition(s) detected in the build graph:\n\n",
+            self.races.len())?;
+
+        for race in self.races.iter() {
+            write!(f, " - {}\n", race)?;
+        }
+
+        write!(f, "\n{}\n", RACE_EXPLANATION)
+    }
+}
+
+impl<'a> error::Error for RaceError<'a> {
+    fn description(&self) -> &str {
+        "Race condition(s) detected in the build graph."
     }
 
     fn cause(&self) -> Option<&error::Error> {
@@ -127,7 +190,14 @@ impl<'a> error::Error for CyclesError<'a> {
 
 #[derive(Debug)]
 pub enum Error<'a> {
+    Races(RaceError<'a>),
     Cycles(CyclesError<'a>),
+}
+
+impl<'a> From<RaceError<'a>> for Error<'a> {
+    fn from(err: RaceError<'a>) -> Error<'a> {
+        Error::Races(err)
+    }
 }
 
 impl<'a> From<CyclesError<'a>> for Error<'a> {
@@ -139,6 +209,7 @@ impl<'a> From<CyclesError<'a>> for Error<'a> {
 impl<'a> fmt::Display for Error<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Error::Races(ref err)  => write!(f, "{}", err),
             Error::Cycles(ref err) => write!(f, "{}", err),
         }
     }
@@ -147,12 +218,14 @@ impl<'a> fmt::Display for Error<'a> {
 impl<'a> error::Error for Error<'a> {
     fn description(&self) -> &str {
         match *self {
+            Error::Races(ref err) => err.description(),
             Error::Cycles(ref err) => err.description(),
         }
     }
 
     fn cause(&self) -> Option<&error::Error> {
         match *self {
+            Error::Races(ref err)  => Some(err),
             Error::Cycles(ref err) => Some(err),
         }
     }
@@ -160,7 +233,7 @@ impl<'a> error::Error for Error<'a> {
 
 /// Creates a build graph from the given rules. This also checks for cycles and
 /// race conditions. The graph is guaranteed to be bipartite.
-pub fn from_rules<'a>(rules: &'a Rules) -> Result<BuildGraph<'a>, Error<'a>> {
+pub fn from_rules(rules: &Rules) -> Result<BuildGraph, Error> {
     let mut graph = BuildGraph::new();
 
     for rule in rules.iter() {
@@ -178,20 +251,41 @@ pub fn from_rules<'a>(rules: &'a Rules) -> Result<BuildGraph<'a>, Error<'a>> {
     }
 
     // Check the graph to make sure the structure is sound.
-    Ok(check_cycles(graph)?)
+    Ok(check_cycles(check_races(graph)?)?)
 }
 
 /// Checks for race conditions in the graph. That is, if any race has two or
 /// more parents. In such a case where two tasks output the same resource,
 /// depending on the order in which they get executed, they could be overwriting
 /// each other's output.
-fn check_races(graph: BuildGraph) -> Result<BuildGraph, Error> {
-    Ok(graph)
+fn check_races(graph: BuildGraph) -> Result<BuildGraph, RaceError> {
+    let mut races = Vec::new();
+
+    for node in graph.nodes() {
+        match node {
+            Node::Resource(r) => {
+                let incoming = graph.neighbors_directed(
+                    node, Direction::Incoming).count();
+
+                if incoming > 1 {
+                    races.push(Race::new(r, incoming));
+                }
+            },
+            Node::Task(_) => {},
+        };
+    }
+
+    if races.is_empty() {
+        Ok(graph)
+    }
+    else {
+        Err(RaceError { races: races })
+    }
 }
 
 /// Checks for cycles in the graph using Tarjan's algorithm for finding strongly
 /// connected components.
-fn check_cycles<'a>(graph: BuildGraph<'a>) -> Result<BuildGraph<'a>, CyclesError<'a>> {
+fn check_cycles(graph: BuildGraph) -> Result<BuildGraph, CyclesError> {
 
     let mut cycles = Vec::new();
 
