@@ -124,6 +124,7 @@ impl Rules {
 mod tests {
     use super::*;
     use resources::FilePath;
+    use tasks::Command;
 
     #[test]
     fn test_loading() {
@@ -132,7 +133,7 @@ mod tests {
             "inputs": ["foo.c", "foo.h"],
             "outputs": ["foo.o"],
             "tasks": [
-                ["gcc", "foo.c"]
+                {"args": ["gcc", "foo.c"]}
             ]
         }]"#;
 
@@ -142,7 +143,7 @@ mod tests {
             inputs: vec![FilePath::from("foo.c"), FilePath::from("foo.h")],
             outputs: vec![FilePath::from("foo.o")],
             tasks: vec![
-                vec!["gcc".to_owned(), "foo.c".to_owned()],
+                Command::new(vec!["gcc".to_owned(), "foo.c".to_owned()], None, None),
             ],
         }]));
     }

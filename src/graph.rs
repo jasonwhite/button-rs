@@ -65,7 +65,7 @@ pub type BuildGraph<'a> = graphmap::DiGraphMap<Node<'a>, Edge>;
 /// A cycle in the graph. A cycle is denoted by the nodes contained in the
 /// cycle. The nodes in the cycle should be in topological order. That is, each
 /// node's parent must be the previous node in the list.
-#[derive(Debug)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct Cycle<'a> {
     nodes: Vec<Node<'a>>,
 }
@@ -90,7 +90,7 @@ impl<'a> fmt::Display for Cycle<'a> {
 }
 
 /// Error for when one or more cycles are detected in the build graph.
-#[derive(Debug)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct CyclesError<'a> {
     pub cycles: Vec<Cycle<'a>>,
 }
@@ -124,7 +124,7 @@ impl<'a> error::Error for CyclesError<'a> {
 }
 
 /// A race condition in the build graph.
-#[derive(Debug)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct Race<N>
 {
     /// The node with two or more incoming edges.
@@ -152,9 +152,19 @@ impl<N> fmt::Display for Race<N>
 }
 
 /// Error when one or more race conditions are detected in the build graph.
-#[derive(Debug)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct RaceError<'a> {
     pub races: Vec<Race<&'a resources::FilePath>>,
+}
+
+impl<'a> RaceError<'a> {
+    pub fn new(mut races: Vec<Race<&'a resources::FilePath>>) -> RaceError {
+        // Sort the races to avoid non-determinism in the output and to make
+        // testing easier.
+        races.sort();
+
+        RaceError { races: races }
+    }
 }
 
 const RACE_EXPLANATION : &'static str = "\
@@ -188,7 +198,7 @@ impl<'a> error::Error for RaceError<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub enum Error<'a> {
     Races(RaceError<'a>),
     Cycles(CyclesError<'a>),
@@ -279,7 +289,7 @@ fn check_races(graph: BuildGraph) -> Result<BuildGraph, RaceError> {
         Ok(graph)
     }
     else {
-        Err(RaceError { races: races })
+        Err(RaceError::new(races))
     }
 }
 
@@ -302,5 +312,60 @@ fn check_cycles(graph: BuildGraph) -> Result<BuildGraph, CyclesError> {
     }
     else {
         Err(CyclesError { cycles: cycles })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use resources::FilePath;
+
+    #[test]
+    fn test_races() {
+
+        let data = r#"[
+        {
+            "inputs": ["foo.c", "foo.h"],
+            "tasks": [
+                {"args": ["gcc", "-c", "foo.c", "-o", "foo.o"]}
+            ],
+            "outputs": ["foo.o", "bar.o"]
+        },
+        {
+            "inputs": ["bar.c", "foo.h"],
+            "tasks": [
+                {"args": ["gcc", "-c", "bar.c", "-o", "bar.o"]}
+            ],
+            "outputs": ["bar.o", "foo.o"]
+        },
+        {
+            "inputs": ["foo.o", "bar.o"],
+            "tasks": [
+                {"args": ["gcc", "foo.o", "bar.o", "-o", "foobar"]}
+            ],
+            "outputs": ["foobar", "foo.o"]
+        }
+        ]"#;
+
+        let rules = Rules::from_str(&data).unwrap();
+
+        let graph = from_rules(&rules);
+
+        assert_eq!(graph.unwrap_err(),
+            Error::Races(RaceError {
+                races: vec![
+                    Race::new(&FilePath::from("bar.o"), 2),
+                    Race::new(&FilePath::from("foo.o"), 3),
+                ]
+            })
+        );
+
+        //assert_eq!(rules, Rules::new(vec![Rule {
+            //inputs: vec![FilePath::from("foo.c"), FilePath::from("foo.h")],
+            //outputs: vec![FilePath::from("foo.o")],
+            //tasks: vec![
+                //vec!["gcc".to_owned(), "foo.c".to_owned()],
+            //],
+        //}]));
     }
 }

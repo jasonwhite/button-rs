@@ -39,6 +39,14 @@ pub struct Command {
     display: Option<String>,
 }
 
+impl Command {
+    pub fn new(args: Vec<String>, cwd: Option<PathBuf>, display: Option<String>)
+        -> Command
+    {
+        Command { args: args, cwd: cwd, display: display }
+    }
+}
+
 impl fmt::Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(ref display) = self.display {

@@ -49,7 +49,9 @@ use build::Build;
 ///
 ///  4. For all resources, check for changes by comparing checksums. Timestamps
 ///     are unreliable and cannot be used to determine changes and ensure 100%
-///     correctness.
+///     correctness. An option may be added to allow timestamp comparisons to
+///     speed things up. However, the default should always be conservative and
+///     be the correct option.
 ///     (a) For any modified output resources, queue the parent task so that it
 ///         is regenerated. This means an output was modified externally and
 ///         needs to be brought back to consistency.
