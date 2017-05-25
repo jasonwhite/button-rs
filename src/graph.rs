@@ -359,13 +359,5 @@ mod tests {
                 ]
             })
         );
-
-        //assert_eq!(rules, Rules::new(vec![Rule {
-            //inputs: vec![FilePath::from("foo.c"), FilePath::from("foo.h")],
-            //outputs: vec![FilePath::from("foo.o")],
-            //tasks: vec![
-                //vec!["gcc".to_owned(), "foo.c".to_owned()],
-            //],
-        //}]));
     }
 }
