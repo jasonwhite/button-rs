@@ -70,6 +70,12 @@ pub struct Cycle<'a> {
     nodes: Vec<Node<'a>>,
 }
 
+impl<'a> Cycle<'a> {
+    pub fn new(mut nodes: Vec<Node<'a>>) -> Cycle {
+        Cycle { nodes: nodes }
+    }
+}
+
 impl<'a> fmt::Display for Cycle<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut it = self.nodes.iter();
@@ -93,6 +99,16 @@ impl<'a> fmt::Display for Cycle<'a> {
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct CyclesError<'a> {
     pub cycles: Vec<Cycle<'a>>,
+}
+
+impl<'a> CyclesError<'a> {
+    pub fn new(mut cycles: Vec<Cycle<'a>>) -> CyclesError {
+        // Sort to avoid non-determinism in the output and to make testing
+        // easier.
+        cycles.sort();
+
+        CyclesError { cycles: cycles }
+    }
 }
 
 const CYCLE_EXPLANATION : &'static str = "\
@@ -159,8 +175,8 @@ pub struct RaceError<'a> {
 
 impl<'a> RaceError<'a> {
     pub fn new(mut races: Vec<Race<&'a resources::FilePath>>) -> RaceError {
-        // Sort the races to avoid non-determinism in the output and to make
-        // testing easier.
+        // Sort to avoid non-determinism in the output and to make testing
+        // easier.
         races.sort();
 
         RaceError { races: races }
@@ -311,7 +327,7 @@ fn check_cycles(graph: BuildGraph) -> Result<BuildGraph, CyclesError> {
         Ok(graph)
     }
     else {
-        Err(CyclesError { cycles: cycles })
+        Err(CyclesError::new(cycles))
     }
 }
 
@@ -319,6 +335,39 @@ fn check_cycles(graph: BuildGraph) -> Result<BuildGraph, CyclesError> {
 mod tests {
     use super::*;
     use resources::FilePath;
+    use tasks::Command;
+
+    #[test]
+    fn test_good_graph() {
+
+        let data = r#"[
+        {
+            "inputs": ["foo.c", "foo.h"],
+            "tasks": [
+                {"args": ["gcc", "-c", "foo.c", "-o", "foo.o"]}
+            ],
+            "outputs": ["foo.o"]
+        },
+        {
+            "inputs": ["bar.c", "foo.h"],
+            "tasks": [
+                {"args": ["gcc", "-c", "bar.c", "-o", "bar.o"]}
+            ],
+            "outputs": ["bar.o"]
+        },
+        {
+            "inputs": ["foo.o", "bar.o"],
+            "tasks": [
+                {"args": ["gcc", "foo.o", "bar.o", "-o", "foobar"]}
+            ],
+            "outputs": ["foobar"]
+        }
+        ]"#;
+
+        let rules = Rules::from_str(&data).unwrap();
+
+        assert!(from_rules(&rules).is_ok());
+    }
 
     #[test]
     fn test_races() {
@@ -352,12 +401,51 @@ mod tests {
         let graph = from_rules(&rules);
 
         assert_eq!(graph.unwrap_err(),
-            Error::Races(RaceError {
-                races: vec![
-                    Race::new(&FilePath::from("bar.o"), 2),
-                    Race::new(&FilePath::from("foo.o"), 3),
-                ]
-            })
+            Error::Races(RaceError::new(vec![
+                Race::new(&FilePath::from("bar.o"), 2),
+                Race::new(&FilePath::from("foo.o"), 3),
+            ]))
+        );
+    }
+
+    #[test]
+    fn test_cycles() {
+
+        let data = r#"[
+        {
+            "inputs": ["foo.c", "foo.h"],
+            "tasks": [
+                {"args": ["gcc", "foo.c"]}
+            ],
+            "outputs": ["foo.o", "foo.c"]
+        },
+        {
+            "inputs": ["bar.c", "foo.h"],
+            "tasks": [
+                {"args": ["gcc", "bar.c"]}
+            ],
+            "outputs": ["bar.o"]
+        },
+        {
+            "inputs": ["foo.o", "bar.o"],
+            "tasks": [
+                {"args": ["gcc", "foo.o", "bar.o", "-o", "foobar"]}
+            ],
+            "outputs": ["foobar"]
+        }
+        ]"#;
+
+        let rules = Rules::from_str(&data).unwrap();
+
+        let graph = from_rules(&rules);
+
+        assert_eq!(graph.unwrap_err(),
+            Error::Cycles(CyclesError::new(vec![
+                Cycle::new(vec![
+                   Node::Resource(&FilePath::from("foo.c")),
+                   Node::Task(&vec![Command::new(vec!["gcc".to_owned(), "foo.c".to_owned()], None, None)]),
+                ]),
+            ]))
         );
     }
 }
