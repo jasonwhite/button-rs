@@ -30,47 +30,47 @@ use std::path::PathBuf;
 
 /// A file resource. This can actually be a file *or* directory.
 #[derive(Serialize, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub struct File {
+pub struct FilePath {
     pub path: PathBuf,
 }
 
-impl File {
+impl FilePath {
     #[allow(dead_code)]
-    fn new(path: PathBuf) -> File {
-        File { path: path }
+    fn new(path: PathBuf) -> FilePath {
+        FilePath { path: path }
     }
 }
 
-impl<'a, T: ?Sized + AsRef<OsStr>> From<&'a T> for File {
-    fn from(s: &'a T) -> File {
-        File { path: PathBuf::from(s.as_ref()) }
+impl<'a, T: ?Sized + AsRef<OsStr>> From<&'a T> for FilePath {
+    fn from(s: &'a T) -> FilePath {
+        FilePath { path: PathBuf::from(s.as_ref()) }
     }
 }
 
-impl FromStr for File {
+impl FromStr for FilePath {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(File {
+        Ok(FilePath {
             path: PathBuf::from(s)
         })
     }
 }
 
-impl fmt::Display for File {
+impl fmt::Display for FilePath {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.path)
     }
 }
 
-impl fmt::Debug for File {
+impl fmt::Debug for FilePath {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.path)
     }
 }
 
-// Derserialize a `File` from a string.
-impl<'de> Deserialize<'de> for File {
+// Derserialize a `FilePath` from a string.
+impl<'de> Deserialize<'de> for FilePath {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where D: Deserializer<'de>
     {
@@ -79,7 +79,7 @@ impl<'de> Deserialize<'de> for File {
     }
 }
 
-impl Resource for File {
+impl Resource for FilePath {
     /// If a file, the checksum is of the contents of the file. If a directory,
     /// the checksum is of the sorted list of directory entries. Thus, if a file
     /// is added or removed from a directory, the checksum changes.

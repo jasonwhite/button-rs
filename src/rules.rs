@@ -78,10 +78,10 @@ impl error::Error for Error {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Rule {
     /// Inputs to the task.
-    pub inputs: Vec<resources::File>,
+    pub inputs: Vec<resources::FilePath>,
 
     /// Outputs from the task.
-    pub outputs: Vec<resources::File>,
+    pub outputs: Vec<resources::FilePath>,
 
     /// The sequence of commands to execute.
     pub tasks: Vec<tasks::Command>,
@@ -123,7 +123,7 @@ impl Rules {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use resources::File;
+    use resources::FilePath;
 
     #[test]
     fn test_loading() {
@@ -139,8 +139,8 @@ mod tests {
         let rules = Rules::from_str(&data).unwrap();
 
         assert_eq!(rules, Rules::new(vec![Rule {
-            inputs: vec![File::from("foo.c"), File::from("foo.h")],
-            outputs: vec![File::from("foo.o")],
+            inputs: vec![FilePath::from("foo.c"), FilePath::from("foo.h")],
+            outputs: vec![FilePath::from("foo.o")],
             tasks: vec![
                 vec!["gcc".to_owned(), "foo.c".to_owned()],
             ],

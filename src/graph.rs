@@ -46,15 +46,15 @@ pub enum Edge {
 /// A node in the graph.
 #[derive(Clone, Copy, Ord, Eq, PartialOrd, PartialEq, Hash, Debug)]
 pub enum Node<'a> {
-    Resource(&'a resources::File),
+    Resource(&'a resources::FilePath),
     Task(&'a Vec<tasks::Command>),
 }
 
 impl<'a> fmt::Display for Node<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Node::Resource(ref r) => write!(f, "resource: {}", r),
-            Node::Task(ref t) => write!(f, "task: {:?}", t),
+            Node::Resource(ref r) => write!(f, "resource:{}", r),
+            Node::Task(ref t) => write!(f, "task:{:?}", t),
         }
     }
 }
@@ -109,7 +109,7 @@ impl<'a> fmt::Display for CyclesError<'a> {
             write!(f, "{}\n", cycle)?;
         }
 
-        write!(f, "{}\n", CYCLE_EXPLANATION)
+        write!(f, "{}", CYCLE_EXPLANATION)
     }
 }
 
@@ -154,7 +154,7 @@ impl<N> fmt::Display for Race<N>
 /// Error when one or more race conditions are detected in the build graph.
 #[derive(Debug)]
 pub struct RaceError<'a> {
-    pub races: Vec<Race<&'a resources::File>>,
+    pub races: Vec<Race<&'a resources::FilePath>>,
 }
 
 const RACE_EXPLANATION : &'static str = "\
@@ -174,7 +174,7 @@ impl<'a> fmt::Display for RaceError<'a> {
             write!(f, " - {}\n", race)?;
         }
 
-        write!(f, "\n{}\n", RACE_EXPLANATION)
+        write!(f, "\n{}", RACE_EXPLANATION)
     }
 }
 
