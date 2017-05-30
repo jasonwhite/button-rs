@@ -76,7 +76,7 @@ pub fn find_rules_path(start: &Path) -> Option<PathBuf> {
     }
     else {
         // Search in the parent directory.
-        match path.parent() {
+        match start.parent() {
             Some(parent) => find_rules_path(parent),
             None => None,
         }
