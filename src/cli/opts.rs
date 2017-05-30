@@ -29,14 +29,14 @@ pub enum Coloring {
 }
 
 impl FromStr for Coloring {
-    type Err = &'static str;
+    type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "auto"   => Ok(Coloring::Auto),
             "never"  => Ok(Coloring::Never),
             "always" => Ok(Coloring::Always),
-            _        => Err("no match")
+            _        => Err(())
         }
     }
 }
