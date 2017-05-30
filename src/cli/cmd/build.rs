@@ -91,7 +91,7 @@ impl Build {
     pub fn run(&self) -> i32 {
         let root = self.file.parent().unwrap_or_else(|| Path::new("."));
 
-        let build = build::Build::new(&root, self.dryrun);
+        let build = build::Build::new(root, self.dryrun);
 
         match Rules::from_path(&self.file) {
             Ok(rules) => {

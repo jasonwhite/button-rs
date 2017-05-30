@@ -54,8 +54,8 @@ pub enum Node<'a> {
 impl<'a> fmt::Display for Node<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Node::Resource(ref r) => write!(f, "resource:{}", r),
-            Node::Task(ref t) => write!(f, "task:{:?}", t),
+            Node::Resource(r) => write!(f, "resource:{}", r),
+            Node::Task(t) => write!(f, "task:{:?}", t),
         }
     }
 }
@@ -197,7 +197,7 @@ impl<'a> fmt::Display for RaceError<'a> {
         write!(f, "{} race condition(s) detected in the build graph:\n\n",
             self.races.len())?;
 
-        for race in self.races.iter() {
+        for race in &self.races {
             write!(f, " - {}\n", race)?;
         }
 
