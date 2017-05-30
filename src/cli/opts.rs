@@ -20,6 +20,9 @@
 
 use std::str::FromStr;
 
+use std::path::{Path, PathBuf};
+use std::env;
+
 /// Coloring of command output.
 #[derive(Debug)]
 pub enum Coloring {
@@ -57,6 +60,43 @@ impl FromStr for Edges {
             "implicit" => Ok(Edges::Implicit),
             "both"     => Ok(Edges::Both),
             _          => Err(())
+        }
+    }
+}
+
+/// Returns an absolute path to the rules, starting at the given directory. The
+/// canonical name for the JSON rules file is "button.json". This function shall
+/// search for the file in the given starting directory and all parent
+/// directories. Returns `None` if it cannot be found.
+pub fn find_rules_path(start: &Path) -> Option<PathBuf> {
+    let path = start.join("button.json");
+
+    if path.is_file() {
+        Some(path)
+    }
+    else {
+        // Search in the parent directory.
+        match path.parent() {
+            Some(parent) => find_rules_path(parent),
+            None => None,
+        }
+    }
+}
+
+/// Returns a path to the rules.
+pub fn rules_path(path: Option<&Path>) -> PathBuf {
+    match path {
+        Some(path) => path.to_path_buf(),
+        None => {
+            let cwd = env::current_dir().unwrap();
+            match find_rules_path(&cwd) {
+                Some(path) => path,
+
+                // Not found. Just assume it lives in the current directory even
+                // though it doesn't (or it would have been found). The error
+                // will get reported when trying to load this file later.
+                None => PathBuf::from("button.json"),
+            }
         }
     }
 }

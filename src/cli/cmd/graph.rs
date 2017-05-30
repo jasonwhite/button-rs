@@ -17,23 +17,22 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use clap;
 use num_cpus;
 
-use cli::opts::Edges;
+use cli::opts;
 
 /// 'graph' subcommand options
 #[derive(Debug)]
 pub struct Graph {
-    pub file: Option<PathBuf>,
+    pub file: PathBuf,
     pub threads: usize,
     pub changes: bool,
     pub cached: bool,
     pub full: bool,
-    pub edges: Edges,
+    pub edges: opts::Edges,
 }
 
 impl Graph {
@@ -43,12 +42,12 @@ impl Graph {
         let cpu_count = num_cpus::get();
 
         Ok(Graph {
-            file: matches.value_of("file").map(PathBuf::from),
+            file: opts::rules_path(matches.value_of("file").map(Path::new)),
             threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
             changes: matches.is_present("changes"),
             cached: matches.is_present("cached"),
             full: matches.is_present("full"),
-            edges: value_t!(matches.value_of("edges"), Edges)?,
+            edges: value_t!(matches.value_of("edges"), opts::Edges)?,
         })
     }
 

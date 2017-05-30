@@ -17,7 +17,6 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-
 use std::path::{Path, PathBuf};
 
 use clap;
@@ -25,14 +24,14 @@ use num_cpus;
 
 use build;
 use rules::Rules;
-use cli::opts::Coloring;
+use cli::opts;
 
 /// 'build' subcommand options
 #[derive(Debug)]
 pub struct Build {
-    pub file: Option<PathBuf>,
+    pub file: PathBuf,
     pub dryrun: bool,
-    pub color: Coloring,
+    pub color: opts::Coloring,
     pub threads: usize,
     pub autobuild: bool,
     pub delay: usize,
@@ -45,9 +44,9 @@ impl Build {
         let cpu_count = num_cpus::get();
 
         Ok(Build {
-            file: matches.value_of("file").map(PathBuf::from),
+            file: opts::rules_path(matches.value_of("file").map(Path::new)),
             dryrun: matches.is_present("dryrun"),
-            color: value_t!(matches.value_of("color"), Coloring)?,
+            color: value_t!(matches.value_of("color"), opts::Coloring)?,
             threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
             autobuild: matches.is_present("auto"),
             delay: value_t!(matches, "delay", usize)?,
@@ -89,13 +88,12 @@ impl Build {
     ///  5. Walk the graph starting at the queued nodes to create a subgraph.
     ///     This needs to be done because the graph traversal for the build is
     ///     not guaranteed to be traversed in the correct order.
-    pub fn run(self) -> i32 {
-        let path = self.file.unwrap_or_else(|| PathBuf::from("button.json"));
-        let root = path.parent().unwrap_or_else(|| Path::new("."));
+    pub fn run(&self) -> i32 {
+        let root = self.file.parent().unwrap_or_else(|| Path::new("."));
 
         let build = build::Build::new(&root, self.dryrun);
 
-        match Rules::from_path(&path) {
+        match Rules::from_path(&self.file) {
             Ok(rules) => {
                 match build.build(&rules) {
                     Ok(_) => 0,

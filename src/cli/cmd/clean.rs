@@ -17,19 +17,19 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use clap;
 use num_cpus;
 
-use cli::opts::Coloring;
+use cli::opts;
 
 /// 'clean' subcommand options
 #[derive(Debug)]
 pub struct Clean {
-    pub file: Option<PathBuf>,
+    pub file: PathBuf,
     pub dryrun: bool,
-    pub color: Coloring,
+    pub color: opts::Coloring,
     pub threads: usize,
     pub purge: bool,
 }
@@ -41,9 +41,9 @@ impl Clean {
         let cpu_count = num_cpus::get();
 
         Ok(Clean {
-            file: matches.value_of("file").map(PathBuf::from),
+            file: opts::rules_path(matches.value_of("file").map(Path::new)),
             dryrun: matches.is_present("dryrun"),
-            color: value_t!(matches.value_of("color"), Coloring)?,
+            color: value_t!(matches.value_of("color"), opts::Coloring)?,
             threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
             purge: matches.is_present("purge"),
         })
