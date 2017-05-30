@@ -22,9 +22,9 @@
 extern crate serde;
 extern crate serde_json;
 extern crate petgraph;
+extern crate num_cpus;
 
 mod cli;
-mod cmd;
 mod rules;
 mod build;
 mod error;
@@ -45,13 +45,13 @@ fn main() {
     if let Some(matches) = matches {
         exit(match cli::subcommand(name, matches) {
             Ok(cli::Command::Build(opts)) => {
-                cmd::build(opts)
+                opts.run()
             },
             Ok(cli::Command::Clean(opts)) => {
-                cmd::clean(opts)
+                opts.run()
             },
             Ok(cli::Command::Graph(opts)) => {
-                cmd::graph(opts)
+                opts.run()
             },
             Err(err) => {
                 println!("{}", err);

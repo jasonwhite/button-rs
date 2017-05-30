@@ -17,12 +17,43 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+use std::path::PathBuf;
 
-use cli::opts;
+use clap;
+use num_cpus;
 
-/// Shows a pretty graph of your damn software.
-pub fn graph(opts: opts::Graph) -> i32 {
-    println!("{:#?}", opts);
+use cli::opts::Coloring;
 
-    0
+/// 'clean' subcommand options
+#[derive(Debug)]
+pub struct Clean {
+    pub file: Option<PathBuf>,
+    pub dryrun: bool,
+    pub color: Coloring,
+    pub threads: usize,
+    pub purge: bool,
 }
+
+impl Clean {
+    pub fn from_matches(matches: &clap::ArgMatches)
+        -> clap::Result<Clean>
+    {
+        let cpu_count = num_cpus::get();
+
+        Ok(Clean {
+            file: matches.value_of("file").map(PathBuf::from),
+            dryrun: matches.is_present("dryrun"),
+            color: value_t!(matches.value_of("color"), Coloring)?,
+            threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
+            purge: matches.is_present("purge"),
+        })
+    }
+
+    /// Cleans your damn software.
+    pub fn run(&self) -> i32 {
+        println!("{:#?}", self);
+
+        0
+    }
+}
+

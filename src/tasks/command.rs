@@ -40,6 +40,7 @@ pub struct Command {
 }
 
 impl Command {
+    #[allow(dead_code)]
     pub fn new(args: Vec<String>, cwd: Option<PathBuf>, display: Option<String>)
         -> Command
     {

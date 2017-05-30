@@ -19,7 +19,6 @@
 // THE SOFTWARE.
 
 use std::str::FromStr;
-use std::path::PathBuf;
 
 /// Coloring of command output.
 #[derive(Debug)]
@@ -60,36 +59,4 @@ impl FromStr for Edges {
             _          => Err(())
         }
     }
-}
-
-/// 'build' subcommand options
-#[derive(Debug)]
-pub struct Build {
-    pub file: Option<PathBuf>,
-    pub dryrun: bool,
-    pub color: Coloring,
-    pub threads: usize,
-    pub autobuild: bool,
-    pub delay: usize,
-}
-
-/// 'clean' subcommand options
-#[derive(Debug)]
-pub struct Clean {
-    pub file: Option<PathBuf>,
-    pub dryrun: bool,
-    pub color: Coloring,
-    pub threads: usize,
-    pub purge: bool,
-}
-
-/// 'graph' subcommand options
-#[derive(Debug)]
-pub struct Graph {
-    pub file: Option<PathBuf>,
-    pub threads: usize,
-    pub changes: bool,
-    pub cached: bool,
-    pub full: bool,
-    pub edges: Edges,
 }

@@ -18,11 +18,44 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use cli::opts;
+use std::path::PathBuf;
 
-/// Cleans your damn software.
-pub fn clean(opts: opts::Clean) -> i32 {
-    println!("{:#?}", opts);
+use clap;
+use num_cpus;
 
-    0
+use cli::opts::Edges;
+
+/// 'graph' subcommand options
+#[derive(Debug)]
+pub struct Graph {
+    pub file: Option<PathBuf>,
+    pub threads: usize,
+    pub changes: bool,
+    pub cached: bool,
+    pub full: bool,
+    pub edges: Edges,
+}
+
+impl Graph {
+    pub fn from_matches(matches: &clap::ArgMatches)
+        -> clap::Result<Graph>
+    {
+        let cpu_count = num_cpus::get();
+
+        Ok(Graph {
+            file: matches.value_of("file").map(PathBuf::from),
+            threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
+            changes: matches.is_present("changes"),
+            cached: matches.is_present("cached"),
+            full: matches.is_present("full"),
+            edges: value_t!(matches.value_of("edges"), Edges)?,
+        })
+    }
+
+    /// Shows a pretty graph of your damn software.
+    pub fn run(&self) -> i32 {
+        println!("{:#?}", self);
+
+        0
+    }
 }

@@ -40,6 +40,7 @@ pub enum Edge {
     /// associated with these resources are then implicit. It is usually the
     /// case that, for every implicit edge, there is an equivalent explicit
     /// edge.
+    #[allow(dead_code)]
     Implicit,
 }
 
@@ -71,7 +72,7 @@ pub struct Cycle<'a> {
 }
 
 impl<'a> Cycle<'a> {
-    pub fn new(mut nodes: Vec<Node<'a>>) -> Cycle {
+    pub fn new(nodes: Vec<Node<'a>>) -> Cycle {
         Cycle { nodes: nodes }
     }
 }
@@ -319,7 +320,7 @@ fn check_cycles(graph: BuildGraph) -> Result<BuildGraph, CyclesError> {
         if scc.len() > 1 {
             // Only strongly connected components (SCCs) with more than 1 node
             // have a cycle.
-            cycles.push(Cycle { nodes: scc });
+            cycles.push(Cycle::new(scc));
         }
     }
 

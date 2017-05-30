@@ -22,6 +22,6 @@ mod build;
 mod clean;
 mod graph;
 
-pub use self::build::build;
-pub use self::clean::clean;
-pub use self::graph::graph;
+pub use self::build::Build;
+pub use self::clean::Clean;
+pub use self::graph::Graph;

@@ -59,7 +59,7 @@ impl<'a> Build<'a> {
             println!("Note: This is a dry run. Nothing is affected.");
         }
 
-        let graph = graph::from_rules(&rules)?;
+        graph::from_rules(&rules)?;
 
         Ok(())
     }
