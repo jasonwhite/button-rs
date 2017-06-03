@@ -36,19 +36,17 @@ pub struct Graph {
 }
 
 impl Graph {
-    pub fn from_matches(matches: &clap::ArgMatches)
-        -> clap::Result<Graph>
-    {
+    pub fn from_matches(matches: &clap::ArgMatches) -> clap::Result<Graph> {
         let cpu_count = num_cpus::get();
 
         Ok(Graph {
-            file: opts::rules_path(matches.value_of("file").map(Path::new)),
-            threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
-            changes: matches.is_present("changes"),
-            cached: matches.is_present("cached"),
-            full: matches.is_present("full"),
-            edges: value_t!(matches.value_of("edges"), opts::Edges)?,
-        })
+               file: opts::rules_path(matches.value_of("file").map(Path::new)),
+               threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
+               changes: matches.is_present("changes"),
+               cached: matches.is_present("cached"),
+               full: matches.is_present("full"),
+               edges: value_t!(matches.value_of("edges"), opts::Edges)?,
+           })
     }
 
     /// Shows a pretty graph of your damn software.

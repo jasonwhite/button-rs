@@ -28,7 +28,7 @@ use std::env;
 pub enum Coloring {
     Auto,
     Never,
-    Always
+    Always,
 }
 
 impl FromStr for Coloring {
@@ -36,10 +36,10 @@ impl FromStr for Coloring {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "auto"   => Ok(Coloring::Auto),
-            "never"  => Ok(Coloring::Never),
+            "auto" => Ok(Coloring::Auto),
+            "never" => Ok(Coloring::Never),
             "always" => Ok(Coloring::Always),
-            _        => Err(())
+            _ => Err(()),
         }
     }
 }
@@ -48,7 +48,7 @@ impl FromStr for Coloring {
 pub enum Edges {
     Explicit,
     Implicit,
-    Both
+    Both,
 }
 
 impl FromStr for Edges {
@@ -58,8 +58,8 @@ impl FromStr for Edges {
         match s {
             "explicit" => Ok(Edges::Explicit),
             "implicit" => Ok(Edges::Implicit),
-            "both"     => Ok(Edges::Both),
-            _          => Err(())
+            "both" => Ok(Edges::Both),
+            _ => Err(()),
         }
     }
 }
@@ -73,8 +73,7 @@ pub fn find_rules_path(start: &Path) -> Option<PathBuf> {
 
     if path.is_file() {
         Some(path)
-    }
-    else {
+    } else {
         // Search in the parent directory.
         match start.parent() {
             Some(parent) => find_rules_path(parent),

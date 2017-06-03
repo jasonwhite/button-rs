@@ -51,9 +51,7 @@ impl FromStr for FilePath {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(FilePath {
-            path: PathBuf::from(s)
-        })
+        Ok(FilePath { path: PathBuf::from(s) })
     }
 }
 

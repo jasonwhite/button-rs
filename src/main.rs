@@ -17,8 +17,10 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-#[macro_use] extern crate clap;
-#[macro_use] extern crate serde_derive;
+#[macro_use]
+extern crate clap;
+#[macro_use]
+extern crate serde_derive;
 extern crate serde;
 extern crate serde_json;
 extern crate petgraph;
@@ -44,19 +46,13 @@ fn main() {
 
     if let Some(matches) = matches {
         exit(match cli::subcommand(name, matches) {
-            Ok(cli::Command::Build(opts)) => {
-                opts.run()
-            },
-            Ok(cli::Command::Clean(opts)) => {
-                opts.run()
-            },
-            Ok(cli::Command::Graph(opts)) => {
-                opts.run()
-            },
-            Err(err) => {
-                println!("{}", err);
-                1
-            },
-        });
+                 Ok(cli::Command::Build(opts)) => opts.run(),
+                 Ok(cli::Command::Clean(opts)) => opts.run(),
+                 Ok(cli::Command::Graph(opts)) => opts.run(),
+                 Err(err) => {
+                     println!("{}", err);
+                     1
+                 }
+             });
     }
 }

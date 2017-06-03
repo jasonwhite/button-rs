@@ -41,10 +41,15 @@ pub struct Command {
 
 impl Command {
     #[allow(dead_code)]
-    pub fn new(args: Vec<String>, cwd: Option<PathBuf>, display: Option<String>)
-        -> Command
-    {
-        Command { args: args, cwd: cwd, display: display }
+    pub fn new(args: Vec<String>,
+               cwd: Option<PathBuf>,
+               display: Option<String>)
+               -> Command {
+        Command {
+            args: args,
+            cwd: cwd,
+            display: display,
+        }
     }
 }
 
@@ -52,8 +57,7 @@ impl fmt::Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(ref display) = self.display {
             write!(f, "{}", display)
-        }
-        else {
+        } else {
             // TODO: Display as a bash command.
             write!(f, "{:?}", self.args)
         }

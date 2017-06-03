@@ -55,8 +55,11 @@ pub fn app<'a, 'b>() -> clap::App<'a, 'b> {
         .possible_values(&["auto", "never", "always"])
         .default_value("auto");
 
-    let common_opts = &[verbose_opt.clone(), file_opt.clone(),
-        dryrun_opt.clone(), threads_opt.clone(), color_opt.clone()];
+    let common_opts = &[verbose_opt.clone(),
+                        file_opt.clone(),
+                        dryrun_opt.clone(),
+                        threads_opt.clone(),
+                        color_opt.clone()];
 
     clap::App::new("button")
         .version(crate_version!())
@@ -78,8 +81,8 @@ pub fn app<'a, 'b>() -> clap::App<'a, 'b> {
                     .long("watchdir"),
 
                 clap::Arg::with_name("delay")
-                    .help("Used with --auto. The number of milliseconds to wait before \
-                          building.")
+                    .help("Used with --auto. The number of milliseconds to wait \
+                          before building.")
                     .takes_value(true)
                     .long("delay")
                     .default_value("50"),
@@ -126,7 +129,9 @@ pub enum Command {
     Graph(cmd::Graph),
 }
 
-pub fn subcommand<'a>(name: &str, matches: &clap::ArgMatches<'a>) -> clap::Result<Command> {
+pub fn subcommand<'a>(name: &str,
+                      matches: &clap::ArgMatches<'a>)
+                      -> clap::Result<Command> {
     match name {
         "build" => cmd::Build::from_matches(matches).map(Command::Build),
         "clean" => cmd::Clean::from_matches(matches).map(Command::Clean),

@@ -51,7 +51,7 @@ impl From<json::error::Error> for Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::Io(ref err)    => write!(f, "Failed reading rules: {}", err),
+            Error::Io(ref err) => write!(f, "Failed reading rules: {}", err),
             Error::Parse(ref err) => write!(f, "Failed parsing rules: {}", err),
         }
     }
@@ -93,7 +93,6 @@ pub struct Rules {
 }
 
 impl Rules {
-
     pub fn new(rules: Vec<Rule>) -> Rules {
         Rules { rules: rules }
     }
@@ -138,12 +137,14 @@ mod tests {
 
         let rules = Rules::from_str(&data).unwrap();
 
-        assert_eq!(rules, Rules::new(vec![Rule {
-            inputs: vec![FilePath::from("foo.c"), FilePath::from("foo.h")],
-            outputs: vec![FilePath::from("foo.o")],
-            tasks: vec![
+        assert_eq!(rules,
+                   Rules::new(vec![Rule {
+                                       inputs: vec![FilePath::from("foo.c"),
+                                                    FilePath::from("foo.h")],
+                                       outputs: vec![FilePath::from("foo.o")],
+                                       tasks: vec![
                 Command::new(vec!["gcc".to_owned(), "foo.c".to_owned()], None, None),
             ],
-        }]));
+                                   }]));
     }
 }

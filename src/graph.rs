@@ -112,17 +112,19 @@ impl<'a> CyclesError<'a> {
     }
 }
 
-const CYCLE_EXPLANATION : &'static str = "\
+const CYCLE_EXPLANATION: &'static str = "\
 Cycles in the build graph cause incorrect builds and are strictly forbidden.
 Please edit the build description to remove the cycle(s) listed above.";
 
 impl<'a> fmt::Display for CyclesError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 
-        write!(f, "{} cycle(s) detected in the build graph...\n\n", self.cycles.len())?;
+        write!(f,
+               "{} cycle(s) detected in the build graph...\n\n",
+               self.cycles.len())?;
 
         for (i, cycle) in self.cycles.iter().enumerate() {
-            write!(f, "Cycle {}\n", i+1)?;
+            write!(f, "Cycle {}\n", i + 1)?;
             write!(f, "{}\n", cycle)?;
         }
 
@@ -142,8 +144,7 @@ impl<'a> error::Error for CyclesError<'a> {
 
 /// A race condition in the build graph.
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub struct Race<N>
-{
+pub struct Race<N> {
     /// The node with two or more incoming edges.
     pub node: N,
 
@@ -184,7 +185,7 @@ impl<'a> RaceError<'a> {
     }
 }
 
-const RACE_EXPLANATION : &'static str = "\
+const RACE_EXPLANATION: &'static str = "\
 Race conditions in the build graph cause incorrect incremental builds and are
 strictly forbidden. The resources listed above are the output of more than one
 task. Depending on the order in which the task is executed, one task will
@@ -194,8 +195,9 @@ race condition(s).";
 impl<'a> fmt::Display for RaceError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 
-        write!(f, "{} race condition(s) detected in the build graph:\n\n",
-            self.races.len())?;
+        write!(f,
+               "{} race condition(s) detected in the build graph:\n\n",
+               self.races.len())?;
 
         for race in &self.races {
             write!(f, " - {}\n", race)?;
@@ -236,7 +238,7 @@ impl<'a> From<CyclesError<'a>> for Error<'a> {
 impl<'a> fmt::Display for Error<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::Races(ref err)  => write!(f, "{}", err),
+            Error::Races(ref err) => write!(f, "{}", err),
             Error::Cycles(ref err) => write!(f, "{}", err),
         }
     }
@@ -252,7 +254,7 @@ impl<'a> error::Error for Error<'a> {
 
     fn cause(&self) -> Option<&error::Error> {
         match *self {
-            Error::Races(ref err)  => Some(err),
+            Error::Races(ref err) => Some(err),
             Error::Cycles(ref err) => Some(err),
         }
     }
@@ -291,21 +293,20 @@ fn check_races(graph: BuildGraph) -> Result<BuildGraph, RaceError> {
     for node in graph.nodes() {
         match node {
             Node::Resource(r) => {
-                let incoming = graph.neighbors_directed(
-                    node, Direction::Incoming).count();
+                let incoming =
+                    graph.neighbors_directed(node, Direction::Incoming).count();
 
                 if incoming > 1 {
                     races.push(Race::new(r, incoming));
                 }
-            },
-            Node::Task(_) => {},
+            }
+            Node::Task(_) => {}
         };
     }
 
     if races.is_empty() {
         Ok(graph)
-    }
-    else {
+    } else {
         Err(RaceError::new(races))
     }
 }
@@ -326,8 +327,7 @@ fn check_cycles(graph: BuildGraph) -> Result<BuildGraph, CyclesError> {
 
     if cycles.is_empty() {
         Ok(graph)
-    }
-    else {
+    } else {
         Err(CyclesError::new(cycles))
     }
 }
@@ -402,11 +402,10 @@ mod tests {
         let graph = from_rules(&rules);
 
         assert_eq!(graph.unwrap_err(),
-            Error::Races(RaceError::new(vec![
-                Race::new(&FilePath::from("bar.o"), 2),
-                Race::new(&FilePath::from("foo.o"), 3),
-            ]))
-        );
+                   Error::Races(RaceError::new(vec![Race::new(&FilePath::from("bar.o",),
+                                                              2),
+                                                    Race::new(&FilePath::from("foo.o",),
+                                                              3)])));
     }
 
     #[test]

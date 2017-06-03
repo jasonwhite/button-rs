@@ -38,19 +38,17 @@ pub struct Build {
 }
 
 impl Build {
-    pub fn from_matches(matches: &clap::ArgMatches)
-        -> clap::Result<Build>
-    {
+    pub fn from_matches(matches: &clap::ArgMatches) -> clap::Result<Build> {
         let cpu_count = num_cpus::get();
 
         Ok(Build {
-            file: opts::rules_path(matches.value_of("file").map(Path::new)),
-            dryrun: matches.is_present("dryrun"),
-            color: value_t!(matches.value_of("color"), opts::Coloring)?,
-            threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
-            autobuild: matches.is_present("auto"),
-            delay: value_t!(matches, "delay", usize)?,
-        })
+               file: opts::rules_path(matches.value_of("file").map(Path::new)),
+               dryrun: matches.is_present("dryrun"),
+               color: value_t!(matches.value_of("color"), opts::Coloring)?,
+               threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
+               autobuild: matches.is_present("auto"),
+               delay: value_t!(matches, "delay", usize)?,
+           })
     }
 
     /// Runs an incremental build.
@@ -102,11 +100,11 @@ impl Build {
                         1
                     }
                 }
-            },
+            }
             Err(err) => {
                 println!("Error: {}", err);
                 1
-            },
+            }
         }
     }
 }

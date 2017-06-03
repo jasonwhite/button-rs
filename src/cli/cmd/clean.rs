@@ -35,18 +35,16 @@ pub struct Clean {
 }
 
 impl Clean {
-    pub fn from_matches(matches: &clap::ArgMatches)
-        -> clap::Result<Clean>
-    {
+    pub fn from_matches(matches: &clap::ArgMatches) -> clap::Result<Clean> {
         let cpu_count = num_cpus::get();
 
         Ok(Clean {
-            file: opts::rules_path(matches.value_of("file").map(Path::new)),
-            dryrun: matches.is_present("dryrun"),
-            color: value_t!(matches.value_of("color"), opts::Coloring)?,
-            threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
-            purge: matches.is_present("purge"),
-        })
+               file: opts::rules_path(matches.value_of("file").map(Path::new)),
+               dryrun: matches.is_present("dryrun"),
+               color: value_t!(matches.value_of("color"), opts::Coloring)?,
+               threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
+               purge: matches.is_present("purge"),
+           })
     }
 
     /// Cleans your damn software.
@@ -56,4 +54,3 @@ impl Clean {
         0
     }
 }
-

@@ -27,7 +27,6 @@ use rules::Rules;
 /// Represents a build. This holds the context necessary for all build
 /// operations.
 pub struct Build<'a> {
-
     /// Root of the build. This is the directory containing the "button.json"
     /// file and is the default path from which all subprocesses are spawned.
     /// The working directories of tasks are relative to this path.
@@ -47,7 +46,10 @@ pub struct Build<'a> {
 
 impl<'a> Build<'a> {
     pub fn new(root: &'a Path, dryrun: bool) -> Build {
-        Build { root: root, dryrun: dryrun }
+        Build {
+            root: root,
+            dryrun: dryrun,
+        }
     }
 
     /// Runs a build.
