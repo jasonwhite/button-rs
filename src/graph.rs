@@ -401,11 +401,12 @@ mod tests {
 
         let graph = from_rules(&rules);
 
-        assert_eq!(graph.unwrap_err(),
-                   Error::Races(RaceError::new(vec![Race::new(&FilePath::from("bar.o",),
-                                                              2),
-                                                    Race::new(&FilePath::from("foo.o",),
-                                                              3)])));
+        let foo = FilePath::from("foo.o");
+        let bar = FilePath::from("bar.o");
+
+        let races = vec![Race::new(&bar, 2), Race::new(&foo, 3)];
+
+        assert_eq!(graph.unwrap_err(), Error::Races(RaceError::new(races)));
     }
 
     #[test]
@@ -439,13 +440,14 @@ mod tests {
 
         let graph = from_rules(&rules);
 
-        assert_eq!(graph.unwrap_err(),
-            Error::Cycles(CyclesError::new(vec![
-                Cycle::new(vec![
-                   Node::Resource(&FilePath::from("foo.c")),
-                   Node::Task(&vec![Command::new(vec!["gcc".to_owned(), "foo.c".to_owned()], None, None)]),
-                ]),
-            ]))
-        );
+        let foo_c = FilePath::from("foo.c");
+        let task = vec![Command::new(vec!["gcc".to_owned(), "foo.c".to_owned()],
+                                     None,
+                                     None)];
+
+        let cycles = vec![Cycle::new(vec![Node::Resource(&foo_c),
+                                          Node::Task(&task)])];
+
+        assert_eq!(graph.unwrap_err(), Error::Cycles(CyclesError::new(cycles)));
     }
 }
