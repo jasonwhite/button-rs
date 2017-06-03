@@ -19,6 +19,7 @@
 // THE SOFTWARE.
 
 use std::fmt;
+use std::time;
 use std::path::PathBuf;
 
 use task::Task;
@@ -31,12 +32,23 @@ pub struct Command {
     args: Vec<String>,
 
     /// Optional working directory to spawn the process in. If `None`, uses the
-    /// working directory of the parent process.
+    /// working directory of the parent process (i.e., the build process).
     cwd: Option<PathBuf>,
 
     /// String to display when executing the task. If `None`, the command
     /// arguments are displayed in full instead.
     display: Option<String>,
+
+    /// How much time to give the command to execute. If `None`, there is no
+    /// time limit.
+    timeout: Option<time::Duration>,
+
+    /// How many times to retry the command before giving up. This is useful for
+    /// flaky tests that may need to be run several times before succeeding.
+    /// Between each execution, we wait a period of time. By default, an
+    /// exponential backoff function is used to determine the wait duration.
+    #[serde(default)]
+    retries: u32,
 }
 
 impl Command {
@@ -49,6 +61,8 @@ impl Command {
             args: args,
             cwd: cwd,
             display: display,
+            timeout: None,
+            retries: 0,
         }
     }
 }
