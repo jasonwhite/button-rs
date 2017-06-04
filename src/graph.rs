@@ -21,6 +21,9 @@
 use std::error;
 use std::fmt;
 
+use std::collections::HashMap;
+
+use petgraph::visit::IntoNodeIdentifiers;
 use petgraph::algo::tarjan_scc;
 use petgraph::{graphmap, Direction};
 
@@ -333,6 +336,29 @@ fn check_cycles(graph: BuildGraph) -> Result<BuildGraph, CyclesError> {
     }
 }
 
+// This should be in the standard library.
+fn empty_or_any<I, F>(iter: &mut I, mut f: F) -> bool
+    where I: Iterator,
+          F: FnMut(I::Item) -> bool
+{
+    match iter.next() {
+        None => return true, // Empty
+        Some(x) => {
+            if f(x) {
+                return true;
+            }
+        }
+    };
+
+    for x in iter {
+        if f(x) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 /// Traverses the graph in topological order. This function is the real meat of
 /// the build system. Everything else is just support code.
 ///
@@ -346,16 +372,60 @@ fn check_cycles(graph: BuildGraph) -> Result<BuildGraph, CyclesError> {
 ///
 /// TODO: Do the traversal in parallel.
 ///
-/// TODO: Instead of a stack, keep a heap of nodes to visit next. Elements at
-/// the top of the heap would be visited first. The heap would be sorted
-/// according to the estimated cost of visiting a node. For example, tasks that
-/// take the longest to execute should be started first to maximize efficiency.
-/// The first time the graph is traversed, all nodes are considered equal
-/// (because it's impossible accurately to predict the time it takes to execute
-/// a task without actually executing the task).
-pub fn traverse<'a, F>(graph: &BuildGraph, visit: F)
-    where F: Fn(Node<'a>) -> bool
+/// TODO: Instead of a stack, keep a heap (i.e., priority queue) of nodes to
+/// visit next. Elements at the top of the heap would be visited first. The heap
+/// would be sorted according to the estimated cost of visiting a node. For
+/// example, tasks that take the longest to execute should be started first to
+/// maximize efficiency.  The first time the graph is traversed, all nodes are
+/// considered equal (because it's impossible accurately to predict the time it
+/// takes to execute a task without actually executing the task). A predicate
+/// function can be provided to do the sorting.
+pub fn traverse<F>(g: &BuildGraph, visit: F)
+    where F: Fn(Node) -> bool
 {
+    // Nodes that need to be visited.
+    let mut tovisit = Vec::new();
+
+    // Nodes that have been visited. The value in this map indicates whether or
+    // not the visitor function was called on it.
+    let mut visited = HashMap::new();
+
+    // Start the traversal from all nodes that have no incoming edges.
+    tovisit.extend(g.node_identifiers()
+                       .filter(move |&a| {
+                                   g.neighbors_directed(a, Direction::Incoming)
+                                       .next()
+                                       .is_none()
+                               }));
+
+    while let Some(node) = tovisit.pop() {
+        if visited.contains_key(&node) {
+            continue;
+        }
+
+        // Only call the visitor function if:
+        //  1. This node has no parents, or
+        //  2. Any of its parents have had its visitor function called.
+        //
+        // The whole graph must be traversed (unless an error occurs), but we
+        // only want to call the visitor function on a subset of it.
+        let mut parents = g.neighbors_directed(node, Direction::Incoming);
+        if empty_or_any(&mut parents, |p| visited.get(&p) == Some(&true)) {
+            visited.insert(node, visit(node));
+        } else {
+            visited.insert(node, false);
+        }
+
+        for neigh in g.neighbors(node) {
+            // Only visit a child node if that child's parents have all been
+            // visited. There are more efficient ways to do this. We could keep
+            // a count of visited parents for each node instead.
+            let mut parents = g.neighbors_directed(neigh, Direction::Incoming);
+            if parents.all(|p| visited.contains_key(&p)) {
+                tovisit.push(neigh);
+            }
+        }
+    }
 }
 
 #[cfg(test)]

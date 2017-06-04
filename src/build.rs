@@ -23,6 +23,8 @@ use std::path::Path;
 use error;
 use graph;
 use rules::Rules;
+use resources;
+use tasks;
 
 /// Represents a build. This holds the context necessary for all build
 /// operations.
@@ -61,8 +63,34 @@ impl<'a> Build<'a> {
             println!("Note: This is a dry run. Nothing is affected.");
         }
 
-        graph::from_rules(rules)?;
+        let g = graph::from_rules(rules)?;
+
+        graph::traverse(&g, |node| self.visit(node));
 
         Ok(())
+    }
+
+    /// Visitor function for a node.
+    fn visit(&self, node: graph::Node) -> bool {
+        match node {
+            graph::Node::Resource(r) => self.visit_resource(r),
+            graph::Node::Task(t) => self.visit_task(t),
+        }
+    }
+
+    /// Called when visiting a resource type node in the build graph.
+    fn visit_resource(&self, node: &resources::FilePath) -> bool {
+        println!("{:?}", node);
+
+        // Only visit child nodes if this node's state has changed. For example,
+        // when compiling an object file, if the generated object file has not
+        // changed, there is no need to perform linking.
+        true
+    }
+
+    /// Called when visiting a task type node in the build graph.
+    fn visit_task(&self, node: &Vec<tasks::Command>) -> bool {
+        println!("{:?}", node);
+        true
     }
 }
