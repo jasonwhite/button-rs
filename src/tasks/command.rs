@@ -85,7 +85,8 @@ impl fmt::Debug for Command {
 }
 
 impl Task for Command {
-    fn execute(&self) {
+    fn execute(&self) -> Result<(), String> {
         println!("Executing `{:?}` in directory {:?}", self.args, self.cwd);
+        Ok(())
     }
 }

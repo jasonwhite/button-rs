@@ -380,9 +380,12 @@ fn empty_or_any<I, F>(iter: &mut I, mut f: F) -> bool
 /// considered equal (because it's impossible accurately to predict the time it
 /// takes to execute a task without actually executing the task). A predicate
 /// function can be provided to do the sorting.
-pub fn traverse<F>(g: &BuildGraph, visit: F)
-    where F: Fn(Node) -> bool
+pub fn traverse<F>(g: &BuildGraph, visit: F) -> Result<(), Vec<String>>
+    where F: Fn(Node) -> Result<bool, String>
 {
+    // List of errors that occurred during the traversal.
+    let mut errors = Vec::new();
+
     // Nodes that need to be visited.
     let mut tovisit = Vec::new();
 
@@ -411,7 +414,16 @@ pub fn traverse<F>(g: &BuildGraph, visit: F)
         // only want to call the visitor function on a subset of it.
         let mut parents = g.neighbors_directed(node, Direction::Incoming);
         if empty_or_any(&mut parents, |p| visited.get(&p) == Some(&true)) {
-            visited.insert(node, visit(node));
+            match visit(node) {
+                Ok(keep_going) => visited.insert(node, keep_going),
+                Err(err) => {
+                    errors.push(err);
+
+                    // In case of error, do not traverse child nodes. Nothing
+                    // that depends on this node should be visited.
+                    continue;
+                }
+            };
         } else {
             visited.insert(node, false);
         }
@@ -425,6 +437,12 @@ pub fn traverse<F>(g: &BuildGraph, visit: F)
                 tovisit.push(neigh);
             }
         }
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
     }
 }
 

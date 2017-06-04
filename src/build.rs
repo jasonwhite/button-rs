@@ -65,13 +65,16 @@ impl<'a> Build<'a> {
 
         let g = graph::from_rules(rules)?;
 
-        graph::traverse(&g, |node| self.visit(node));
+        if let Err(err) = graph::traverse(&g, |node| self.visit(node)) {
+            // TODO: Propagate error.
+            println!("{:?}", err);
+        }
 
         Ok(())
     }
 
     /// Visitor function for a node.
-    fn visit(&self, node: graph::Node) -> bool {
+    fn visit(&self, node: graph::Node) -> Result<bool, String> {
         match node {
             graph::Node::Resource(r) => self.visit_resource(r),
             graph::Node::Task(t) => self.visit_task(t),
@@ -79,18 +82,20 @@ impl<'a> Build<'a> {
     }
 
     /// Called when visiting a resource type node in the build graph.
-    fn visit_resource(&self, node: &resources::FilePath) -> bool {
+    fn visit_resource(&self,
+                      node: &resources::FilePath)
+                      -> Result<bool, String> {
         println!("{:?}", node);
 
         // Only visit child nodes if this node's state has changed. For example,
         // when compiling an object file, if the generated object file has not
         // changed, there is no need to perform linking.
-        true
+        Ok(true)
     }
 
     /// Called when visiting a task type node in the build graph.
-    fn visit_task(&self, node: &Vec<tasks::Command>) -> bool {
+    fn visit_task(&self, node: &Vec<tasks::Command>) -> Result<bool, String> {
         println!("{:?}", node);
-        true
+        Ok(true)
     }
 }

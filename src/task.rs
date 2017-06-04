@@ -33,5 +33,5 @@ pub trait Task {
     /// the resources it output. These are its *implicit* inputs and outputs.
     /// Ideally, the *explicit* inputs and outputs are a subset of the
     /// *implicit* inputs and outputs.
-    fn execute(&self); // TODO: Return a result.
+    fn execute(&self) -> Result<(), String>;
 }
