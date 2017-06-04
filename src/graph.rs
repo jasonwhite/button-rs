@@ -555,9 +555,7 @@ mod tests {
 
         let foo_c = FilePath::from("foo.c");
         let task = vec![Command::new(vec!["gcc".to_owned(),
-                                          "foo.c".to_owned()],
-                                     None,
-                                     None)];
+                                          "foo.c".to_owned()])];
 
         let cycles = vec![Cycle::new(vec![Node::Resource(&foo_c),
                                           Node::Task(&task)])];

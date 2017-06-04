@@ -53,17 +53,44 @@ pub struct Command {
 
 impl Command {
     #[cfg(test)]
-    pub fn new(args: Vec<String>,
-               cwd: Option<PathBuf>,
-               display: Option<String>)
-               -> Command {
+    pub fn new(args: Vec<String>) -> Command {
         Command {
             args: args,
-            cwd: cwd,
-            display: display,
+            cwd: None,
+            display: None,
             timeout: None,
             retries: 0,
         }
+    }
+}
+
+impl Command {
+    // Sets the working directory for the command.
+    #[allow(dead_code)]
+    pub fn cwd(mut self, path: PathBuf) -> Command {
+        self.cwd = Some(path);
+        self
+    }
+
+    // Sets the display string for the command.
+    #[allow(dead_code)]
+    pub fn display(mut self, display: String) -> Command {
+        self.display = Some(display);
+        self
+    }
+
+    // Sets the timeout for the command.
+    #[allow(dead_code)]
+    pub fn timeout(mut self, timeout: time::Duration) -> Command {
+        self.timeout = Some(timeout);
+        self
+    }
+
+    // Sets the number of retries for the command.
+    #[allow(dead_code)]
+    pub fn retries(mut self, retries: u32) -> Command {
+        self.retries = retries;
+        self
     }
 }
 

@@ -140,9 +140,7 @@ mod tests {
         let inputs = vec![FilePath::from("foo.c"), FilePath::from("foo.h")];
         let outputs = vec![FilePath::from("foo.o")];
         let tasks = vec![Command::new(vec!["gcc".to_owned(),
-                                           "foo.c".to_owned()],
-                                      None,
-                                      None)];
+                                           "foo.c".to_owned()])];
 
         assert_eq!(rules,
                    Rules::new(vec![Rule {
