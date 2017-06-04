@@ -419,6 +419,8 @@ pub fn traverse<F>(g: &BuildGraph, visit: F) -> Result<(), Vec<String>>
                 Err(err) => {
                     errors.push(err);
 
+                    visited.insert(node, false);
+
                     // In case of error, do not traverse child nodes. Nothing
                     // that depends on this node should be visited.
                     continue;
