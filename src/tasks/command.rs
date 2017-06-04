@@ -28,7 +28,7 @@ use task::Task;
 /// spawned.
 #[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct Command {
-    /// Process to spawn.
+    /// Process and arguments to spawn.
     args: Vec<String>,
 
     /// Optional working directory to spawn the process in. If `None`, uses the
@@ -72,7 +72,7 @@ impl fmt::Display for Command {
         if let Some(ref display) = self.display {
             write!(f, "{}", display)
         } else {
-            // TODO: Display as a bash command.
+            // TODO: Format as a bash command.
             write!(f, "{:?}", self.args)
         }
     }

@@ -41,7 +41,8 @@ impl Graph {
 
         Ok(Graph {
                file: opts::rules_path(matches.value_of("file").map(Path::new)),
-               threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
+               threads: value_t!(matches, "threads", usize)
+                   .unwrap_or(cpu_count),
                changes: matches.is_present("changes"),
                cached: matches.is_present("cached"),
                full: matches.is_present("full"),

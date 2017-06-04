@@ -76,13 +76,14 @@ pub fn app<'a, 'b>() -> clap::App<'a, 'b> {
                     .long("auto"),
 
                 clap::Arg::with_name("watchdir")
-                    .help("Used with --auto. The directory to watch for changes in.")
+                    .help("Used with --auto. The directory to watch for \
+                          changes in.")
                     .takes_value(true)
                     .long("watchdir"),
 
                 clap::Arg::with_name("delay")
-                    .help("Used with --auto. The number of milliseconds to wait \
-                          before building.")
+                    .help("Used with --auto. The number of milliseconds to \
+                          wait before building.")
                     .takes_value(true)
                     .long("delay")
                     .default_value("50"),

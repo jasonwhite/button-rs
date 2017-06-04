@@ -260,8 +260,9 @@ impl<'a> error::Error for Error<'a> {
     }
 }
 
-/// Creates a build graph from the given rules. This also checks for cycles and
-/// race conditions. The graph is guaranteed to be bipartite.
+/// Creates a build graph from the given rules. If the graph would contain race
+/// conditions or cycles, an error is returned. Thus, the returned graph is
+/// guaranteed to be bipartite and acyclic.
 pub fn from_rules(rules: &Rules) -> Result<BuildGraph, Error> {
     let mut graph = BuildGraph::new();
 
@@ -332,6 +333,31 @@ fn check_cycles(graph: BuildGraph) -> Result<BuildGraph, CyclesError> {
     }
 }
 
+/// Traverses the graph in topological order. This function is the real meat of
+/// the build system. Everything else is just support code.
+///
+/// The function `visit` is called for each node that is to be visited. If the
+/// visitor function returns `true`, then its child nodes may be visited. It it
+/// returns `false`, then its child nodes will not be visited. This is useful if
+/// a resource is determined to be unchanged, obviating the need to do
+/// additional work.
+///
+/// TODO: Return `Result<(), ErrorList>`.
+///
+/// TODO: Do the traversal in parallel.
+///
+/// TODO: Instead of a stack, keep a heap of nodes to visit next. Elements at
+/// the top of the heap would be visited first. The heap would be sorted
+/// according to the estimated cost of visiting a node. For example, tasks that
+/// take the longest to execute should be started first to maximize efficiency.
+/// The first time the graph is traversed, all nodes are considered equal
+/// (because it's impossible accurately to predict the time it takes to execute
+/// a task without actually executing the task).
+pub fn traverse<'a, F>(graph: &BuildGraph, visit: F)
+    where F: Fn(Node<'a>) -> bool
+{
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -340,7 +366,6 @@ mod tests {
 
     #[test]
     fn test_good_graph() {
-
         let data = r#"[
         {
             "inputs": ["foo.c", "foo.h"],
@@ -441,7 +466,8 @@ mod tests {
         let graph = from_rules(&rules);
 
         let foo_c = FilePath::from("foo.c");
-        let task = vec![Command::new(vec!["gcc".to_owned(), "foo.c".to_owned()],
+        let task = vec![Command::new(vec!["gcc".to_owned(),
+                                          "foo.c".to_owned()],
                                      None,
                                      None)];
 
