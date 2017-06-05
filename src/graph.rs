@@ -384,11 +384,12 @@ type Queue<T> = MsQueue<Option<T>>;
 /// all nodes are considered equal (because it's impossible to accurately
 /// predict the time it takes to execute a task without actually executing the
 /// task). A predicate function can be provided to do the sorting.
-pub fn traverse<F>(g: &BuildGraph,
-                   visit: F,
-                   threads: usize)
-                   -> Result<(), Vec<String>>
-    where F: Fn(usize, Node) -> Result<bool, String> + Send + Sync
+pub fn traverse<F, E>(g: &BuildGraph,
+                      visit: F,
+                      threads: usize)
+                      -> Result<(), Vec<E>>
+    where F: Fn(usize, Node) -> Result<bool, E> + Send + Sync,
+          E: Send
 {
     // Always use at least one thread.
     let threads = cmp::max(threads, 1);
@@ -461,15 +462,16 @@ pub fn traverse<F>(g: &BuildGraph,
     }
 }
 
-fn traversal_worker<'a, F>(id: usize,
-                           queue: &Queue<Node<'a>>,
-                           cvar: &Condvar,
-                           active: &AtomicUsize,
-                           g: &'a BuildGraph,
-                           visited_arc: &Mutex<HashMap<Node<'a>, bool>>,
-                           visit: &F,
-                           errors: &Mutex<Vec<String>>)
-    where F: Fn(usize, Node) -> Result<bool, String> + Sync
+fn traversal_worker<'a, F, E>(id: usize,
+                              queue: &Queue<Node<'a>>,
+                              cvar: &Condvar,
+                              active: &AtomicUsize,
+                              g: &'a BuildGraph,
+                              visited_arc: &Mutex<HashMap<Node<'a>, bool>>,
+                              visit: &F,
+                              errors: &Mutex<Vec<E>>)
+    where F: Fn(usize, Node) -> Result<bool, E> + Sync,
+          E: Send
 {
     while let Some(node) = queue.pop() {
         // Only call the visitor function if:
