@@ -25,6 +25,7 @@ extern crate serde;
 extern crate serde_json;
 extern crate petgraph;
 extern crate num_cpus;
+extern crate crossbeam;
 
 mod cli;
 mod rules;

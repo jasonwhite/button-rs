@@ -20,12 +20,18 @@
 
 use std::error;
 use std::fmt;
+use std::cmp;
 
+use std::sync::{Mutex, Condvar};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::collections::HashMap;
 
 use petgraph::visit::IntoNodeIdentifiers;
 use petgraph::algo::tarjan_scc;
 use petgraph::{graphmap, Direction};
+
+use crossbeam;
+use crossbeam::sync::MsQueue;
 
 use resources;
 use tasks;
@@ -359,6 +365,9 @@ fn empty_or_any<I, F>(iter: &mut I, mut f: F) -> bool
     return false;
 }
 
+// Lock-free queue for nodes.
+type Queue<T> = MsQueue<Option<T>>;
+
 /// Traverses the graph in topological order. This function is the real meat of
 /// the build system. Everything else is just support code.
 ///
@@ -370,81 +379,146 @@ fn empty_or_any<I, F>(iter: &mut I, mut f: F) -> bool
 ///
 /// TODO: Return `Result<(), ErrorList>`.
 ///
-/// TODO: Do the traversal in parallel.
-///
-/// TODO: Instead of a stack, keep a heap (i.e., priority queue) of nodes to
-/// visit next. Elements at the top of the heap would be visited first. The heap
-/// would be sorted according to the estimated cost of visiting a node. For
-/// example, tasks that take the longest to execute should be started first to
-/// maximize efficiency.  The first time the graph is traversed, all nodes are
-/// considered equal (because it's impossible accurately to predict the time it
-/// takes to execute a task without actually executing the task). A predicate
-/// function can be provided to do the sorting.
-pub fn traverse<F>(g: &BuildGraph, visit: F) -> Result<(), Vec<String>>
-    where F: Fn(Node) -> Result<bool, String>
+/// TODO: Use a priority queue. Tasks that take the longest to execute should be
+/// started first to maximize efficiency. The first time the graph is traversed,
+/// all nodes are considered equal (because it's impossible to accurately
+/// predict the time it takes to execute a task without actually executing the
+/// task). A predicate function can be provided to do the sorting.
+pub fn traverse<F>(g: &BuildGraph,
+                   visit: F,
+                   threads: usize)
+                   -> Result<(), Vec<String>>
+    where F: Fn(usize, Node) -> Result<bool, String> + Send + Sync
 {
-    // List of errors that occurred during the traversal.
-    let mut errors = Vec::new();
+    // Always use at least one thread.
+    let threads = cmp::max(threads, 1);
 
-    // Nodes that need to be visited.
-    let mut tovisit = Vec::new();
+    // List of errors that occurred during the traversal.
+    let errors = Mutex::new(Vec::new());
 
     // Nodes that have been visited. The value in this map indicates whether or
     // not the visitor function was called on it.
-    let mut visited = HashMap::new();
+    let visited = Mutex::new(HashMap::new());
 
     // Start the traversal from all nodes that have no incoming edges.
-    tovisit.extend(g.node_identifiers()
-                       .filter(move |&a| {
-                                   g.neighbors_directed(a, Direction::Incoming)
-                                       .next()
-                                       .is_none()
-                               }));
+    let roots = g.node_identifiers()
+        .filter(move |&a| {
+                    g.neighbors_directed(a, Direction::Incoming)
+                        .next()
+                        .is_none()
+                });
 
-    while let Some(node) = tovisit.pop() {
-        if visited.contains_key(&node) {
-            continue;
+    let queue = &Queue::new();
+
+    let (cvar, mutex) = (&Condvar::new(), Mutex::new(()));
+
+    // Keeps a count of the number of nodes being processed (or waiting to be
+    // processed). When this reaches 0, we know there is no more work to do.
+    let active = &AtomicUsize::new(0);
+
+    crossbeam::scope(|scope| {
+        let visited = &visited;
+        let visit = &visit;
+        let errors = &errors;
+
+        for id in 0..threads {
+            scope.spawn(move || {
+                traversal_worker(id,
+                                 queue,
+                                 cvar,
+                                 active,
+                                 g,
+                                 visited,
+                                 visit,
+                                 errors)
+            });
         }
 
-        // Only call the visitor function if:
-        //  1. This node has no parents, or
-        //  2. Any of its parents have had its visitor function called.
-        //
-        // The whole graph must be traversed (unless an error occurs), but we
-        // only want to call the visitor function on a subset of it.
-        let mut parents = g.neighbors_directed(node, Direction::Incoming);
-        if empty_or_any(&mut parents, |p| visited.get(&p) == Some(&true)) {
-            match visit(node) {
-                Ok(keep_going) => visited.insert(node, keep_going),
-                Err(err) => {
-                    errors.push(err);
-
-                    visited.insert(node, false);
-
-                    // In case of error, do not traverse child nodes. Nothing
-                    // that depends on this node should be visited.
-                    continue;
-                }
-            };
-        } else {
-            visited.insert(node, false);
+        // Queue the root nodes.
+        for node in roots {
+            active.fetch_add(1, Ordering::SeqCst);
+            queue.push(Some(node));
         }
 
-        for neigh in g.neighbors(node) {
-            // Only visit a child node if that child's parents have all been
-            // visited. There are more efficient ways to do this. We could keep
-            // a count of visited parents for each node instead.
-            let mut parents = g.neighbors_directed(neigh, Direction::Incoming);
-            if parents.all(|p| visited.contains_key(&p)) {
-                tovisit.push(neigh);
-            }
+        let mut guard = mutex.lock().unwrap();
+        while active.load(Ordering::SeqCst) > 0 {
+            // Wait until all queued items are complete.
+            guard = cvar.wait(guard).unwrap();
         }
-    }
+
+        // Send message to shutdown all threads.
+        for _ in 0..threads {
+            queue.push(None);
+        }
+    });
+
+    let errors = errors.into_inner().unwrap();
 
     if errors.is_empty() {
         Ok(())
     } else {
         Err(errors)
+    }
+}
+
+fn traversal_worker<'a, F>(id: usize,
+                           queue: &Queue<Node<'a>>,
+                           cvar: &Condvar,
+                           active: &AtomicUsize,
+                           g: &'a BuildGraph,
+                           visited_arc: &Mutex<HashMap<Node<'a>, bool>>,
+                           visit: &F,
+                           errors: &Mutex<Vec<String>>)
+    where F: Fn(usize, Node) -> Result<bool, String> + Sync
+{
+    while let Some(node) = queue.pop() {
+        // Only call the visitor function if:
+        //  1. This node has no parents, or
+        //  2. Any of its parents have had its visitor function called.
+        //
+        // Although the entire graph is traversed (unless an error occurs), we
+        // may only call the visitor function on a subset of it.
+        let do_visit = {
+            let mut parents = g.neighbors_directed(node, Direction::Incoming);
+            let visited = visited_arc.lock().unwrap();
+            empty_or_any(&mut parents, |p| visited.get(&p) == Some(&true))
+        };
+
+        let keep_going = if do_visit { visit(id, node) } else { Ok(false) };
+
+        let mut visited = visited_arc.lock().unwrap();
+
+        match keep_going {
+            Ok(keep_going) => visited.insert(node, keep_going),
+            Err(err) => {
+                let mut errors = errors.lock().unwrap();
+                errors.push(err);
+                visited.insert(node, false);
+
+                // In case of error, do not traverse child nodes. Nothing
+                // that depends on this node should be visited.
+                active.fetch_sub(1, Ordering::SeqCst);
+                cvar.notify_one();
+                continue;
+            }
+        };
+
+        for neigh in g.neighbors(node) {
+            // Only visit a child node if that child's parents have all been
+            // visited. There might be more efficient ways to do this. We could
+            // keep a count of visited parents for each node instead.
+            let mut parents = g.neighbors_directed(neigh, Direction::Incoming);
+            if !visited.contains_key(&neigh) &&
+               parents.all(|p| visited.contains_key(&p)) {
+                active.fetch_add(1, Ordering::SeqCst);
+                queue.push(Some(neigh));
+            }
+        }
+
+        // Notify that an element was taken off of the queue. When the queue
+        // becomes empty, a message is sent to each worker thread to shutdown.
+        active.fetch_sub(1, Ordering::SeqCst);
+        cvar.notify_one();
     }
 }
 

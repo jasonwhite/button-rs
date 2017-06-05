@@ -38,16 +38,13 @@ pub struct Build<'a> {
     /// systems.
     dryrun: bool,
 
-    // The thread pool. This needs to be passed to child build systems.
-    //pool: &ThreadPool,
-
     // The event handler. Child build system event handlers should forward
     // their events to this handler.
     //events: &BuildEvents,
 }
 
 impl<'a> Build<'a> {
-    pub fn new(root: &'a Path, dryrun: bool) -> Build {
+    pub fn new(root: &'a Path, dryrun: bool) -> Build<'a> {
         Build {
             root: root,
             dryrun: dryrun,
@@ -55,7 +52,10 @@ impl<'a> Build<'a> {
     }
 
     /// Runs a build.
-    pub fn build<'b>(&self, rules: &'b Rules) -> Result<(), error::Error<'b>> {
+    pub fn build<'b>(&self,
+                     rules: &'b Rules,
+                     threads: usize)
+                     -> Result<(), error::Error<'b>> {
 
         println!("Root directory: {:?}", self.root);
 
@@ -65,7 +65,9 @@ impl<'a> Build<'a> {
 
         let g = graph::from_rules(rules)?;
 
-        if let Err(err) = graph::traverse(&g, |node| self.visit(node)) {
+        if let Err(err) = graph::traverse(&g,
+                                          |id, node| self.visit(id, node),
+                                          threads) {
             // TODO: Propagate error.
             println!("{:?}", err);
         }
@@ -74,18 +76,19 @@ impl<'a> Build<'a> {
     }
 
     /// Visitor function for a node.
-    fn visit(&self, node: graph::Node) -> Result<bool, String> {
+    fn visit(&self, id: usize, node: graph::Node) -> Result<bool, String> {
         match node {
-            graph::Node::Resource(r) => self.visit_resource(r),
-            graph::Node::Task(t) => self.visit_task(t),
+            graph::Node::Resource(r) => self.visit_resource(id, r),
+            graph::Node::Task(t) => self.visit_task(id, t),
         }
     }
 
     /// Called when visiting a resource type node in the build graph.
     fn visit_resource(&self,
+                      id: usize,
                       node: &resources::FilePath)
                       -> Result<bool, String> {
-        println!("{:?}", node);
+        println!("thread {} :: {:?}", id, node);
 
         // Only visit child nodes if this node's state has changed. For example,
         // when compiling an object file, if the generated object file has not
@@ -94,8 +97,11 @@ impl<'a> Build<'a> {
     }
 
     /// Called when visiting a task type node in the build graph.
-    fn visit_task(&self, node: &Vec<tasks::Command>) -> Result<bool, String> {
-        println!("{:?}", node);
+    fn visit_task(&self,
+                  id: usize,
+                  node: &Vec<tasks::Command>)
+                  -> Result<bool, String> {
+        println!("thread {} :: {:?}", id, node);
         Ok(true)
     }
 }

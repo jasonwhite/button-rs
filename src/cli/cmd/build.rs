@@ -94,7 +94,7 @@ impl Build {
 
         match Rules::from_path(&self.file) {
             Ok(rules) => {
-                match build.build(&rules) {
+                match build.build(&rules, self.threads) {
                     Ok(_) => 0,
                     Err(err) => {
                         println!("Error: {}", err);
