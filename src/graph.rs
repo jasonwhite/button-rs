@@ -377,8 +377,6 @@ type Queue<T> = MsQueue<Option<T>>;
 /// a resource is determined to be unchanged, obviating the need to do
 /// additional work.
 ///
-/// TODO: Return `Result<(), ErrorList>`.
-///
 /// TODO: Use a priority queue. Tasks that take the longest to execute should be
 /// started first to maximize efficiency. The first time the graph is traversed,
 /// all nodes are considered equal (because it's impossible to accurately
