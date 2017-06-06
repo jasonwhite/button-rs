@@ -99,7 +99,7 @@ impl<'a> Build<'a> {
     /// Called when visiting a task type node in the build graph.
     fn visit_task(&self,
                   id: usize,
-                  node: &Vec<tasks::Command>)
+                  node: &[tasks::Command])
                   -> Result<bool, String> {
         println!("thread {} :: {:?}", id, node);
         Ok(true)

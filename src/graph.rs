@@ -362,7 +362,7 @@ fn empty_or_any<I, F>(iter: &mut I, mut f: F) -> bool
         }
     }
 
-    return false;
+    false
 }
 
 // Lock-free queue for nodes.
@@ -460,6 +460,7 @@ pub fn traverse<F, E>(g: &BuildGraph,
     }
 }
 
+#[allow(too_many_arguments)]
 fn traversal_worker<'a, F, E>(id: usize,
                               queue: &Queue<Node<'a>>,
                               cvar: &Condvar,
