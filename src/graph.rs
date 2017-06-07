@@ -460,7 +460,6 @@ pub fn traverse<F, E>(g: &BuildGraph,
     }
 }
 
-#[allow(too_many_arguments)]
 fn traversal_worker<'a, F, E>(id: usize,
                               queue: &Queue<Node<'a>>,
                               cvar: &Condvar,
