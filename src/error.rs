@@ -42,7 +42,7 @@ impl<'a> From<rules::Error> for Error<'a> {
 }
 
 impl<'a> From<graph::Error<'a>> for Error<'a> {
-    fn from(err: graph::Error<'a>) -> Error {
+    fn from(err: graph::Error<'a>) -> Error<'a> {
         Error::Graph(err)
     }
 }

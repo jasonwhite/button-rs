@@ -37,10 +37,6 @@ pub struct Build<'a> {
     /// Whether or not this is a dry run. This needs to be passed to child build
     /// systems.
     dryrun: bool,
-
-    // The event handler. Child build system event handlers should forward
-    // their events to this handler.
-    //events: &BuildEvents,
 }
 
 impl<'a> Build<'a> {

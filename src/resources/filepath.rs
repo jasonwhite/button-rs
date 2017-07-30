@@ -21,23 +21,87 @@
 use std::fmt;
 use std::ffi::OsStr;
 use std::str::FromStr;
+use std::path::PathBuf;
+use std::fs;
+use std::io;
+use std::io::Read;
+
+use sha2::{Sha256, Digest};
 
 use serde::{de, Deserialize, Deserializer};
 
-use resource::{Resource, ResourceState, Error};
+use node::{Resource, ResourceState, Error};
 
-use std::path::PathBuf;
 
 /// A file resource. This can actually be a file *or* directory.
-#[derive(Serialize, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[derive(Serialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
 pub struct FilePath {
-    pub path: PathBuf,
+    path: PathBuf,
 }
 
 impl FilePath {
     #[allow(dead_code)]
     fn new(path: PathBuf) -> FilePath {
         FilePath { path: path }
+    }
+
+    /// Assumes this resource is a regular file and returns its checksum.
+    fn file_state(&self) -> Result<ResourceState, Error> {
+        let mut hasher = Sha256::default();
+
+        let mut f = match fs::File::open(&self.path) {
+            Ok(f) => Ok(f),
+            Err(err) => {
+                match err.kind() {
+                    io::ErrorKind::NotFound => {
+                        return Ok(ResourceState::Missing);
+                    }
+                    _ => Err(err),
+                }
+            }
+        }?;
+
+        const BUF_SIZE: usize = 16384;
+
+        let mut buf = [0u8; BUF_SIZE];
+
+        loop {
+            let n = f.read(&mut buf)?;
+
+            if n == 0 || n < BUF_SIZE {
+                break;
+            }
+
+            hasher.input(&buf[0..n]);
+        }
+
+        Ok(ResourceState::Checksum(hasher.result()))
+    }
+
+    /// Assumes this resource is a directory and returns the checksum of its
+    /// file contents.
+    fn dir_state(&self) -> Result<ResourceState, Error> {
+        let mut hasher = Sha256::default();
+
+        let mut names = vec![];
+
+        for entry in fs::read_dir(&self.path)? {
+            names.push(entry?.file_name());
+        }
+
+        // The order in which files are listed is not guaranteed to be sorted.
+        // Whether or not it is sorted depends on the file system
+        // implementation. Thus, we sort them to eliminate that potential
+        // source of non-determinism.
+        names.sort();
+
+        for name in names {
+            if let Some(name) = name.to_str() {
+                hasher.input(name.as_bytes());
+            }
+        }
+
+        Ok(ResourceState::Checksum(hasher.result()))
     }
 }
 
@@ -82,12 +146,43 @@ impl Resource for FilePath {
     /// the checksum is of the sorted list of directory entries. Thus, if a file
     /// is added or removed from a directory, the checksum changes.
     fn state(&self) -> Result<ResourceState, Error> {
-        unimplemented!()
+        if self.path.is_dir() {
+            self.dir_state()
+        } else {
+            // Assume its a file even if its not. It'll error out if there are
+            // problems reading it.
+            self.file_state()
+        }
     }
 
     /// If a file, simply deletes the file. If a directory, deletes the
     /// directory if it is empty.
     fn delete(&self) -> Result<(), Error> {
-        unimplemented!()
+        let metadata = match fs::metadata(&self.path) {
+            Ok(metadata) => Ok(metadata),
+            Err(err) => {
+                match err.kind() {
+                    io::ErrorKind::NotFound => {
+                        return Ok(());
+                    }
+                    _ => Err(err),
+                }
+            }
+        }?;
+
+        if metadata.is_dir() {
+            // Ignore errors for directory deletion. It's not usually a problem
+            // if a directory fails to get deleted. Directory deletion can fail
+            // for a number of reasons:
+            //  - A user may have created a file inside of it.
+            //  - An untracked output may have been created inside of it.
+            //  - On Windows, someone may have a lock on the directory.
+            let _ = fs::remove_dir(&self.path);
+            Ok(())
+        } else {
+            // Assume its a file even if its not. It'll error out if there are
+            // problems deleting it.
+            fs::remove_file(&self.path)
+        }
     }
 }

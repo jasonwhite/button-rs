@@ -26,14 +26,15 @@ extern crate serde_json;
 extern crate petgraph;
 extern crate num_cpus;
 extern crate crossbeam;
+extern crate sha2;
+extern crate generic_array;
 
 mod cli;
 mod rules;
 mod build;
 mod error;
-mod resource;
+mod node;
 mod resources;
-mod task;
 mod tasks;
 mod graph;
 

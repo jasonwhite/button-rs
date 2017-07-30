@@ -22,11 +22,11 @@ use std::fmt;
 use std::time;
 use std::path::PathBuf;
 
-use task::Task;
+use node::Task;
 
 /// A task that executes a single command. A command is simply a process to be
 /// spawned.
-#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
 pub struct Command {
     /// Process and arguments to spawn.
     args: Vec<String>,
