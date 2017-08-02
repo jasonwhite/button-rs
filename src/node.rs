@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+use std::fmt;
 use std::io;
 
 use std::hash::Hash;
@@ -57,7 +58,7 @@ pub type Error = io::Error;
 /// A resource is merely an *identifier*. It should not store any state about
 /// the actual thing it is referencing. The only state that can be stored with a
 /// resource is `ResourceState`.
-pub trait Resource: Serialize + Ord + PartialOrd + Eq + PartialEq + Hash {
+pub trait Resource: Serialize + Ord + PartialOrd + Eq + PartialEq + Hash + fmt::Display {
     /// Gets the state of the resource. This is used to determine if it has
     /// changed.
     fn state(&self) -> Result<ResourceState, Error>;
@@ -81,7 +82,7 @@ pub trait Resource: Serialize + Ord + PartialOrd + Eq + PartialEq + Hash {
 ///  * Copying a file or directory.
 ///  * Downloading a file.
 ///  * Creating a directory.
-pub trait Task: Serialize + Ord + PartialOrd + Eq + PartialEq + Hash {
+pub trait Task: Serialize + Ord + PartialOrd + Eq + PartialEq + Hash + fmt::Display {
     /// Executes the task. The result of a task are the resources it used and
     /// the resources it output. These are its *implicit* inputs and outputs.
     /// Ideally, the *explicit* inputs and outputs are a subset of the
