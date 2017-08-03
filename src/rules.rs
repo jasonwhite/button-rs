@@ -27,8 +27,8 @@ use std::slice::Iter;
 
 use serde_json as json;
 
-use resources;
-use tasks;
+use resource;
+use task;
 
 #[derive(Debug)]
 pub enum Error {
@@ -78,13 +78,13 @@ impl error::Error for Error {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Rule {
     /// Inputs to the task.
-    pub inputs: Vec<resources::FilePath>,
+    pub inputs: Vec<resource::Res>,
 
     /// Outputs from the task.
-    pub outputs: Vec<resources::FilePath>,
+    pub outputs: Vec<resource::Res>,
 
     /// The sequence of commands to execute.
-    pub tasks: Vec<tasks::Command>,
+    pub tasks: Vec<task::Command>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -121,8 +121,8 @@ impl Rules {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use resources::FilePath;
-    use tasks::Command;
+    use resource::{Res, FilePath};
+    use task::Command;
 
     #[test]
     fn test_loading() {
@@ -137,8 +137,14 @@ mod tests {
 
         let rules = Rules::from_str(&data).unwrap();
 
-        let inputs = vec![FilePath::from("foo.c"), FilePath::from("foo.h")];
-        let outputs = vec![FilePath::from("foo.o")];
+        let inputs = vec![
+            Res::FilePath(FilePath::from("foo.c")),
+            Res::FilePath(FilePath::from("foo.h")),
+        ];
+
+        let outputs = vec![
+            Res::FilePath(FilePath::from("foo.o")),
+        ];
         let tasks = vec![Command::new(vec!["gcc".to_owned(),
                                            "foo.c".to_owned()])];
 

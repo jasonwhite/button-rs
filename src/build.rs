@@ -23,8 +23,8 @@ use std::path::Path;
 use error;
 use graph;
 use rules::Rules;
-use resources;
-use tasks;
+use resource;
+use task;
 
 /// Represents a build. This holds the context necessary for all build
 /// operations.
@@ -82,7 +82,7 @@ impl<'a> Build<'a> {
     /// Called when visiting a resource type node in the build graph.
     fn visit_resource(&self,
                       id: usize,
-                      node: &resources::FilePath)
+                      node: &resource::Res)
                       -> Result<bool, String> {
         println!("thread {} :: {:?}", id, node);
 
@@ -95,7 +95,7 @@ impl<'a> Build<'a> {
     /// Called when visiting a task type node in the build graph.
     fn visit_task(&self,
                   id: usize,
-                  node: &[tasks::Command])
+                  node: &[task::Command])
                   -> Result<bool, String> {
         println!("thread {} :: {:?}", id, node);
         Ok(true)

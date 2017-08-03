@@ -21,3 +21,38 @@
 mod command;
 
 pub use self::command::Command;
+
+use std::fmt;
+use node;
+
+/// Complete list of task types. This list is used for derserialization
+/// purposes.
+#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash)]
+pub enum Task {
+    /// A single command execution.
+    Command(Command),
+}
+
+impl fmt::Display for Task {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &Task::Command(ref x) => x.fmt(f),
+        }
+    }
+}
+
+impl fmt::Debug for Task {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &Task::Command(ref x) => x.fmt(f),
+        }
+    }
+}
+
+impl node::Task for Task {
+    fn execute(&self) -> Result<(), node::Error> {
+        match self {
+            &Task::Command(ref x) => x.execute(),
+        }
+    }
+}

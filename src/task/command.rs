@@ -22,7 +22,7 @@ use std::fmt;
 use std::time;
 use std::path::PathBuf;
 
-use node::Task;
+use node::{Error, Task};
 
 /// A task that executes a single command. A command is simply a process to be
 /// spawned.
@@ -112,7 +112,7 @@ impl fmt::Debug for Command {
 }
 
 impl Task for Command {
-    fn execute(&self) -> Result<(), String> {
+    fn execute(&self) -> Result<(), Error> {
         println!("Executing `{:?}` in directory {:?}", self.args, self.cwd);
         Ok(())
     }

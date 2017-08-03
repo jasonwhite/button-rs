@@ -33,8 +33,8 @@ use petgraph::{graphmap, Direction};
 use crossbeam;
 use crossbeam::sync::MsQueue;
 
-use resources;
-use tasks;
+use resource;
+use task;
 use rules::Rules;
 
 #[derive(Clone, Copy, Ord, Eq, PartialOrd, PartialEq, Hash, Debug)]
@@ -56,8 +56,8 @@ pub enum Edge {
 /// A node in the graph.
 #[derive(Clone, Copy, Ord, Eq, PartialOrd, PartialEq, Hash, Debug)]
 pub enum Node<'a> {
-    Resource(&'a resources::FilePath),
-    Task(&'a Vec<tasks::Command>),
+    Resource(&'a resource::Res),
+    Task(&'a Vec<task::Command>),
 }
 
 impl<'a> fmt::Display for Node<'a> {
@@ -181,11 +181,11 @@ impl<N> fmt::Display for Race<N>
 /// Error when one or more race conditions are detected in the build graph.
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct RaceError<'a> {
-    pub races: Vec<Race<&'a resources::FilePath>>,
+    pub races: Vec<Race<&'a resource::Res>>,
 }
 
 impl<'a> RaceError<'a> {
-    pub fn new(mut races: Vec<Race<&'a resources::FilePath>>) -> RaceError {
+    pub fn new(mut races: Vec<Race<&'a resource::Res>>) -> RaceError {
         // Sort to avoid non-determinism in the output and to make testing
         // easier.
         races.sort();
@@ -525,8 +525,8 @@ fn traversal_worker<'a, F, E>(id: usize,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use resources::FilePath;
-    use tasks::Command;
+    use resource::{Res, FilePath};
+    use task::Command;
 
     #[test]
     fn test_good_graph() {
@@ -590,8 +590,8 @@ mod tests {
 
         let graph = from_rules(&rules);
 
-        let foo = FilePath::from("foo.o");
-        let bar = FilePath::from("bar.o");
+        let foo = Res::FilePath(FilePath::from("foo.o"));
+        let bar = Res::FilePath(FilePath::from("bar.o"));
 
         let races = vec![Race::new(&bar, 2), Race::new(&foo, 3)];
 
@@ -629,7 +629,7 @@ mod tests {
 
         let graph = from_rules(&rules);
 
-        let foo_c = FilePath::from("foo.c");
+        let foo_c = Res::FilePath(FilePath::from("foo.c"));
         let task = vec![Command::new(vec!["gcc".to_owned(),
                                           "foo.c".to_owned()])];
 

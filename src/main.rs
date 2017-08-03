@@ -34,8 +34,8 @@ mod rules;
 mod build;
 mod error;
 mod node;
-mod resources;
-mod tasks;
+mod resource;
+mod task;
 mod graph;
 
 use std::process::exit;
