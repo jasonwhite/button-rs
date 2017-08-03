@@ -131,7 +131,10 @@ mod tests {
             "inputs": ["foo.c", "foo.h"],
             "outputs": ["foo.o"],
             "tasks": [
-                {"args": ["gcc", "foo.c"]}
+                {
+                    "type": "command",
+                    "args": ["gcc", "foo.c"]
+                }
             ]
         }]"#;
 

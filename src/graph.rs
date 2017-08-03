@@ -534,21 +534,30 @@ mod tests {
         {
             "inputs": ["foo.c", "foo.h"],
             "tasks": [
-                {"args": ["gcc", "-c", "foo.c", "-o", "foo.o"]}
+                {
+                    "type": "command",
+                    "args": ["gcc", "-c", "foo.c", "-o", "foo.o"]
+                }
             ],
             "outputs": ["foo.o"]
         },
         {
             "inputs": ["bar.c", "foo.h"],
             "tasks": [
-                {"args": ["gcc", "-c", "bar.c", "-o", "bar.o"]}
+                {
+                    "type": "command",
+                    "args": ["gcc", "-c", "bar.c", "-o", "bar.o"]
+                }
             ],
             "outputs": ["bar.o"]
         },
         {
             "inputs": ["foo.o", "bar.o"],
             "tasks": [
-                {"args": ["gcc", "foo.o", "bar.o", "-o", "foobar"]}
+                {
+                    "type": "command",
+                    "args": ["gcc", "foo.o", "bar.o", "-o", "foobar"]
+                }
             ],
             "outputs": ["foobar"]
         }
@@ -566,21 +575,30 @@ mod tests {
         {
             "inputs": ["foo.c", "foo.h"],
             "tasks": [
-                {"args": ["gcc", "-c", "foo.c", "-o", "foo.o"]}
+                {
+                    "type": "command",
+                    "args": ["gcc", "-c", "foo.c", "-o", "foo.o"]
+                }
             ],
             "outputs": ["foo.o", "bar.o"]
         },
         {
             "inputs": ["bar.c", "foo.h"],
             "tasks": [
-                {"args": ["gcc", "-c", "bar.c", "-o", "bar.o"]}
+                {
+                    "type": "command",
+                    "args": ["gcc", "-c", "bar.c", "-o", "bar.o"]
+                }
             ],
             "outputs": ["bar.o", "foo.o"]
         },
         {
             "inputs": ["foo.o", "bar.o"],
             "tasks": [
-                {"args": ["gcc", "foo.o", "bar.o", "-o", "foobar"]}
+                {
+                    "type": "command",
+                    "args": ["gcc", "foo.o", "bar.o", "-o", "foobar"]
+                }
             ],
             "outputs": ["foobar", "foo.o"]
         }
@@ -605,21 +623,30 @@ mod tests {
         {
             "inputs": ["foo.c", "foo.h"],
             "tasks": [
-                {"args": ["gcc", "foo.c"]}
+                {
+                    "type": "command",
+                    "args": ["gcc", "foo.c"]
+                }
             ],
             "outputs": ["foo.o", "foo.c"]
         },
         {
             "inputs": ["bar.c", "foo.h"],
             "tasks": [
-                {"args": ["gcc", "bar.c"]}
+                {
+                    "type": "command",
+                    "args": ["gcc", "bar.c"]
+                }
             ],
             "outputs": ["bar.o"]
         },
         {
             "inputs": ["foo.o", "bar.o"],
             "tasks": [
-                {"args": ["gcc", "foo.o", "bar.o", "-o", "foobar"]}
+                {
+                    "type": "command",
+                    "args": ["gcc", "foo.o", "bar.o", "-o", "foobar"]
+                }
             ],
             "outputs": ["foobar"]
         }

@@ -2,21 +2,30 @@
     {
         "inputs": ["foo.c", "foo.h"],
         "tasks": [
-            {"args": ["gcc", "-c", "foo.c", "-o", "foo.o"]}
+            {
+                "type": "comamnd",
+                "args": ["gcc", "-c", "foo.c", "-o", "foo.o"]
+            }
         ],
         "outputs": ["foo.o"]
     },
     {
         "inputs": ["bar.c", "foo.h"],
         "tasks": [
-            {"args": ["gcc", "-c", "bar.c", "-o", "bar.o"]}
+            {
+                "type": "command",
+                "args": ["gcc", "-c", "bar.c", "-o", "bar.o"]
+            }
         ],
         "outputs": ["bar.o"]
     },
     {
         "inputs": ["foo.o", "bar.o"],
         "tasks": [
-            {"args": ["gcc", "foo.o", "bar.o", "-o", "foobar"]}
+            {
+                "type": "command",
+                "args": ["gcc", "foo.o", "bar.o", "-o", "foobar"]
+            }
         ],
         "outputs": ["foobar"]
     }
