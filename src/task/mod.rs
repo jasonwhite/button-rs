@@ -51,9 +51,9 @@ impl fmt::Debug for Task {
 }
 
 impl node::Task for Task {
-    fn execute(&self) -> Result<(), node::Error> {
+    fn run(&self) -> Result<(), node::Error> {
         match self {
-            &Task::Command(ref x) => x.execute(),
+            &Task::Command(ref x) => x.run(),
         }
     }
 }

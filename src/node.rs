@@ -87,5 +87,5 @@ pub trait Task: Serialize + Ord + PartialOrd + Eq + PartialEq + Hash + fmt::Disp
     /// the resources it output. These are its *implicit* inputs and outputs.
     /// Ideally, the *explicit* inputs and outputs are a subset of the
     /// *implicit* inputs and outputs.
-    fn execute(&self) -> Result<(), Error>;
+    fn run(&self) -> Result<(), Error>;
 }
