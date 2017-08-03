@@ -57,7 +57,7 @@ pub enum Edge {
 #[derive(Clone, Copy, Ord, Eq, PartialOrd, PartialEq, Hash, Debug)]
 pub enum Node<'a> {
     Resource(&'a resource::Res),
-    Task(&'a Vec<task::Command>),
+    Task(&'a Vec<task::Task>),
 }
 
 impl<'a> fmt::Display for Node<'a> {
@@ -526,7 +526,7 @@ fn traversal_worker<'a, F, E>(id: usize,
 mod tests {
     use super::*;
     use resource::{Res, FilePath};
-    use task::Command;
+    use task::{Task, Command};
 
     #[test]
     fn test_good_graph() {
@@ -630,8 +630,10 @@ mod tests {
         let graph = from_rules(&rules);
 
         let foo_c = Res::FilePath(FilePath::from("foo.c"));
-        let task = vec![Command::new(vec!["gcc".to_owned(),
-                                          "foo.c".to_owned()])];
+        let task = vec![
+            Task::Command(Command::new(vec!["gcc".to_owned(),
+                                            "foo.c".to_owned()])),
+        ];
 
         let cycles = vec![Cycle::new(vec![Node::Resource(&foo_c),
                                           Node::Task(&task)])];

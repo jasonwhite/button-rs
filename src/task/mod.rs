@@ -28,6 +28,7 @@ use node;
 /// Complete list of task types. This list is used for derserialization
 /// purposes.
 #[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[serde(untagged)]
 pub enum Task {
     /// A single command execution.
     Command(Command),

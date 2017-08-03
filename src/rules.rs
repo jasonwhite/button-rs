@@ -83,8 +83,8 @@ pub struct Rule {
     /// Outputs from the task.
     pub outputs: Vec<resource::Res>,
 
-    /// The sequence of commands to execute.
-    pub tasks: Vec<task::Command>,
+    /// The sequence of tasks to execute.
+    pub tasks: Vec<task::Task>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -122,7 +122,7 @@ impl Rules {
 mod tests {
     use super::*;
     use resource::{Res, FilePath};
-    use task::Command;
+    use task::{Task, Command};
 
     #[test]
     fn test_loading() {
@@ -145,8 +145,10 @@ mod tests {
         let outputs = vec![
             Res::FilePath(FilePath::from("foo.o")),
         ];
-        let tasks = vec![Command::new(vec!["gcc".to_owned(),
-                                           "foo.c".to_owned()])];
+        let tasks = vec![
+            Task::Command(Command::new(vec!["gcc".to_owned(),
+                                            "foo.c".to_owned()])),
+        ];
 
         assert_eq!(rules,
                    Rules::new(vec![Rule {
