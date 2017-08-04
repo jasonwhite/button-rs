@@ -19,8 +19,10 @@
 // THE SOFTWARE.
 
 mod command;
+mod download;
 
 pub use self::command::Command;
+pub use self::download::Download;
 
 use std::fmt;
 use node;
@@ -32,12 +34,16 @@ use node;
 pub enum Task {
     /// A single command execution.
     Command(Command),
+
+    /// Download something.
+    Download(Download),
 }
 
 impl fmt::Display for Task {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             &Task::Command(ref x) => x.fmt(f),
+            &Task::Download(ref x) => x.fmt(f),
         }
     }
 }
@@ -46,6 +52,7 @@ impl fmt::Debug for Task {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             &Task::Command(ref x) => x.fmt(f),
+            &Task::Download(ref x) => x.fmt(f),
         }
     }
 }
@@ -54,6 +61,7 @@ impl node::Task for Task {
     fn run(&self) -> Result<(), node::Error> {
         match self {
             &Task::Command(ref x) => x.run(),
+            &Task::Download(ref x) => x.run(),
         }
     }
 }
