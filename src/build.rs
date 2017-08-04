@@ -20,11 +20,14 @@
 
 use std::path::Path;
 
+use std::io;
+
 use error;
 use graph;
 use rules::Rules;
 use resource;
 use task;
+use node::Task;
 
 /// Represents a build. This holds the context necessary for all build
 /// operations.
@@ -98,6 +101,13 @@ impl<'a> Build<'a> {
                   node: &[task::Task])
                   -> Result<bool, String> {
         println!("thread {} :: {:?}", id, node);
+
+        let mut stdout = io::stdout();
+
+        for task in node {
+            task.run(&mut stdout);
+        }
+
         Ok(true)
     }
 }

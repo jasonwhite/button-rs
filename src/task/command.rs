@@ -49,8 +49,7 @@ pub struct Command {
 
     /// How many times to retry the command before giving up. This is useful for
     /// flaky tests that may need to be run several times before succeeding.
-    /// Between each execution, we wait a period of time. By default, an
-    /// exponential backoff function is used to determine the wait duration.
+    /// Between each execution, we wait a period of time.
     #[serde(default)]
     retries: u32,
 }

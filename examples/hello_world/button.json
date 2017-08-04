@@ -3,7 +3,7 @@
         "inputs": ["foo.c", "foo.h"],
         "tasks": [
             {
-                "type": "comamnd",
+                "type": "command",
                 "args": ["gcc", "-c", "foo.c", "-o", "foo.o"]
             }
         ],
