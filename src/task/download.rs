@@ -19,6 +19,7 @@
 // THE SOFTWARE.
 
 use std::fmt;
+use std::io;
 use std::time;
 use std::path::PathBuf;
 
@@ -75,8 +76,12 @@ impl fmt::Debug for Download {
 }
 
 impl Task for Download {
-    fn run(&self) -> Result<(), Error> {
-        println!("Downloading `{:?}` to {:?}", self.url, self.path);
+    fn retries(&self) -> u32 {
+        self.retries
+    }
+
+    fn run(&self, log: &mut io::Write) -> Result<(), Error> {
+        writeln!(log, "Downloading `{:?}` to {:?}", self.url, self.path)?;
 
         // TODO: Download it to the given path.
         // TODO: Verify its checksum. Fail if it is wrong and delete the bad

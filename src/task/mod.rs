@@ -25,6 +25,7 @@ pub use self::command::Command;
 pub use self::download::Download;
 
 use std::fmt;
+use std::io;
 use node;
 
 /// Complete list of task types. This list is used for derserialization
@@ -58,10 +59,17 @@ impl fmt::Debug for Task {
 }
 
 impl node::Task for Task {
-    fn run(&self) -> Result<(), node::Error> {
+    fn retries(&self) -> u32 {
         match self {
-            &Task::Command(ref x) => x.run(),
-            &Task::Download(ref x) => x.run(),
+            &Task::Command(ref x) => x.retries(),
+            &Task::Download(ref x) => x.retries(),
+        }
+    }
+
+    fn run(&self, log: &mut io::Write) -> Result<(), node::Error> {
+        match self {
+            &Task::Command(ref x) => x.run(log),
+            &Task::Download(ref x) => x.run(log),
         }
     }
 }

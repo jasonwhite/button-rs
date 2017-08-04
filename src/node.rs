@@ -83,9 +83,13 @@ pub trait Resource: Serialize + Ord + PartialOrd + Eq + PartialEq + Hash + fmt::
 ///  * Downloading a file.
 ///  * Creating a directory.
 pub trait Task: Serialize + Ord + PartialOrd + Eq + PartialEq + Hash + fmt::Display {
+    /// Number of times to retry the task if it fails. If retrying doesn't make
+    /// sense for a particular task, then it shall always return 0.
+    fn retries(&self) -> u32;
+
     /// Executes the task. The result of a task are the resources it used and
     /// the resources it output. These are its *implicit* inputs and outputs.
     /// Ideally, the *explicit* inputs and outputs are a subset of the
     /// *implicit* inputs and outputs.
-    fn run(&self) -> Result<(), Error>;
+    fn run(&self, log: &mut io::Write) -> Result<(), Error>;
 }

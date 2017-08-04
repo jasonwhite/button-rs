@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+use std::io;
 use std::fmt;
 use std::time;
 use std::path::PathBuf;
@@ -34,6 +35,9 @@ pub struct Command {
     /// Optional working directory to spawn the process in. If `None`, uses the
     /// working directory of the parent process (i.e., the build process).
     cwd: Option<PathBuf>,
+
+    /// Redirect standard output to a file instead.
+    stdout: Option<PathBuf>,
 
     /// String to display when executing the task. If `None`, the command
     /// arguments are displayed in full instead.
@@ -57,6 +61,7 @@ impl Command {
         Command {
             args: args,
             cwd: None,
+            stdout: None,
             display: None,
             timeout: None,
             retries: 0,
@@ -69,6 +74,13 @@ impl Command {
     #[allow(dead_code)]
     pub fn cwd(mut self, path: PathBuf) -> Command {
         self.cwd = Some(path);
+        self
+    }
+
+    // Sets the stdout file for the command.
+    #[allow(dead_code)]
+    pub fn stdout(mut self, path: PathBuf) -> Command {
+        self.stdout = Some(path);
         self
     }
 
@@ -112,8 +124,22 @@ impl fmt::Debug for Command {
 }
 
 impl Task for Command {
-    fn run(&self) -> Result<(), Error> {
-        println!("Executing `{:?}` in directory {:?}", self.args, self.cwd);
+
+    fn retries(&self) -> u32 {
+        self.retries
+    }
+
+    fn run(&self, log: &mut io::Write) -> Result<(), Error> {
+        writeln!(log, "Executing `{:?}` in directory {:?}", self.args, self.cwd)?;
+
+        // TODO:
+        //  1. Spawn the process
+        //  2. Capture stdout/stderr appropriately.
+        //  4. Add implicit dependency detection framework and refactor all of
+        //     the above to make it work.
+        //  5. Implement timeouts and retries.
+        //     a. Hoist retry machinery out of the task itself?
+
         Ok(())
     }
 }
