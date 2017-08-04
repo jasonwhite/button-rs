@@ -32,12 +32,6 @@ pub type Checksum = GenericArray<u8, typenum::U32>;
 /// used to determine if a resource has changed.
 #[allow(dead_code)]
 pub enum ResourceState {
-    /// The state of the resource has never been computed. In this case, the
-    /// resource must *never* be deleted. This state means that the build system
-    /// has not taken "ownership" of this resource and has no right to delete
-    /// it.
-    Unknown,
-
     /// The resource does not exist.
     Missing,
 

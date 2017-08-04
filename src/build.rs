@@ -89,6 +89,8 @@ impl<'a> Build<'a> {
                       -> Result<bool, String> {
         println!("thread {} :: {:?}", id, node);
 
+        // TODO: Determine if this resource has changed.
+
         // Only visit child nodes if this node's state has changed. For example,
         // when compiling an object file, if the generated object file has not
         // changed, there is no need to perform linking.
@@ -105,6 +107,10 @@ impl<'a> Build<'a> {
         let mut stdout = io::stdout();
 
         for task in node {
+            // TODO:
+            //  1. Handle errors
+            //  2. Handle retries
+            //  3. Handle sending build events
             task.run(&mut stdout);
         }
 
