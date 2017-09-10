@@ -75,7 +75,7 @@ impl<'a> Build<'a> {
     }
 
     /// Visitor function for a node.
-    fn visit(&self, id: usize, node: graph::Node) -> Result<bool, String> {
+    fn visit(&self, id: usize, node: graph::Node) -> Result<bool, io::Error> {
         match node {
             graph::Node::Resource(r) => self.visit_resource(id, r),
             graph::Node::Task(t) => self.visit_task(id, t),
@@ -86,7 +86,7 @@ impl<'a> Build<'a> {
     fn visit_resource(&self,
                       id: usize,
                       node: &resource::Res)
-                      -> Result<bool, String> {
+                      -> Result<bool, io::Error> {
         println!("thread {} :: {:?}", id, node);
 
         // TODO: Determine if this resource has changed.
@@ -101,17 +101,16 @@ impl<'a> Build<'a> {
     fn visit_task(&self,
                   id: usize,
                   node: &[task::Task])
-                  -> Result<bool, String> {
+                  -> Result<bool, io::Error> {
         println!("thread {} :: {:?}", id, node);
 
         let mut stdout = io::stdout();
 
         for task in node {
             // TODO:
-            //  1. Handle errors
-            //  2. Handle retries
-            //  3. Handle sending build events
-            task.run(&mut stdout);
+            //  1. Handle retries
+            //  2. Handle sending build events
+            task.run(&mut stdout)?;
         }
 
         Ok(true)
