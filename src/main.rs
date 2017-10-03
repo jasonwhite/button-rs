@@ -37,6 +37,7 @@ mod node;
 mod resource;
 mod task;
 mod graph;
+mod retry;
 
 use std::process::exit;
 

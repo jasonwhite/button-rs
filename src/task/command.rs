@@ -20,10 +20,12 @@
 
 use std::io;
 use std::fmt;
-use std::time;
+use std::time::Duration;
 use std::path::PathBuf;
 
 use node::{Error, Task};
+
+use retry::Retry;
 
 /// A task that executes a single command. A command is simply a process to be
 /// spawned.
@@ -45,13 +47,17 @@ pub struct Command {
 
     /// How much time to give the command to execute. If `None`, there is no
     /// time limit.
-    timeout: Option<time::Duration>,
+    timeout: Option<Duration>,
 
     /// How many times to retry the command before giving up. This is useful for
     /// flaky tests that may need to be run several times before succeeding.
     /// Between each execution, we wait a period of time.
     #[serde(default)]
     retries: u32,
+
+    /// The initial amount of time to wait after the first failure. Default is
+    /// one second.
+    retry_delay: Option<Duration>,
 }
 
 impl Command {
@@ -64,6 +70,7 @@ impl Command {
             display: None,
             timeout: None,
             retries: 0,
+            retry_delay: None,
         }
     }
 }
@@ -92,7 +99,7 @@ impl Command {
 
     // Sets the timeout for the command.
     #[allow(dead_code)]
-    pub fn timeout(mut self, timeout: time::Duration) -> Command {
+    pub fn timeout(mut self, timeout: Duration) -> Command {
         self.timeout = Some(timeout);
         self
     }
@@ -102,6 +109,23 @@ impl Command {
     pub fn retries(mut self, retries: u32) -> Command {
         self.retries = retries;
         self
+    }
+
+    fn run_impl(&self, log: &mut io::Write) -> Result<(), Error> {
+        writeln!(log,
+                 "Executing `{:?}` in directory {:?}",
+                 self.args,
+                 self.cwd)?;
+
+        // TODO:
+        //  1. Spawn the process
+        //  2. Capture stdout/stderr appropriately.
+        //  4. Add implicit dependency detection framework and refactor all of
+        //     the above to make it work.
+        //  5. Implement timeouts and retries.
+        //     a. Hoist retry machinery out of the task itself?
+
+        Ok(())
     }
 }
 
@@ -123,22 +147,14 @@ impl fmt::Debug for Command {
 }
 
 impl Task for Command {
-
     fn retries(&self) -> u32 {
         self.retries
     }
 
     fn run(&self, log: &mut io::Write) -> Result<(), Error> {
-        writeln!(log, "Executing `{:?}` in directory {:?}", self.args, self.cwd)?;
-
-        // TODO:
-        //  1. Spawn the process
-        //  2. Capture stdout/stderr appropriately.
-        //  4. Add implicit dependency detection framework and refactor all of
-        //     the above to make it work.
-        //  5. Implement timeouts and retries.
-        //     a. Hoist retry machinery out of the task itself?
-
-        Ok(())
+        Retry::new()
+            .retries(self.retries)
+            .delay(self.retry_delay.unwrap_or(Duration::from_secs(1)))
+            .call(|| self.run_impl(log))
     }
 }
