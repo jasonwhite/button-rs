@@ -140,18 +140,12 @@ mod tests {
 
         let rules = Rules::from_str(&data).unwrap();
 
-        let inputs = vec![
-            Res::FilePath(FilePath::from("foo.c")),
-            Res::FilePath(FilePath::from("foo.h")),
-        ];
+        let inputs = vec![Res::FilePath(FilePath::from("foo.c")),
+                          Res::FilePath(FilePath::from("foo.h"))];
 
-        let outputs = vec![
-            Res::FilePath(FilePath::from("foo.o")),
-        ];
-        let tasks = vec![
-            Task::Command(Command::new(vec!["gcc".to_owned(),
-                                            "foo.c".to_owned()])),
-        ];
+        let outputs = vec![Res::FilePath(FilePath::from("foo.o"))];
+        let tasks = vec![Task::Command(Command::new(vec!["gcc".to_owned(),
+                                            "foo.c".to_owned()]))];
 
         assert_eq!(rules,
                    Rules::new(vec![Rule {

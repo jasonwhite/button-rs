@@ -18,6 +18,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+//! In order for the build graph to be useful, it needs to do the following:
+//!
+//!  1. Perform a diff with another build graph in at most O(n) time. The diff
+//!     must be over both the nodes and edges of the graph. This requires
+//!     storing the graph's nodes and edges in sorted order (either internally
+//!     or externally).
+
 use std::error;
 use std::fmt;
 use std::cmp;
@@ -293,7 +300,7 @@ pub fn from_rules(rules: &Rules) -> Result<BuildGraph, Error> {
     Ok(check_cycles(check_races(graph)?)?)
 }
 
-/// Checks for race conditions in the graph. That is, if any race has two or
+/// Checks for race conditions in the graph. That is, if any node has two or
 /// more parents. In such a case where two tasks output the same resource,
 /// depending on the order in which they get executed, they could be overwriting
 /// each other's output.
@@ -657,10 +664,8 @@ mod tests {
         let graph = from_rules(&rules);
 
         let foo_c = Res::FilePath(FilePath::from("foo.c"));
-        let task = vec![
-            Task::Command(Command::new(vec!["gcc".to_owned(),
-                                            "foo.c".to_owned()])),
-        ];
+        let task = vec![Task::Command(Command::new(vec!["gcc".to_owned(),
+                                                        "foo.c".to_owned()]))];
 
         let cycles = vec![Cycle::new(vec![Node::Resource(&foo_c),
                                           Node::Task(&task)])];

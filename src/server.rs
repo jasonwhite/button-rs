@@ -65,7 +65,7 @@ pub struct Server {
     /// graph.
     pending: Vec<usize>,
 
-    /// The build graph, including all implicit edges.
+    /// The build graph.
     graph: BuildGraph,
 
     // TODO: Keep the current state of all resources. This shall simply be a

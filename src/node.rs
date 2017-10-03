@@ -52,7 +52,8 @@ pub type Error = io::Error;
 /// A resource is merely an *identifier*. It should not store any state about
 /// the actual thing it is referencing. The only state that can be stored with a
 /// resource is `ResourceState`.
-pub trait Resource: Serialize + Ord + PartialOrd + Eq + PartialEq + Hash + fmt::Display {
+pub trait Resource
+    : Serialize + Ord + PartialOrd + Eq + PartialEq + Hash + fmt::Display {
     /// Gets the state of the resource. This is used to determine if it has
     /// changed.
     fn state(&self) -> Result<ResourceState, Error>;
@@ -76,7 +77,8 @@ pub trait Resource: Serialize + Ord + PartialOrd + Eq + PartialEq + Hash + fmt::
 ///  * Copying a file or directory.
 ///  * Downloading a file.
 ///  * Creating a directory.
-pub trait Task: Serialize + Ord + PartialOrd + Eq + PartialEq + Hash + fmt::Display {
+pub trait Task
+    : Serialize + Ord + PartialOrd + Eq + PartialEq + Hash + fmt::Display {
     /// Number of times to retry the task if it fails. If retrying doesn't make
     /// sense for a particular task, then it shall always return 0.
     fn retries(&self) -> u32;

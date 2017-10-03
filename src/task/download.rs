@@ -51,8 +51,7 @@ pub struct Download {
 impl Download {
     #[cfg(test)]
     #[allow(dead_code)]
-    pub fn new(url: String, sha256: String, path: PathBuf) -> Download
-    {
+    pub fn new(url: String, sha256: String, path: PathBuf) -> Download {
         Download {
             url: url,
             sha256: sha256,
