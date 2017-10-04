@@ -86,6 +86,6 @@ impl fmt::Debug for Download {
 
 impl Task for Download {
     fn run(&self, log: &mut io::Write) -> Result<(), Error> {
-        self.retry.call(|| self.run_impl(log), retry::dummy_progress)
+        self.retry.call(|| self.run_impl(log), retry::progress_dummy)
     }
 }

@@ -140,6 +140,6 @@ impl fmt::Debug for Command {
 
 impl Task for Command {
     fn run(&self, log: &mut io::Write) -> Result<(), Error> {
-        self.retry.call(|| self.run_impl(log), retry::dummy_progress)
+        self.retry.call(|| self.run_impl(log), retry::progress_dummy)
     }
 }

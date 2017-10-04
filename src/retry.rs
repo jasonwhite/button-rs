@@ -55,9 +55,9 @@
 //! }
 //!
 //! let result = retry::Retry::new()
-//!     .retries(4)
-//!     .delay(Duration::from_secs(1))
-//!     .max_delay(Duration::from_secs(4))
+//!     .with_retries(4)
+//!     .with_delay(Duration::from_secs(1))
+//!     .with_max_delay(Duration::from_secs(4))
 //!     .call(|| find_answer("42"), retry_progress);
 //!
 //! match result {
@@ -65,6 +65,12 @@
 //!     Err(err) => println!("{}", err),
 //! };
 //! ```
+
+// TODO: Allow specifying a non-integer exponential backoff factor.
+// TODO: Allow jittering to further help avoid the "thundering herd" problem by
+// keeping retries from stacking up. Jittering is just adjusting the delay by a
+// random offset within an interval. If the interval length is 0, there is
+// effectively no jittering.
 
 use std::thread::sleep;
 use std::time::Duration;
@@ -74,14 +80,18 @@ use std::cmp::min;
 pub struct Retry {
     /// The number of times to *retry* a function. Note that the function is
     /// always called at least once.
-    retries: u32,
+    pub retries: u32,
 
     /// The initial duration to wait. For each retry, this is multiplied by the
-    /// exponential backoff factor.
-    delay: Duration,
+    /// exponential backoff factor. Set to a duration of 0 for no delay.
+    pub delay: Duration,
+
+    /// The backoff factor. A value of 1 means linear backoff. A value of 2
+    /// means exponential backoff. A value of 0 means no delay at all.
+    pub backoff: u32,
 
     /// The maximum possible delay. If `None`, there is no maximum delay.
-    max_delay: Option<Duration>,
+    pub max_delay: Option<Duration>,
 }
 
 impl Default for Retry {
@@ -89,6 +99,7 @@ impl Default for Retry {
         Retry {
             retries: 0,
             delay: Duration::from_secs(1),
+            backoff: 2,
             max_delay: None,
         }
     }
@@ -103,21 +114,28 @@ impl Retry {
 
     /// Sets the number of retries.
     #[allow(dead_code)]
-    pub fn retries(mut self, retries: u32) -> Retry {
+    pub fn with_retries(mut self, retries: u32) -> Retry {
         self.retries = retries;
         self
     }
 
     /// Sets the initial delay.
     #[allow(dead_code)]
-    pub fn delay(mut self, delay: Duration) -> Retry {
+    pub fn with_delay(mut self, delay: Duration) -> Retry {
         self.delay = delay;
+        self
+    }
+
+    /// Sets the backoff.
+    #[allow(dead_code)]
+    pub fn with_backoff(mut self, backoff: u32) -> Retry {
+        self.backoff = backoff;
         self
     }
 
     /// Sets the maximum possible delay.
     #[allow(dead_code)]
-    pub fn max_delay(mut self, max_delay: Duration) -> Retry {
+    pub fn with_max_delay(mut self, max_delay: Duration) -> Retry {
         self.max_delay = Some(max_delay);
         self
     }
@@ -147,8 +165,8 @@ impl Retry {
 
                         // Increase the delay.
                         delay = match self.max_delay {
-                            Some(max_delay) => min(delay * 2, max_delay),
-                            None => delay * 2,
+                            Some(max_delay) => min(delay * self.backoff, max_delay),
+                            None => delay * self.backoff,
                         };
                     } else {
                         // No more remaining attempts.
@@ -160,9 +178,10 @@ impl Retry {
     }
 }
 
-/// Dummy progress callback function.
+/// Dummy progress callback function. If you don't want to report progress on
+/// for each retry, use this function.
 #[allow(unused_variables)]
-pub fn dummy_progress<E>(retry: &Retry,
+pub fn progress_dummy<E>(retry: &Retry,
                          err: &E,
                          remaining: u32,
                          delay: Duration) -> bool
