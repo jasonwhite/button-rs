@@ -59,13 +59,6 @@ impl fmt::Debug for Task {
 }
 
 impl node::Task for Task {
-    fn retries(&self) -> u32 {
-        match self {
-            &Task::Command(ref x) => x.retries(),
-            &Task::Download(ref x) => x.retries(),
-        }
-    }
-
     fn run(&self, log: &mut io::Write) -> Result<(), node::Error> {
         match self {
             &Task::Command(ref x) => x.run(log),

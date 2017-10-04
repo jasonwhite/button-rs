@@ -23,32 +23,54 @@
 //! # Examples
 //!
 //! ```
+//! use std::time::Duration;
 //! use std::io;
+//! use std::io::Write;
+//! use std::error::Error;
 //!
 //! fn find_answer(answer: &str) -> io::Result<()> {
-//!
-//!     print!("Please enter the correct answer: ")?;
+//!     print!("Please enter the correct answer: ");
+//!     io::stdout().flush()?;
 //!
 //!     let mut buf = String::new();
-//!     io::stdin().read_line(&buf)?;
+//!     io::stdin().read_line(&mut buf)?;
 //!
-//!     return if buf == answer {
+//!     return if buf.trim() == answer {
 //!         Ok(())
 //!     } else {
 //!         Err(io::Error::new(io::ErrorKind::Other, "Sorry, that is not the answer."))
 //!     }
 //! }
 //!
-//! let result = Retry::new()
-//!     .retries(10)
-//!     .delay(Duration::from_secs(2))
-//!     .call(|| find_answer("42"));
+//! fn retry_progress(retry: &retry::Retry,
+//!                   err: &io::Error,
+//!                   remaining: u32,
+//!                   delay: Duration) -> bool {
+//!     println!("Error: {} ({} attempt(s) remaining. Retrying in ~{} seconds...)",
+//!         err.description(),
+//!         remaining,
+//!         delay.as_secs()
+//!     );
+//!     true
+//! }
+//!
+//! let result = retry::Retry::new()
+//!     .retries(4)
+//!     .delay(Duration::from_secs(1))
+//!     .max_delay(Duration::from_secs(4))
+//!     .call(|| find_answer("42"), retry_progress);
+//!
+//! match result {
+//!     Ok(()) => println!("Correct!"),
+//!     Err(err) => println!("{}", err),
+//! };
 //! ```
 
 use std::thread::sleep;
 use std::time::Duration;
 use std::cmp::min;
 
+#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Copy, Clone)]
 pub struct Retry {
     /// The number of times to *retry* a function. Note that the function is
     /// always called at least once.
@@ -62,28 +84,39 @@ pub struct Retry {
     max_delay: Option<Duration>,
 }
 
-impl Retry {
-    pub fn new() -> Retry {
+impl Default for Retry {
+    fn default() -> Retry {
         Retry {
             retries: 0,
             delay: Duration::from_secs(1),
             max_delay: None,
         }
     }
+}
+
+impl Retry {
+    /// Initializes a default `Retry`.
+    #[allow(dead_code)]
+    pub fn new() -> Retry {
+        Retry::default()
+    }
 
     /// Sets the number of retries.
+    #[allow(dead_code)]
     pub fn retries(mut self, retries: u32) -> Retry {
         self.retries = retries;
         self
     }
 
     /// Sets the initial delay.
+    #[allow(dead_code)]
     pub fn delay(mut self, delay: Duration) -> Retry {
         self.delay = delay;
         self
     }
 
     /// Sets the maximum possible delay.
+    #[allow(dead_code)]
     pub fn max_delay(mut self, max_delay: Duration) -> Retry {
         self.max_delay = Some(max_delay);
         self
@@ -92,33 +125,48 @@ impl Retry {
     /// Calls the function until it returns a `Ok` result. If an `Ok` result is
     /// never produced, returns the `Result` from the last call to the function
     /// that failed.
-    pub fn call<F, T, E>(&self, mut f: F) -> Result<T, E>
-        where F: FnMut() -> Result<T, E>
+    pub fn call<F, T, E, P>(&self, mut f: F, mut progress: P) -> Result<T, E>
+        where F: FnMut() -> Result<T, E>,
+              P: FnMut(&Retry, &E, u32, Duration) -> bool
     {
         let mut attempt = self.retries + 1;
         let mut delay = self.delay;
 
         loop {
-            let result = f();
+            match f() {
+                Ok(value) => return Ok(value),
+                Err(err) => {
+                    attempt -= 1;
 
-            if result.is_ok() {
-                return result;
-            }
+                    if attempt > 0 {
+                        if !progress(&self, &err, attempt, delay) {
+                            return Err(err);
+                        }
 
-            attempt -= 1;
+                        sleep(delay);
 
-            if attempt > 0 {
-                sleep(delay);
-
-                // Increase the delay.
-                delay = match self.max_delay {
-                    Some(max_delay) => min(delay * 2, max_delay),
-                    None => delay * 2,
-                };
-            } else {
-                // No more remaining attempts.
-                return result;
+                        // Increase the delay.
+                        delay = match self.max_delay {
+                            Some(max_delay) => min(delay * 2, max_delay),
+                            None => delay * 2,
+                        };
+                    } else {
+                        // No more remaining attempts.
+                        return Err(err);
+                    }
+                },
             }
         }
     }
+}
+
+/// Dummy progress callback function.
+#[allow(unused_variables)]
+pub fn dummy_progress<E>(retry: &Retry,
+                         err: &E,
+                         remaining: u32,
+                         delay: Duration) -> bool
+{
+    // Keep going.
+    true
 }

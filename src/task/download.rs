@@ -25,6 +25,8 @@ use std::path::PathBuf;
 
 use node::{Error, Task};
 
+use retry;
+
 /// A task to download a URL. This would normally be a task with no input
 /// resources.
 #[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
@@ -41,11 +43,9 @@ pub struct Download {
     /// How much time to give it to download. If `None`, there is no time limit.
     timeout: Option<time::Duration>,
 
-    /// How many times to retry the download before giving up. This is useful
-    /// for flaky connections that may need to be tried several times before
-    /// succeeding.
+    /// Retry settings.
     #[serde(default)]
-    retries: u32,
+    retry: retry::Retry,
 }
 
 impl Download {
@@ -57,8 +57,18 @@ impl Download {
             sha256: sha256,
             path: path,
             timeout: None,
-            retries: 0,
+            retry: retry::Retry::new(),
         }
+    }
+
+    fn run_impl(&self, log: &mut io::Write) -> Result<(), Error> {
+        writeln!(log, "Downloading `{:?}` to {:?}", self.url, self.path)?;
+
+        // TODO: Download it to the given path.
+        // TODO: Verify its checksum. Fail if it is wrong and delete the bad
+        // file.
+        // TODO: Implement timeouts and retries.
+        Ok(())
     }
 }
 
@@ -75,17 +85,7 @@ impl fmt::Debug for Download {
 }
 
 impl Task for Download {
-    fn retries(&self) -> u32 {
-        self.retries
-    }
-
     fn run(&self, log: &mut io::Write) -> Result<(), Error> {
-        writeln!(log, "Downloading `{:?}` to {:?}", self.url, self.path)?;
-
-        // TODO: Download it to the given path.
-        // TODO: Verify its checksum. Fail if it is wrong and delete the bad
-        // file.
-        // TODO: Implement timeouts and retries.
-        Ok(())
+        self.retry.call(|| self.run_impl(log), retry::dummy_progress)
     }
 }

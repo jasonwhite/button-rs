@@ -25,7 +25,7 @@ use std::path::PathBuf;
 
 use node::{Error, Task};
 
-use retry::Retry;
+use retry;
 
 /// A task that executes a single command. A command is simply a process to be
 /// spawned.
@@ -49,15 +49,9 @@ pub struct Command {
     /// time limit.
     timeout: Option<Duration>,
 
-    /// How many times to retry the command before giving up. This is useful for
-    /// flaky tests that may need to be run several times before succeeding.
-    /// Between each execution, we wait a period of time.
+    /// Retry settings.
     #[serde(default)]
-    retries: u32,
-
-    /// The initial amount of time to wait after the first failure. Default is
-    /// one second.
-    retry_delay: Option<Duration>,
+    retry: retry::Retry,
 }
 
 impl Command {
@@ -69,8 +63,7 @@ impl Command {
             stdout: None,
             display: None,
             timeout: None,
-            retries: 0,
-            retry_delay: None,
+            retry: retry::Retry::new(),
         }
     }
 }
@@ -104,10 +97,10 @@ impl Command {
         self
     }
 
-    // Sets the number of retries for the command.
+    // Sets the retry configuration.
     #[allow(dead_code)]
-    pub fn retries(mut self, retries: u32) -> Command {
-        self.retries = retries;
+    pub fn retry(mut self, retry: retry::Retry) -> Command {
+        self.retry = retry;
         self
     }
 
@@ -122,8 +115,7 @@ impl Command {
         //  2. Capture stdout/stderr appropriately.
         //  4. Add implicit dependency detection framework and refactor all of
         //     the above to make it work.
-        //  5. Implement timeouts and retries.
-        //     a. Hoist retry machinery out of the task itself?
+        //  5. Implement timeouts.
 
         Ok(())
     }
@@ -147,14 +139,7 @@ impl fmt::Debug for Command {
 }
 
 impl Task for Command {
-    fn retries(&self) -> u32 {
-        self.retries
-    }
-
     fn run(&self, log: &mut io::Write) -> Result<(), Error> {
-        Retry::new()
-            .retries(self.retries)
-            .delay(self.retry_delay.unwrap_or(Duration::from_secs(1)))
-            .call(|| self.run_impl(log))
+        self.retry.call(|| self.run_impl(log), retry::dummy_progress)
     }
 }
