@@ -75,6 +75,7 @@
 use std::thread::sleep;
 use std::time::Duration;
 use std::cmp::min;
+use std::error::Error;
 
 #[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Copy, Clone)]
 pub struct Retry {
@@ -107,34 +108,34 @@ impl Default for Retry {
 
 impl Retry {
     /// Initializes a default `Retry`.
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn new() -> Retry {
         Retry::default()
     }
 
     /// Sets the number of retries.
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn with_retries(mut self, retries: u32) -> Retry {
         self.retries = retries;
         self
     }
 
     /// Sets the initial delay.
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn with_delay(mut self, delay: Duration) -> Retry {
         self.delay = delay;
         self
     }
 
     /// Sets the backoff.
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn with_backoff(mut self, backoff: u32) -> Retry {
         self.backoff = backoff;
         self
     }
 
     /// Sets the maximum possible delay.
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn with_max_delay(mut self, max_delay: Duration) -> Retry {
         self.max_delay = Some(max_delay);
         self
@@ -187,5 +188,22 @@ pub fn progress_dummy<E>(retry: &Retry,
                          delay: Duration) -> bool
 {
     // Keep going.
+    true
+}
+
+/// Progress callback function for simply printing the progress of each retry.
+#[allow(unused)]
+pub fn progress_print<E>(retry: &Retry,
+                         err: &E,
+                         remaining: u32,
+                         delay: Duration) -> bool
+    where E: Error
+{
+    println!("Error: {} ({}/{} attempt(s) remaining. Retrying in ~{} seconds...)",
+        err.description(),
+        remaining,
+        retry.retries,
+        delay.as_secs()
+    );
     true
 }
