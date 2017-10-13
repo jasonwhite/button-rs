@@ -107,10 +107,8 @@ impl<'a> Build<'a> {
         let mut stdout = io::stdout();
 
         for task in node {
-            // TODO:
-            //  1. Handle retries
-            //  2. Handle sending build events
-            task.run(&mut stdout)?;
+            // TODO: Replace stdout with event stream.
+            task.execute(&mut stdout)?;
         }
 
         Ok(true)

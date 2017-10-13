@@ -61,7 +61,7 @@ impl Download {
         }
     }
 
-    fn run_impl(&self, log: &mut io::Write) -> Result<(), Error> {
+    fn execute_impl(&self, log: &mut io::Write) -> Result<(), Error> {
         writeln!(log, "Downloading `{:?}` to {:?}", self.url, self.path)?;
 
         // TODO: Download it to the given path.
@@ -85,7 +85,7 @@ impl fmt::Debug for Download {
 }
 
 impl Task for Download {
-    fn run(&self, log: &mut io::Write) -> Result<(), Error> {
-        self.retry.call(|| self.run_impl(log), retry::progress_dummy)
+    fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
+        self.retry.call(|| self.execute_impl(log), retry::progress_dummy)
     }
 }

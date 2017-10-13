@@ -104,7 +104,7 @@ impl Command {
         self
     }
 
-    fn run_impl(&self, log: &mut io::Write) -> Result<(), Error> {
+    fn execute_impl(&self, log: &mut io::Write) -> Result<(), Error> {
         writeln!(log,
                  "Executing `{:?}` in directory {:?}",
                  self.args,
@@ -139,7 +139,7 @@ impl fmt::Debug for Command {
 }
 
 impl Task for Command {
-    fn run(&self, log: &mut io::Write) -> Result<(), Error> {
-        self.retry.call(|| self.run_impl(log), retry::progress_dummy)
+    fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
+        self.retry.call(|| self.execute_impl(log), retry::progress_dummy)
     }
 }

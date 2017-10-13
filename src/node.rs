@@ -84,5 +84,5 @@ pub trait Task
     /// the resources it output. These are its *implicit* inputs and outputs.
     /// Ideally, the *explicit* inputs and outputs are a subset of the
     /// *implicit* inputs and outputs.
-    fn run(&self, log: &mut io::Write) -> Result<(), Error>;
+    fn execute(&self, log: &mut io::Write) -> Result<(), Error>;
 }

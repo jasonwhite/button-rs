@@ -59,10 +59,10 @@ impl fmt::Debug for Task {
 }
 
 impl node::Task for Task {
-    fn run(&self, log: &mut io::Write) -> Result<(), node::Error> {
+    fn execute(&self, log: &mut io::Write) -> Result<(), node::Error> {
         match self {
-            &Task::Command(ref x) => x.run(log),
-            &Task::Download(ref x) => x.run(log),
+            &Task::Command(ref x) => x.execute(log),
+            &Task::Download(ref x) => x.execute(log),
         }
     }
 }
