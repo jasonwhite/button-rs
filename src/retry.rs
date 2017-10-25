@@ -166,14 +166,16 @@ impl Retry {
 
                         // Increase the delay.
                         delay = match self.max_delay {
-                            Some(max_delay) => min(delay * self.backoff, max_delay),
+                            Some(max_delay) => {
+                                min(delay * self.backoff, max_delay)
+                            }
                             None => delay * self.backoff,
                         };
                     } else {
                         // No more remaining attempts.
                         return Err(err);
                     }
-                },
+                }
             }
         }
     }
@@ -185,8 +187,8 @@ impl Retry {
 pub fn progress_dummy<E>(retry: &Retry,
                          err: &E,
                          remaining: u32,
-                         delay: Duration) -> bool
-{
+                         delay: Duration)
+                         -> bool {
     // Keep going.
     true
 }
@@ -196,14 +198,14 @@ pub fn progress_dummy<E>(retry: &Retry,
 pub fn progress_print<E>(retry: &Retry,
                          err: &E,
                          remaining: u32,
-                         delay: Duration) -> bool
+                         delay: Duration)
+                         -> bool
     where E: Error
 {
     println!("Error: {} ({}/{} attempt(s) remaining. Retrying in ~{} seconds...)",
-        err.description(),
-        remaining,
-        retry.retries,
-        delay.as_secs()
-    );
+             err.description(),
+             remaining,
+             retry.retries,
+             delay.as_secs());
     true
 }
