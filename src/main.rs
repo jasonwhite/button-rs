@@ -49,9 +49,7 @@ fn main() {
 
     if let Some(matches) = matches {
         exit(match cli::subcommand(name, matches) {
-                 Ok(cli::Command::Build(opts)) => opts.run(),
-                 Ok(cli::Command::Clean(opts)) => opts.run(),
-                 Ok(cli::Command::Graph(opts)) => opts.run(),
+                 Ok(cmd) => cmd.run(),
                  Err(err) => {
                      println!("{}", err);
                      1

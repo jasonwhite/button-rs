@@ -24,7 +24,8 @@ use num_cpus;
 
 use build;
 use rules::Rules;
-use cli::opts;
+
+use cli::opts::{self, SubCommand};
 
 /// 'build' subcommand options
 #[derive(Debug)]
@@ -37,19 +38,23 @@ pub struct Build {
     pub delay: usize,
 }
 
-impl Build {
-    pub fn from_matches(matches: &clap::ArgMatches) -> clap::Result<Build> {
+impl SubCommand for Build {
+    fn from_matches(matches: &clap::ArgMatches)
+                    -> clap::Result<Box<SubCommand>> {
         let cpu_count = num_cpus::get();
 
-        Ok(Build {
-               file: opts::rules_path(matches.value_of("file").map(Path::new)),
-               dryrun: matches.is_present("dryrun"),
-               color: value_t!(matches.value_of("color"), opts::Coloring)?,
-               threads: value_t!(matches, "threads", usize)
-                   .unwrap_or(cpu_count),
-               autobuild: matches.is_present("auto"),
-               delay: value_t!(matches, "delay", usize)?,
-           })
+        Ok(Box::new(Build {
+                        file: opts::rules_path(matches
+                                                   .value_of("file")
+                                                   .map(Path::new)),
+                        dryrun: matches.is_present("dryrun"),
+                        color: value_t!(matches.value_of("color"),
+                                        opts::Coloring)?,
+                        threads: value_t!(matches, "threads", usize)
+                            .unwrap_or(cpu_count),
+                        autobuild: matches.is_present("auto"),
+                        delay: value_t!(matches, "delay", usize)?,
+                    }))
     }
 
     /// Runs an incremental build.
@@ -87,7 +92,7 @@ impl Build {
     ///  5. Walk the graph starting at the queued nodes to create a subgraph.
     ///     This needs to be done because the graph traversal for the build is
     ///     not guaranteed to be traversed in the correct order.
-    pub fn run(&self) -> i32 {
+    fn run(&self) -> i32 {
         let root = self.file.parent().unwrap_or_else(|| Path::new("."));
 
         let build = build::Build::new(root, self.dryrun);

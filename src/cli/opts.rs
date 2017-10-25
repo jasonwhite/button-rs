@@ -23,6 +23,18 @@ use std::str::FromStr;
 use std::path::{Path, PathBuf};
 use std::env;
 
+use clap;
+
+/// A command.
+pub trait SubCommand {
+    /// Creates the command from parsed arguments.
+    fn from_matches(matches: &clap::ArgMatches) -> clap::Result<Box<SubCommand>>
+        where Self: Sized;
+
+    /// Runs the command.
+    fn run(&self) -> i32;
+}
+
 /// Coloring of command output.
 #[derive(Debug)]
 pub enum Coloring {
