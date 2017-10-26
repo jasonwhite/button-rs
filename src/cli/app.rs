@@ -20,7 +20,6 @@
 use clap;
 
 use cli::cmd;
-use cli::opts::SubCommand;
 
 /// Returns clap App arguments to use for parsing.
 pub fn app<'a, 'b>() -> clap::App<'a, 'b> {
@@ -125,13 +124,19 @@ pub fn app<'a, 'b>() -> clap::App<'a, 'b> {
         )
 }
 
+pub enum Command {
+    Build(cmd::Build),
+    Clean(cmd::Clean),
+    Graph(cmd::Graph),
+}
+
 pub fn subcommand<'a>(name: &str,
                       matches: &clap::ArgMatches<'a>)
-                      -> clap::Result<Box<SubCommand>> {
+                      -> clap::Result<Command> {
     match name {
-        "build" => cmd::Build::from_matches(matches),
-        "clean" => cmd::Clean::from_matches(matches),
-        "graph" => cmd::Graph::from_matches(matches),
+        "build" => cmd::Build::from_matches(matches).map(Command::Build),
+        "clean" => cmd::Clean::from_matches(matches).map(Command::Clean),
+        "graph" => cmd::Graph::from_matches(matches).map(Command::Graph),
 
         // If all subcommands are matched above, then this shouldn't happen.
         _ => unreachable!(),

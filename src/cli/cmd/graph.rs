@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use clap;
 use num_cpus;
 
-use cli::opts::{self, SubCommand};
+use cli::opts;
 
 /// 'graph' subcommand options
 #[derive(Debug)]
@@ -35,27 +35,23 @@ pub struct Graph {
     pub edges: opts::Edges,
 }
 
-impl SubCommand for Graph {
-    fn from_matches(matches: &clap::ArgMatches)
-                    -> clap::Result<Box<SubCommand>> {
+impl Graph {
+    pub fn from_matches(matches: &clap::ArgMatches) -> clap::Result<Graph> {
         let cpu_count = num_cpus::get();
 
-        Ok(Box::new(Graph {
-                        file: opts::rules_path(matches
-                                                   .value_of("file")
-                                                   .map(Path::new)),
-                        threads: value_t!(matches, "threads", usize)
-                            .unwrap_or(cpu_count),
-                        changes: matches.is_present("changes"),
-                        cached: matches.is_present("cached"),
-                        full: matches.is_present("full"),
-                        edges: value_t!(matches.value_of("edges"),
-                                        opts::Edges)?,
-                    }))
+        Ok(Graph {
+               file: opts::rules_path(matches.value_of("file").map(Path::new)),
+               threads: value_t!(matches, "threads", usize)
+                   .unwrap_or(cpu_count),
+               changes: matches.is_present("changes"),
+               cached: matches.is_present("cached"),
+               full: matches.is_present("full"),
+               edges: value_t!(matches.value_of("edges"), opts::Edges)?,
+           })
     }
 
     /// Shows a pretty graph of your damn software.
-    fn run(&self) -> i32 {
+    pub fn run(&self) -> i32 {
         println!("{:#?}", self);
 
         0

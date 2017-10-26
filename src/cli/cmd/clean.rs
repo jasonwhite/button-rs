@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use clap;
 use num_cpus;
 
-use cli::opts::{self, SubCommand};
+use cli::opts;
 
 /// 'clean' subcommand options
 #[derive(Debug)]
@@ -34,26 +34,22 @@ pub struct Clean {
     pub purge: bool,
 }
 
-impl SubCommand for Clean {
-    fn from_matches(matches: &clap::ArgMatches)
-                    -> clap::Result<Box<SubCommand>> {
+impl Clean {
+    pub fn from_matches(matches: &clap::ArgMatches) -> clap::Result<Clean> {
         let cpu_count = num_cpus::get();
 
-        Ok(Box::new(Clean {
-                        file: opts::rules_path(matches
-                                                   .value_of("file")
-                                                   .map(Path::new)),
-                        dryrun: matches.is_present("dryrun"),
-                        color: value_t!(matches.value_of("color"),
-                                        opts::Coloring)?,
-                        threads: value_t!(matches, "threads", usize)
-                            .unwrap_or(cpu_count),
-                        purge: matches.is_present("purge"),
-                    }))
+        Ok(Clean {
+               file: opts::rules_path(matches.value_of("file").map(Path::new)),
+               dryrun: matches.is_present("dryrun"),
+               color: value_t!(matches.value_of("color"), opts::Coloring)?,
+               threads: value_t!(matches, "threads", usize)
+                   .unwrap_or(cpu_count),
+               purge: matches.is_present("purge"),
+           })
     }
 
     /// Cleans your damn software.
-    fn run(&self) -> i32 {
+    pub fn run(&self) -> i32 {
         println!("{:#?}", self);
 
         0

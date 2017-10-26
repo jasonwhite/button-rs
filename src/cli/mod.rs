@@ -21,4 +21,4 @@ pub mod opts;
 pub mod app;
 pub mod cmd;
 
-pub use self::app::{app, subcommand};
+pub use self::app::{Command, app, subcommand};
