@@ -48,10 +48,8 @@ fn main() {
     let (name, matches) = app_matches.subcommand();
 
     if let Some(matches) = matches {
-        exit(match cli::subcommand(name, matches) {
-                 Ok(cli::Command::Build(opts)) => opts.run(),
-                 Ok(cli::Command::Clean(opts)) => opts.run(),
-                 Ok(cli::Command::Graph(opts)) => opts.run(),
+        exit(match cli::Command::from_matches(name, matches) {
+                 Ok(command) => command.run(),
                  Err(err) => {
                      println!("{}", err);
                      1
