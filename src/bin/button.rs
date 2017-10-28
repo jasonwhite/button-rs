@@ -22,18 +22,20 @@ extern crate button;
 extern crate clap;
 extern crate num_cpus;
 
-mod cli;
+mod app;
+mod cmd;
+mod opts;
 
 use std::process::exit;
 
 fn main() {
 
-    let app_matches = cli::app().get_matches();
+    let app_matches = app::app().get_matches();
 
     let (name, matches) = app_matches.subcommand();
 
     if let Some(matches) = matches {
-        exit(match cli::Command::from_matches(name, matches) {
+        exit(match cmd::Command::from_matches(name, matches) {
                  Ok(command) => command.run(),
                  Err(err) => {
                      println!("{}", err);

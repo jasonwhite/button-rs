@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use clap;
 use num_cpus;
 
-use cli::opts;
+use opts;
 
 /// 'graph' subcommand options
 #[derive(Debug)]

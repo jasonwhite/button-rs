@@ -25,7 +25,7 @@ use num_cpus;
 use button::build;
 use button::rules::Rules;
 
-use cli::opts;
+use opts;
 
 /// 'build' subcommand options
 #[derive(Debug)]
