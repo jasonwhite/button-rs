@@ -28,6 +28,8 @@ extern crate num_cpus;
 extern crate crossbeam;
 extern crate sha2;
 extern crate generic_array;
+#[macro_use]
+extern crate error_chain;
 
 mod cli;
 mod rules;
