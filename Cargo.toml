@@ -2,6 +2,15 @@
 name = "button"
 version = "0.1.0"
 authors = ["Jason White"]
+license = "MIT"
+repository = "https://github.com/jasonwhite/button-rs"
+
+[[bin]]
+name = "button"
+
+[lib]
+name = "button"
+path = "src/button/lib.rs"
 
 [dependencies]
 clap = "~2.20.0"

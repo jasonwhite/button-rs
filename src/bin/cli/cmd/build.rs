@@ -22,8 +22,9 @@ use std::path::{Path, PathBuf};
 use clap;
 use num_cpus;
 
-use build;
-use rules::Rules;
+use button::build;
+use button::rules::Rules;
+
 use cli::opts;
 
 /// 'build' subcommand options
