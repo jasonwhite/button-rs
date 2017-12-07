@@ -105,10 +105,7 @@ impl Command {
     }
 
     fn execute_impl(&self, log: &mut io::Write) -> Result<(), Error> {
-        writeln!(log,
-                 "Executing `{:?}` in directory {:?}",
-                 self.args,
-                 self.cwd)?;
+        writeln!(log, "Executing `{}`", self)?;
 
         // TODO:
         //  1. Spawn the process
@@ -121,20 +118,51 @@ impl Command {
     }
 }
 
+/// Formats a single command line argument according to the rules of bash.
+fn format_arg(f: &mut fmt::Formatter, arg: &str) -> fmt::Result {
+    write!(f, "{}", arg)
+}
+
 impl fmt::Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(ref display) = self.display {
             write!(f, "{}", display)
         } else {
-            // TODO: Format as a bash command.
-            write!(f, "{:?}", self.args)
+            let mut args = self.args.iter();
+
+            if let Some(arg) = args.next() {
+                format_arg(f, arg)?;
+            }
+
+            for arg in args {
+                write!(f, " ")?;
+                format_arg(f, arg)?;
+            }
+
+            Ok(())
         }
     }
 }
 
 impl fmt::Debug for Command {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.args)
+
+        write!(f, "\"")?;
+
+        let mut args = self.args.iter();
+
+        if let Some(arg) = args.next() {
+            format_arg(f, arg)?;
+        }
+
+        for arg in args {
+            write!(f, " ")?;
+            format_arg(f, arg)?;
+        }
+
+        write!(f, "\"")?;
+
+        Ok(())
     }
 }
 
@@ -142,5 +170,15 @@ impl Task for Command {
     fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
         self.retry
             .call(|| self.execute_impl(log), retry::progress_dummy)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_command_display() {
+        assert_eq!(format!("{}", ));
     }
 }
