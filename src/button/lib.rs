@@ -25,8 +25,6 @@ extern crate petgraph;
 extern crate crossbeam;
 extern crate sha2;
 extern crate generic_array;
-#[macro_use]
-extern crate error_chain;
 
 pub mod rules;
 pub mod build;
