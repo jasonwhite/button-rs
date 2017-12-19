@@ -13,7 +13,7 @@ name = "button"
 path = "src/button/lib.rs"
 
 [dependencies]
-clap = "~2.20.0"
+clap = "2"
 num_cpus = "1"
 serde = "1.0"
 serde_derive = "1.0"
