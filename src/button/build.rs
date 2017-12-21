@@ -20,7 +20,7 @@
 
 use std::path::Path;
 
-use std::io;
+use std::io::{self, Write};
 
 use error;
 use graph;
@@ -64,11 +64,14 @@ impl<'a> Build<'a> {
 
         let g = graph::from_rules(rules)?;
 
-        if let Err(err) = graph::traverse(&g,
+        if let Err(errors) = graph::traverse(&g,
                                           |id, node| self.visit(id, node),
                                           threads) {
-            // TODO: Propagate error.
-            println!("{:?}", err);
+            // TODO: Propagate errors.
+            println!("The following errors occurred during the build:");
+            for err in errors {
+                println!("{:?}", err);
+            }
         }
 
         Ok(())
@@ -84,10 +87,10 @@ impl<'a> Build<'a> {
 
     /// Called when visiting a resource type node in the build graph.
     fn visit_resource(&self,
-                      id: usize,
-                      node: &resource::Res)
+                      _id: usize,
+                      _node: &resource::Res)
                       -> Result<bool, io::Error> {
-        println!("thread {} :: {:?}", id, node);
+        //println!("thread {} :: {}", id, node);
 
         // TODO: Determine if this resource has changed.
 
@@ -102,14 +105,24 @@ impl<'a> Build<'a> {
                   id: usize,
                   node: &[task::Task])
                   -> Result<bool, io::Error> {
-        println!("thread {} :: {:?}", id, node);
 
         let mut stdout = io::stdout();
 
+        let mut output = Vec::new();
+
         for task in node {
-            // TODO: Replace stdout with event stream.
-            task.execute(&mut stdout)?;
+            writeln!(output, "[{}] {}", id, task)?;
+
+            match task.execute(&mut output) {
+                Err(err) => {
+                    stdout.write(&output)?;
+                    return Err(err);
+                }
+                Ok(()) => {}
+            };
         }
+
+        stdout.write(&output)?;
 
         Ok(true)
     }

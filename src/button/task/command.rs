@@ -22,6 +22,7 @@ use std::io;
 use std::fmt;
 use std::time::Duration;
 use std::path::PathBuf;
+use std::process;
 
 use node::{Error, Task};
 
@@ -105,7 +106,9 @@ impl Command {
     }
 
     fn execute_impl(&self, log: &mut io::Write) -> Result<(), Error> {
-        writeln!(log, "Executing `{}`", self)?;
+        //writeln!(log, "Executing `{}`", self)?;
+
+        assert!(self.args.len() > 0);
 
         // TODO:
         //  1. Spawn the process
@@ -114,7 +117,30 @@ impl Command {
         //     the above to make it work.
         //  5. Implement timeouts.
 
-        Ok(())
+        let output = process::Command::new(&self.args[0])
+            .stdin(process::Stdio::null())
+            .args(&self.args[1..])
+            .output()?;
+
+        // TODO: Combine stdout and stderr.
+        log.write(&output.stdout)?;
+        log.write(&output.stderr)?;
+
+        if output.status.success() {
+            Ok(())
+        } else {
+            match output.status.code() {
+                Some(code) => {
+                    Err(io::Error::new(io::ErrorKind::Other,
+                                       format!("Process exited with error code {}",
+                                               code)))
+                }
+                None => {
+                    Err(io::Error::new(
+                            io::ErrorKind::Other, "Process terminated by signal"))
+                }
+            }
+        }
     }
 }
 
