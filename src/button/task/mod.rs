@@ -20,9 +20,11 @@
 
 mod command;
 mod download;
+mod mkdir;
 
 pub use self::command::Command;
 pub use self::download::Download;
+pub use self::mkdir::Mkdir;
 
 use std::fmt;
 use std::io;
@@ -38,6 +40,9 @@ pub enum Task {
 
     /// Download something.
     Download(Download),
+
+    /// Create a directory.
+    Mkdir(Mkdir),
 }
 
 impl fmt::Display for Task {
@@ -45,6 +50,7 @@ impl fmt::Display for Task {
         match self {
             &Task::Command(ref x) => x.fmt(f),
             &Task::Download(ref x) => x.fmt(f),
+            &Task::Mkdir(ref x) => x.fmt(f),
         }
     }
 }
@@ -54,6 +60,7 @@ impl fmt::Debug for Task {
         match self {
             &Task::Command(ref x) => x.fmt(f),
             &Task::Download(ref x) => x.fmt(f),
+            &Task::Mkdir(ref x) => x.fmt(f),
         }
     }
 }
@@ -63,6 +70,7 @@ impl node::Task for Task {
         match self {
             &Task::Command(ref x) => x.execute(log),
             &Task::Download(ref x) => x.execute(log),
+            &Task::Mkdir(ref x) => x.execute(log),
         }
     }
 }

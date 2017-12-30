@@ -18,75 +18,45 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::fmt;
 use std::io;
-use std::time;
+use std::fs;
+use std::fmt;
 use std::path::PathBuf;
 
 use node::{Error, Task};
 
 use retry;
 
-/// A task to download a URL. This would normally be a task with no input
-/// resources.
+/// A task to create a directory.
 #[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
-pub struct Download {
-    /// Process and arguments to spawn.
-    url: String,
-
-    /// Expected SHA256 hash.
-    sha256: String,
-
-    /// Output path.
+pub struct Mkdir {
+    /// Path to the directory to create.
     path: PathBuf,
-
-    /// How much time to give it to download. If `None`, there is no time limit.
-    timeout: Option<time::Duration>,
 
     /// Retry settings.
     #[serde(default)]
     retry: retry::Retry,
 }
 
-impl Download {
-    #[cfg(test)]
-    #[allow(dead_code)]
-    pub fn new(url: String, sha256: String, path: PathBuf) -> Download {
-        Download {
-            url: url,
-            sha256: sha256,
-            path: path,
-            timeout: None,
-            retry: retry::Retry::new(),
-        }
-    }
-
-    fn execute_impl(&self, log: &mut io::Write) -> Result<(), Error> {
-        writeln!(log, "Downloading `{:?}` to {:?}", self.url, self.path)?;
-
-        // TODO:
-        //  1. Download to a temporary path.
-        //  2. Verify its checksum. Fail if it is wrong and delete the bad file.
-        //  3. Rename to correct path upon success.
-        //
-        // TODO: Implement timeouts and retries.
-        Ok(())
+impl Mkdir {
+    fn execute_impl(&self, _log: &mut io::Write) -> Result<(), Error> {
+        fs::create_dir_all(&self.path)
     }
 }
 
-impl fmt::Display for Download {
+impl fmt::Display for Mkdir {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.url)
+        write!(f, "mkdir {:?}", self.path)
     }
 }
 
-impl fmt::Debug for Download {
+impl fmt::Debug for Mkdir {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.url)
+        write!(f, "{}", self)
     }
 }
 
-impl Task for Download {
+impl Task for Mkdir {
     fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
         self.retry
             .call(|| self.execute_impl(log), retry::progress_dummy)
