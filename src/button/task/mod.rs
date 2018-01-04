@@ -21,10 +21,12 @@
 mod command;
 mod download;
 mod mkdir;
+mod copy;
 
 pub use self::command::Command;
 pub use self::download::Download;
 pub use self::mkdir::Mkdir;
+pub use self::copy::Copy;
 
 use std::fmt;
 use std::io;
@@ -43,6 +45,9 @@ pub enum Task {
 
     /// Create a directory.
     Mkdir(Mkdir),
+
+    /// Copy a file.
+    Copy(Copy),
 }
 
 impl fmt::Display for Task {
@@ -51,6 +56,7 @@ impl fmt::Display for Task {
             &Task::Command(ref x) => x.fmt(f),
             &Task::Download(ref x) => x.fmt(f),
             &Task::Mkdir(ref x) => x.fmt(f),
+            &Task::Copy(ref x) => x.fmt(f),
         }
     }
 }
@@ -61,6 +67,7 @@ impl fmt::Debug for Task {
             &Task::Command(ref x) => x.fmt(f),
             &Task::Download(ref x) => x.fmt(f),
             &Task::Mkdir(ref x) => x.fmt(f),
+            &Task::Copy(ref x) => x.fmt(f),
         }
     }
 }
@@ -71,6 +78,7 @@ impl node::Task for Task {
             &Task::Command(ref x) => x.execute(log),
             &Task::Download(ref x) => x.execute(log),
             &Task::Mkdir(ref x) => x.execute(log),
+            &Task::Copy(ref x) => x.execute(log),
         }
     }
 }
