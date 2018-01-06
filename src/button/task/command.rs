@@ -23,6 +23,7 @@ use std::fmt;
 use std::time::Duration;
 use std::path::PathBuf;
 use std::process;
+use std::collections::BTreeMap;
 
 use node::{Error, Task};
 
@@ -38,6 +39,9 @@ pub struct Command {
     /// Optional working directory to spawn the process in. If `None`, uses the
     /// working directory of the parent process (i.e., the build process).
     cwd: Option<PathBuf>,
+
+    /// Optional environment variables.
+    env: Option<BTreeMap<String, String>>,
 
     /// Redirect standard output to a file instead.
     stdout: Option<PathBuf>,
@@ -61,6 +65,7 @@ impl Command {
         Command {
             args: args,
             cwd: None,
+            env: None,
             stdout: None,
             display: None,
             timeout: None,
@@ -117,10 +122,19 @@ impl Command {
         //     the above to make it work.
         //  5. Implement timeouts.
 
-        let output = process::Command::new(&self.args[0])
-            .stdin(process::Stdio::null())
-            .args(&self.args[1..])
-            .output()?;
+        let mut cmd = process::Command::new(&self.args[0]);
+        cmd.stdin(process::Stdio::null());
+        cmd.args(&self.args[1..]);
+
+        if let Some(ref cwd) = self.cwd {
+            cmd.current_dir(cwd);
+        }
+
+        if let Some(ref env) = self.env {
+            cmd.envs(env);
+        }
+
+        let output = cmd.output()?;
 
         // TODO: Combine stdout and stderr.
         log.write(&output.stdout)?;
