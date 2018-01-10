@@ -19,14 +19,19 @@
 // THE SOFTWARE.
 
 use std::io;
+use std::io::Write as IoWrite;
 use std::fmt;
+use std::fmt::Write as FmtWrite;
 use std::time::Duration;
 use std::path::PathBuf;
 use std::process;
 use std::collections::BTreeMap;
+use std::ffi::OsString;
+
+use tempfile::NamedTempFile;
 
 use node::{Error, Task};
-
+use util::{NeverAlwaysAuto, Counter};
 use retry;
 
 /// A task that executes a single command. A command is simply a process to be
@@ -42,6 +47,15 @@ pub struct Command {
 
     /// Optional environment variables.
     env: Option<BTreeMap<String, String>>,
+
+    /// Response file creation.
+    ///
+    /// If `Always`, creates a temporary response file with all the command line
+    /// arguments and passes that as the first command line argument instead.
+    /// This is useful for very long command lines that exceed operating system
+    /// limits.
+    #[serde(default)]
+    response_file: NeverAlwaysAuto,
 
     /// Redirect standard output to a file instead.
     stdout: Option<PathBuf>,
@@ -124,7 +138,29 @@ impl Command {
 
         let mut cmd = process::Command::new(&self.args[0]);
         cmd.stdin(process::Stdio::null());
-        cmd.args(&self.args[1..]);
+
+        // Generate a response file if necessary.
+        let generate_response_file = match self.response_file {
+            NeverAlwaysAuto::Never => false,
+            NeverAlwaysAuto::Always => true,
+            NeverAlwaysAuto::Auto => args_too_large(&self.args),
+        };
+
+        // The temporary response file needs to outlive the spawned process, so
+        // it needs to be bound to a variable even if it is never used.
+        let _rsp = if generate_response_file {
+            let temp = response_file(&self.args[1..])?;
+
+            let mut arg = OsString::new();
+            arg.push("@");
+            arg.push(temp.path());
+            cmd.arg(&arg);
+
+            Some(temp)
+        } else {
+            cmd.args(&self.args[1..]);
+            None
+        };
 
         if let Some(ref cwd) = self.cwd {
             cmd.current_dir(cwd);
@@ -136,7 +172,7 @@ impl Command {
 
         let output = cmd.output()?;
 
-        // TODO: Combine stdout and stderr.
+        // TODO: Interleave stdout and stderr.
         log.write(&output.stdout)?;
         log.write(&output.stderr)?;
 
@@ -158,11 +194,6 @@ impl Command {
     }
 }
 
-/// Formats a single command line argument according to the rules of bash.
-fn format_arg(f: &mut fmt::Formatter, arg: &str) -> fmt::Result {
-    write!(f, "{}", arg)
-}
-
 impl fmt::Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(ref display) = self.display {
@@ -171,12 +202,11 @@ impl fmt::Display for Command {
             let mut args = self.args.iter();
 
             if let Some(arg) = args.next() {
-                format_arg(f, arg)?;
+                write!(f, "{}", Arg::new(arg))?;
             }
 
             for arg in args {
-                write!(f, " ")?;
-                format_arg(f, arg)?;
+                write!(f, " {}", Arg::new(arg))?;
             }
 
             Ok(())
@@ -192,12 +222,11 @@ impl fmt::Debug for Command {
         let mut args = self.args.iter();
 
         if let Some(arg) = args.next() {
-            format_arg(f, arg)?;
+            write!(f, "{}", Arg::new(arg))?;
         }
 
         for arg in args {
-            write!(f, " ")?;
-            format_arg(f, arg)?;
+            write!(f, " {}", Arg::new(arg))?;
         }
 
         write!(f, "\"")?;
@@ -211,6 +240,156 @@ impl Task for Command {
         self.retry
             .call(|| self.execute_impl(log), retry::progress_dummy)
     }
+}
+
+/// Helper type for formatting command line arguments.
+struct Arg<'a> {
+    arg: &'a str,
+}
+
+impl<'a> Arg<'a> {
+    pub fn new(arg: &'a str) -> Arg<'a> {
+        Arg { arg: arg }
+    }
+
+    /// Quotes the argument such that it is safe to pass to the shell.
+    #[cfg(windows)]
+    pub fn quote(&self, writer: &mut fmt::Write) -> fmt::Result {
+        let quote = self.arg.chars().any(|c| c == ' ' || c == '\t') ||
+                    self.arg.is_empty();
+
+        if quote {
+            writer.write_char('"')?;
+        }
+
+        let mut backslashes: usize = 0;
+
+        for x in self.arg.chars() {
+            if x == '\\' {
+                backslashes += 1;
+            } else {
+                // Dump backslashes if we hit a quotation mark.
+                if x == '"' {
+                    // We need 2n+1 backslashes to escape a quote.
+                    for _ in 0..(backslashes+1) {
+                        writer.write_char('\\')?;
+                    }
+                }
+
+                backslashes = 0;
+            }
+
+            writer.write_char(x)?;
+        }
+
+        if quote {
+            // Escape any trailing backslashes.
+            for _ in 0..backslashes {
+                writer.write_char('\\')?;
+            }
+
+            writer.write_char('"')?;
+        }
+
+        Ok(())
+    }
+}
+
+impl<'a> fmt::Display for Arg<'a> {
+    /// Converts an argument such that it is safe to append to a command line
+    /// string.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.quote(f)
+    }
+}
+
+/// Writes the response file to a stream.
+fn write_response_file<S, I>(args: I, writer: &mut io::Write) -> io::Result<()>
+    where I: IntoIterator<Item = S>,
+          S: AsRef<str>
+{
+    let mut iter = args.into_iter();
+
+    // Write UTF-8 BOM. Some tools require this to properly decode it as UTF-8
+    // instead of ASCII.
+    writer.write(b"\xEF\xBB\xBF")?;
+
+    if let Some(arg) = iter.next() {
+        write!(writer, "{}", Arg::new(arg.as_ref())).unwrap();
+    }
+
+    for arg in iter {
+        write!(writer, " {}", Arg::new(arg.as_ref())).unwrap();
+    }
+
+    // Some programs require a trailing new line (notably LIB.exe and LINK.exe).
+    writer.write(b"\n")?;
+
+    Ok(())
+}
+
+/// Generates a temporary response file for the given command line arguments.
+fn response_file<S, I>(args: I) -> io::Result<NamedTempFile>
+    where I: IntoIterator<Item = S>,
+          S: AsRef<str>
+{
+    let tempfile = NamedTempFile::new()?;
+
+    {
+        let mut writer = io::BufWriter::new(&tempfile);
+        write_response_file(args, &mut writer)?;
+
+        // Explicitly flush to catch any errors.
+        writer.flush()?;
+    }
+
+    Ok(tempfile)
+}
+
+/// Checks if the given command line arguments are too large and should instead
+/// go into a response file. The entire list of arguments, including the program
+/// name should be passed to this function.
+#[cfg(windows)]
+fn args_too_large<S, I>(args: I) -> bool
+    where I: IntoIterator<Item = S>,
+          S: AsRef<str>
+{
+    // The maximum length is 32768 characters, including the NULL terminator.
+    let mut counter = Counter::new();
+
+    let mut iter = args.into_iter();
+
+    if let Some(arg) = iter.next() {
+        write!(counter, "{}", Arg::new(arg.as_ref())).unwrap();
+    }
+
+    for arg in iter {
+        write!(counter, " {}", Arg::new(arg.as_ref())).unwrap();
+    }
+
+    // Final NULL terminator.
+    counter += 1;
+
+    counter.count() > 32768
+}
+
+#[cfg(unix)]
+fn args_too_large<S, I>(args: I) -> bool
+    where I: IntoIterator<Item = S>,
+          S: AsRef<str>
+{
+    let mut size: usize = 0;
+
+    for arg in args.into_iter() {
+        // +1 for the NULL terminator.
+        size += arg.len() + 1;
+    }
+
+    // +1 for the final NULL terminator.
+    size += 1;
+
+    // Can't be larger than 128 kB.
+    size > 0x20000
 }
 
 #[cfg(test)]

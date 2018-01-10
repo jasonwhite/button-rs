@@ -22,6 +22,8 @@ use std::path::Path;
 
 use std::io::{self, Write};
 
+use std::error::Error;
+
 use error;
 use graph;
 use rules::Rules;
@@ -115,6 +117,7 @@ impl<'a> Build<'a> {
 
             match task.execute(&mut output) {
                 Err(err) => {
+                    writeln!(output, "Error: {}", err.description())?;
                     stdout.write(&output)?;
                     return Err(err);
                 }

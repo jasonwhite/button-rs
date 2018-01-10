@@ -17,22 +17,55 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-#[macro_use]
-extern crate serde_derive;
-extern crate serde;
-extern crate serde_json;
-extern crate petgraph;
-extern crate crossbeam;
-extern crate sha2;
-extern crate generic_array;
-extern crate tempfile;
 
-pub mod rules;
-pub mod build;
-pub mod error;
-pub mod node;
-pub mod resource;
-pub mod task;
-pub mod graph;
-pub mod retry;
-mod util;
+use std::fmt;
+use std::ops;
+
+/// A tri-state for checking if we should do things.
+#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Copy, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum NeverAlwaysAuto {
+    /// Never do the thing.
+    Never,
+
+    /// Always do the thing.
+    Always,
+
+    /// Only do the thing under certain circumstances.
+    Auto,
+}
+
+impl Default for NeverAlwaysAuto {
+    /// Never do the thing by default.
+    fn default() -> Self {
+        NeverAlwaysAuto::Never
+    }
+}
+
+/// A fake writer to count the number of items going into it.
+pub struct Counter {
+    count: usize,
+}
+
+impl Counter {
+    pub fn new() -> Counter {
+        Counter { count: 0 }
+    }
+
+    pub fn count(&self) -> usize {
+        self.count
+    }
+}
+
+impl ops::AddAssign<usize> for Counter {
+    fn add_assign(&mut self, rhs: usize) {
+        self.count += rhs;
+    }
+}
+
+impl fmt::Write for Counter {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.count += s.len();
+        Ok(())
+    }
+}
