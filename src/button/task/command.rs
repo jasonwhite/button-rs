@@ -28,7 +28,7 @@ use std::process;
 use std::collections::BTreeMap;
 use std::ffi::OsString;
 
-use tempfile::NamedTempFile;
+use tempfile::{NamedTempFile, TempPath};
 
 use node::{Error, Task};
 use util::{NeverAlwaysAuto, Counter};
@@ -153,7 +153,7 @@ impl Command {
 
             let mut arg = OsString::new();
             arg.push("@");
-            arg.push(temp.path());
+            arg.push(&temp);
             cmd.arg(&arg);
 
             Some(temp)
@@ -329,7 +329,7 @@ fn write_response_file<S, I>(args: I, writer: &mut io::Write) -> io::Result<()>
 }
 
 /// Generates a temporary response file for the given command line arguments.
-fn response_file<S, I>(args: I) -> io::Result<NamedTempFile>
+fn response_file<S, I>(args: I) -> io::Result<TempPath>
     where I: IntoIterator<Item = S>,
           S: AsRef<str>
 {
@@ -343,7 +343,7 @@ fn response_file<S, I>(args: I) -> io::Result<NamedTempFile>
         writer.flush()?;
     }
 
-    Ok(tempfile)
+    Ok(tempfile.into_temp_path())
 }
 
 /// Checks if the given command line arguments are too large and should instead
