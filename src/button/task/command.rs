@@ -397,7 +397,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_command_display() {
-        assert_eq!(format!("{}", ));
+    #[cfg(windows)]
+    fn test_arg_display() {
+        assert_eq!(format!("{}", Arg::new("foo bar")), "\"foo bar\"");
+        assert_eq!(format!("{}", Arg::new("foo\tbar")), "\"foo\tbar\"");
+        assert_eq!(format!("{}", Arg::new("foobar")), "foobar");
+        assert_eq!(format!("{}", Arg::new("\"foo bar\"")), "\"\\\"foo bar\\\"\"");
+        assert_eq!(format!("{}", Arg::new(r"C:\foo\bar")), r"C:\foo\bar");
+        assert_eq!(format!("{}", Arg::new(r"\\foo\bar")), r"\\foo\bar");
     }
 }
