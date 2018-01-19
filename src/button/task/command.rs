@@ -50,10 +50,16 @@ pub struct Command {
 
     /// Response file creation.
     ///
+    /// If `Never`, never creates a response file. If the command line length
+    /// exceeds the operating system limits, the command will fail.
+    ///
     /// If `Always`, creates a temporary response file with all the command line
     /// arguments and passes that as the first command line argument instead.
     /// This is useful for very long command lines that exceed operating system
     /// limits.
+    ///
+    /// If `Auto`, creates a temporary response file only if the size of the
+    /// arguments exceeds the operating system limits.
     #[serde(default)]
     response_file: NeverAlwaysAuto,
 
@@ -80,6 +86,7 @@ impl Command {
             args: args,
             cwd: None,
             env: None,
+            response_file: NeverAlwaysAuto::default(),
             stdout: None,
             display: None,
             timeout: None,
