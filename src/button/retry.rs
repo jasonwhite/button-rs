@@ -28,6 +28,8 @@
 //! use std::io::Write;
 //! use std::error::Error;
 //!
+//! use button::retry::Retry;
+//!
 //! fn find_answer(answer: &str) -> io::Result<()> {
 //!     print!("Please enter the correct answer: ");
 //!     io::stdout().flush()?;
@@ -42,7 +44,7 @@
 //!     }
 //! }
 //!
-//! fn retry_progress(retry: &retry::Retry,
+//! fn retry_progress(retry: &Retry,
 //!                   err: &io::Error,
 //!                   remaining: u32,
 //!                   delay: Duration) -> bool {
@@ -54,7 +56,7 @@
 //!     true
 //! }
 //!
-//! let result = retry::Retry::new()
+//! let result = Retry::new()
 //!     .with_retries(4)
 //!     .with_delay(Duration::from_secs(1))
 //!     .with_max_delay(Duration::from_secs(4))
