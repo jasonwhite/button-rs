@@ -22,7 +22,7 @@
 //!
 //! # Examples
 //!
-//! ```
+//! ```no_run
 //! use std::time::Duration;
 //! use std::io;
 //! use std::io::Write;
@@ -56,16 +56,18 @@
 //!     true
 //! }
 //!
-//! let result = Retry::new()
-//!     .with_retries(4)
-//!     .with_delay(Duration::from_secs(1))
-//!     .with_max_delay(Duration::from_secs(4))
-//!     .call(|| find_answer("42"), retry_progress);
+//! fn main() {
+//!     let result = Retry::new()
+//!         .with_retries(4)
+//!         .with_delay(Duration::from_secs(1))
+//!         .with_max_delay(Duration::from_secs(4))
+//!         .call(|| find_answer("42"), retry_progress);
 //!
-//! match result {
-//!     Ok(()) => println!("Correct!"),
-//!     Err(err) => println!("{}", err),
-//! };
+//!     match result {
+//!         Ok(()) => println!("Correct!"),
+//!         Err(err) => println!("{}", err),
+//!     };
+//! }
 //! ```
 
 // TODO: Allow specifying a non-integer exponential backoff factor.
