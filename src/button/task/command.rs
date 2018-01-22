@@ -81,8 +81,8 @@ pub struct Command {
 
 impl Command {
     #[cfg(test)]
-    pub fn new(args: Vec<String>) -> Command {
-        Command {
+    pub fn new(args: Vec<String>) -> Box<Command> {
+        Box::new(Command {
             args: args,
             cwd: None,
             env: None,
@@ -91,7 +91,7 @@ impl Command {
             display: None,
             timeout: None,
             retry: retry::Retry::new(),
-        }
+        })
     }
 }
 

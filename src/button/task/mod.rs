@@ -38,7 +38,7 @@ use node;
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Task {
     /// A single command execution.
-    Command(Command),
+    Command(Box<Command>),
 
     /// Download something.
     Download(Download),
