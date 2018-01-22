@@ -4,7 +4,8 @@
         "tasks": [
             {
                 "type": "command",
-                "args": ["gcc", "-c", "foo.c", "-o", "foo.o"]
+                "program": "gcc",
+                "args": ["-c", "foo.c", "-o", "foo.o"]
             }
         ],
         "outputs": ["foo.o"]
@@ -14,7 +15,8 @@
         "tasks": [
             {
                 "type": "command",
-                "args": ["gcc", "-c", "bar.c", "-o", "bar.o"]
+                "program": "gcc",
+                "args": ["-c", "bar.c", "-o", "bar.o"]
             }
         ],
         "outputs": ["bar.o"]
@@ -24,7 +26,8 @@
         "tasks": [
             {
                 "type": "command",
-                "args": ["gcc", "foo.o", "bar.o", "-o", "foobar"]
+                "program": "gcc",
+                "args": ["foo.o", "bar.o", "-o", "foobar"]
             }
         ],
         "outputs": ["foobar"]

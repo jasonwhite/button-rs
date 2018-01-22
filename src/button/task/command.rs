@@ -39,7 +39,10 @@ use retry;
 /// spawned.
 #[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
 pub struct Command {
-    /// Process and arguments to spawn.
+    /// Program name.
+    program: String,
+
+    /// Program arguments.
     args: Vec<String>,
 
     /// Optional working directory to spawn the process in. If `None`, uses the
@@ -92,8 +95,9 @@ pub struct Command {
 
 impl Command {
     #[cfg(test)]
-    pub fn new(args: Vec<String>) -> Box<Command> {
+    pub fn new(program: String, args: Vec<String>) -> Box<Command> {
         Box::new(Command {
+            program: program,
             args: args,
             cwd: None,
             env: None,
@@ -145,10 +149,6 @@ impl Command {
     }
 
     fn execute_impl(&self, log: &mut io::Write) -> Result<(), Error> {
-        //writeln!(log, "Executing `{}`", self)?;
-
-        assert!(self.args.len() > 0);
-
         // TODO:
         //  1. Spawn the process
         //  2. Capture stdout/stderr appropriately.
@@ -156,7 +156,7 @@ impl Command {
         //     the above to make it work.
         //  5. Implement timeouts.
 
-        let mut cmd = process::Command::new(&self.args[0]);
+        let mut cmd = process::Command::new(&self.program);
 
         if let Some(ref path) = self.stdin {
             if path == Path::new("/dev/null") {
@@ -198,7 +198,7 @@ impl Command {
         // The temporary response file needs to outlive the spawned process, so
         // it needs to be bound to a variable even if it is never used.
         let _rsp = if generate_response_file {
-            let temp = response_file(&self.args[1..])?;
+            let temp = response_file(&self.args)?;
 
             let mut arg = OsString::new();
             arg.push("@");
@@ -207,7 +207,7 @@ impl Command {
 
             Some(temp)
         } else {
-            cmd.args(&self.args[1..]);
+            cmd.args(&self.args);
             None
         };
 

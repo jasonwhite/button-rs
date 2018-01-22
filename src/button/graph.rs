@@ -543,7 +543,8 @@ mod tests {
             "tasks": [
                 {
                     "type": "command",
-                    "args": ["gcc", "-c", "foo.c", "-o", "foo.o"]
+                    "program": "gcc",
+                    "args": ["-c", "foo.c", "-o", "foo.o"]
                 }
             ],
             "outputs": ["foo.o"]
@@ -553,7 +554,8 @@ mod tests {
             "tasks": [
                 {
                     "type": "command",
-                    "args": ["gcc", "-c", "bar.c", "-o", "bar.o"]
+                    "program": "gcc",
+                    "args": ["-c", "bar.c", "-o", "bar.o"]
                 }
             ],
             "outputs": ["bar.o"]
@@ -563,7 +565,8 @@ mod tests {
             "tasks": [
                 {
                     "type": "command",
-                    "args": ["gcc", "foo.o", "bar.o", "-o", "foobar"]
+                    "program": "gcc",
+                    "args": ["foo.o", "bar.o", "-o", "foobar"]
                 }
             ],
             "outputs": ["foobar"]
@@ -584,7 +587,8 @@ mod tests {
             "tasks": [
                 {
                     "type": "command",
-                    "args": ["gcc", "-c", "foo.c", "-o", "foo.o"]
+                    "program": "gcc",
+                    "args": ["-c", "foo.c", "-o", "foo.o"]
                 }
             ],
             "outputs": ["foo.o", "bar.o"]
@@ -594,7 +598,8 @@ mod tests {
             "tasks": [
                 {
                     "type": "command",
-                    "args": ["gcc", "-c", "bar.c", "-o", "bar.o"]
+                    "program": "gcc",
+                    "args": ["-c", "bar.c", "-o", "bar.o"]
                 }
             ],
             "outputs": ["bar.o", "foo.o"]
@@ -604,7 +609,8 @@ mod tests {
             "tasks": [
                 {
                     "type": "command",
-                    "args": ["gcc", "foo.o", "bar.o", "-o", "foobar"]
+                    "program": "gcc",
+                    "args": ["foo.o", "bar.o", "-o", "foobar"]
                 }
             ],
             "outputs": ["foobar", "foo.o"]
@@ -632,7 +638,8 @@ mod tests {
             "tasks": [
                 {
                     "type": "command",
-                    "args": ["gcc", "foo.c"]
+                    "program": "gcc",
+                    "args": ["foo.c"]
                 }
             ],
             "outputs": ["foo.o", "foo.c"]
@@ -642,7 +649,8 @@ mod tests {
             "tasks": [
                 {
                     "type": "command",
-                    "args": ["gcc", "bar.c"]
+                    "program": "gcc",
+                    "args": ["bar.c"]
                 }
             ],
             "outputs": ["bar.o"]
@@ -652,7 +660,8 @@ mod tests {
             "tasks": [
                 {
                     "type": "command",
-                    "args": ["gcc", "foo.o", "bar.o", "-o", "foobar"]
+                    "program": "gcc",
+                    "args": ["foo.o", "bar.o", "-o", "foobar"]
                 }
             ],
             "outputs": ["foobar"]
@@ -664,8 +673,8 @@ mod tests {
         let graph = from_rules(&rules);
 
         let foo_c = Res::FilePath(FilePath::from("foo.c"));
-        let task = vec![Task::Command(Command::new(vec!["gcc".to_owned(),
-                                                        "foo.c".to_owned()]))];
+        let task = vec![Task::Command(Command::new("gcc".to_owned(),
+                                                   vec!["foo.c".to_owned()]))];
 
         let cycles = vec![Cycle::new(vec![Node::Resource(&foo_c),
                                           Node::Task(&task)])];

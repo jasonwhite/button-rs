@@ -133,7 +133,8 @@ mod tests {
             "tasks": [
                 {
                     "type": "command",
-                    "args": ["gcc", "foo.c"]
+                    "program": "gcc",
+                    "args": ["foo.c"]
                 }
             ]
         }]"#;
@@ -144,8 +145,8 @@ mod tests {
                           Res::FilePath(FilePath::from("foo.h"))];
 
         let outputs = vec![Res::FilePath(FilePath::from("foo.o"))];
-        let tasks = vec![Task::Command(Command::new(vec!["gcc".to_owned(),
-                                            "foo.c".to_owned()]))];
+        let tasks = vec![Task::Command(Command::new("gcc".to_owned(),
+                                                    vec!["foo.c".to_owned()]))];
 
         assert_eq!(rules,
                    Rules::new(vec![Rule {
