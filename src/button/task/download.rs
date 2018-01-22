@@ -23,7 +23,7 @@ use std::io;
 use std::time;
 use std::path::{Path, PathBuf};
 
-use node::{Error, Task};
+use super::traits::{Error, Task};
 
 use retry;
 

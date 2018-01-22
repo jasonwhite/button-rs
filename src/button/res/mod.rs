@@ -18,47 +18,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+mod traits;
 mod filepath;
+mod any;
 
+pub use self::traits::{Checksum, Error, Resource, ResourceState};
 pub use self::filepath::FilePath;
-
-use std::fmt;
-use node::{ResourceState, Resource, Error};
-
-/// Complete list of resource types. This list is used for deserialization
-/// purposes.
-#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash)]
-#[serde(untagged)]
-pub enum Res {
-    FilePath(FilePath),
-}
-
-impl fmt::Display for Res {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &Res::FilePath(ref x) => x.fmt(f),
-        }
-    }
-}
-
-impl fmt::Debug for Res {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &Res::FilePath(ref x) => x.fmt(f),
-        }
-    }
-}
-
-impl Resource for Res {
-    fn state(&self) -> Result<ResourceState, Error> {
-        match self {
-            &Res::FilePath(ref x) => x.state(),
-        }
-    }
-
-    fn delete(&self) -> Result<(), Error> {
-        match self {
-            &Res::FilePath(ref x) => x.delete(),
-        }
-    }
-}
+pub use self::any::Any;

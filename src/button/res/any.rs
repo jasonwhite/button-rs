@@ -18,61 +18,46 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::io;
-use std::fs;
+use super::filepath::FilePath;
+use super::traits::{Error, Resource, ResourceState};
+
 use std::fmt;
-use std::path::{Path, PathBuf};
 
-use super::traits::{Error, Task};
-
-use retry;
-
-/// A task to create a directory.
-#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
-pub struct Copy {
-    /// Path to copy from.
-    from: PathBuf,
-
-    /// Path to copy to.
-    to: PathBuf,
-
-    /// Retry settings.
-    #[serde(default)]
-    retry: retry::Retry,
+/// Complete list of resource types. This list is used for deserialization
+/// purposes.
+#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[serde(untagged)]
+pub enum Any {
+    FilePath(FilePath),
 }
 
-impl Copy {
-    fn execute_impl(&self, _log: &mut io::Write) -> Result<(), Error> {
-        fs::copy(&self.from, &self.to)?;
-        Ok(())
-    }
-}
-
-impl fmt::Display for Copy {
+impl fmt::Display for Any {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "copy {:?} -> {:?}", self.from, self.to)
+        match self {
+            &Any::FilePath(ref x) => x.fmt(f),
+        }
     }
 }
 
-impl fmt::Debug for Copy {
+impl fmt::Debug for Any {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self)
+        match self {
+            &Any::FilePath(ref x) => x.fmt(f),
+        }
     }
 }
 
-impl Task for Copy {
-    fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
-        self.retry
-            .call(|| self.execute_impl(log), retry::progress_dummy)
+impl Resource for Any {
+    fn state(&self) -> Result<ResourceState, Error> {
+        match self {
+            &Any::FilePath(ref x) => x.state(),
+        }
     }
 
-    fn known_inputs(&self) -> Vec<&Path> {
-        vec![self.from.as_ref()]
-    }
-
-    fn known_outputs(&self) -> Vec<&Path> {
-        // TODO: Depend on output directory.
-        vec![self.to.as_ref()]
+    fn delete(&self) -> Result<(), Error> {
+        match self {
+            &Any::FilePath(ref x) => x.delete(),
+        }
     }
 }
 

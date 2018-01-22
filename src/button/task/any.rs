@@ -18,61 +18,61 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::io;
-use std::fs;
 use std::fmt;
-use std::path::{Path, PathBuf};
+use std::io;
 
 use super::traits::{Error, Task};
+use super::command::Command;
+use super::download::Download;
+use super::mkdir::Mkdir;
+use super::copy::Copy;
 
-use retry;
+/// Any possible task. This list is used for deserialization purposes.
+#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum Any {
+    /// A single command execution.
+    Command(Box<Command>),
 
-/// A task to create a directory.
-#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
-pub struct Copy {
-    /// Path to copy from.
-    from: PathBuf,
+    /// Download something.
+    Download(Download),
 
-    /// Path to copy to.
-    to: PathBuf,
+    /// Create a directory.
+    Mkdir(Mkdir),
 
-    /// Retry settings.
-    #[serde(default)]
-    retry: retry::Retry,
+    /// Copy a file.
+    Copy(Copy),
 }
 
-impl Copy {
-    fn execute_impl(&self, _log: &mut io::Write) -> Result<(), Error> {
-        fs::copy(&self.from, &self.to)?;
-        Ok(())
-    }
-}
-
-impl fmt::Display for Copy {
+impl fmt::Display for Any {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "copy {:?} -> {:?}", self.from, self.to)
+        match self {
+            &Any::Command(ref x) => x.fmt(f),
+            &Any::Download(ref x) => x.fmt(f),
+            &Any::Mkdir(ref x) => x.fmt(f),
+            &Any::Copy(ref x) => x.fmt(f),
+        }
     }
 }
 
-impl fmt::Debug for Copy {
+impl fmt::Debug for Any {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self)
+        match self {
+            &Any::Command(ref x) => x.fmt(f),
+            &Any::Download(ref x) => x.fmt(f),
+            &Any::Mkdir(ref x) => x.fmt(f),
+            &Any::Copy(ref x) => x.fmt(f),
+        }
     }
 }
 
-impl Task for Copy {
+impl Task for Any {
     fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
-        self.retry
-            .call(|| self.execute_impl(log), retry::progress_dummy)
-    }
-
-    fn known_inputs(&self) -> Vec<&Path> {
-        vec![self.from.as_ref()]
-    }
-
-    fn known_outputs(&self) -> Vec<&Path> {
-        // TODO: Depend on output directory.
-        vec![self.to.as_ref()]
+        match self {
+            &Any::Command(ref x) => x.execute(log),
+            &Any::Download(ref x) => x.execute(log),
+            &Any::Mkdir(ref x) => x.execute(log),
+            &Any::Copy(ref x) => x.execute(log),
+        }
     }
 }
-

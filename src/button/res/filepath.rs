@@ -30,7 +30,7 @@ use sha2::{Sha256, Digest};
 
 use serde::{de, Deserialize, Deserializer};
 
-use node::{Resource, ResourceState, Error};
+use super::traits::{Resource, ResourceState, Error};
 
 
 /// A file resource. This can actually be a file *or* directory.

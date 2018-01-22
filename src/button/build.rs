@@ -27,9 +27,8 @@ use std::error::Error;
 use error;
 use graph;
 use rules::Rules;
-use resource;
-use task;
-use node::Task;
+use res;
+use task::{self, Task};
 
 /// Represents a build. This holds the context necessary for all build
 /// operations.
@@ -90,7 +89,7 @@ impl<'a> Build<'a> {
     /// Called when visiting a resource type node in the build graph.
     fn visit_resource(&self,
                       _id: usize,
-                      _node: &resource::Res)
+                      _node: &res::Any)
                       -> Result<bool, io::Error> {
         //println!("thread {} :: {}", id, node);
 
@@ -105,7 +104,7 @@ impl<'a> Build<'a> {
     /// Called when visiting a task type node in the build graph.
     fn visit_task(&self,
                   id: usize,
-                  node: &[task::Task])
+                  node: &[task::Any])
                   -> Result<bool, io::Error> {
 
         let mut stdout = io::stdout();

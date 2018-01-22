@@ -21,52 +21,12 @@
 use std::fmt;
 use std::io;
 use std::path::Path;
-
 use std::hash::Hash;
+
 use serde::Serialize;
-
-use generic_array::{GenericArray, typenum};
-
-pub type Checksum = GenericArray<u8, typenum::U32>;
-
-/// The state associated with a resource. This is stored in the database and
-/// used to determine if a resource has changed.
-#[allow(dead_code)]
-pub enum ResourceState {
-    /// The resource does not exist.
-    Missing,
-
-    /// The resource exists and we have the checksum of its contents.
-    Checksum(Checksum),
-}
 
 /// FIXME: Use a more abstract error type.
 pub type Error = io::Error;
-
-/// A resource is an abstract representation of some unit of system state. A
-/// resource can be a file, directory, environment variable. The only thing we
-/// are interested in doing with a resource is:
-///
-///  1. Getting its state so that we can determine if it has changed.
-///  2. Deleting it when it is no longer needed.
-///
-/// A resource is merely an *identifier*. It should not store any state about
-/// the actual thing it is referencing. The only state that can be stored with a
-/// resource is `ResourceState`.
-pub trait Resource
-    : Serialize + Ord + PartialOrd + Eq + PartialEq + Hash + fmt::Display {
-    /// Gets the state of the resource. This is used to determine if it has
-    /// changed.
-    fn state(&self) -> Result<ResourceState, Error>;
-
-    /// Deletes the resource. Care should be taken by the caller to not delete
-    /// *input* resources. That is, resources that the build system did not
-    /// produce. Deleting output resources is perfectly fine. There shall be no
-    /// error if the resource already does not exist. Output resources should be
-    /// deleting in reverse topological order such that files can get deleted
-    /// before directories.
-    fn delete(&self) -> Result<(), Error>;
-}
 
 /// A task is a routine to be executed that produces resources as outputs.
 ///

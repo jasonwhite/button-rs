@@ -31,7 +31,7 @@ use std::ffi::OsString;
 
 use tempfile::{NamedTempFile, TempPath};
 
-use node::{Error, Task};
+use super::traits::{Error, Task};
 use util::{NeverAlwaysAuto, Counter};
 use retry;
 

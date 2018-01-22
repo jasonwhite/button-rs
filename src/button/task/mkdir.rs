@@ -23,7 +23,7 @@ use std::fs;
 use std::fmt;
 use std::path::PathBuf;
 
-use node::{Error, Task};
+use super::traits::{Error, Task};
 
 use retry;
 

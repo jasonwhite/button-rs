@@ -27,7 +27,7 @@ use std::slice::Iter;
 
 use serde_json as json;
 
-use resource;
+use res;
 use task;
 
 #[derive(Debug)]
@@ -78,13 +78,13 @@ impl error::Error for Error {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Rule {
     /// Inputs to the task.
-    pub inputs: Vec<resource::Res>,
+    pub inputs: Vec<res::Any>,
 
     /// Outputs from the task.
-    pub outputs: Vec<resource::Res>,
+    pub outputs: Vec<res::Any>,
 
     /// The sequence of tasks to execute.
-    pub tasks: Vec<task::Task>,
+    pub tasks: Vec<task::Any>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -121,8 +121,8 @@ impl Rules {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use resource::{Res, FilePath};
-    use task::{Task, Command};
+    use res::{self, FilePath};
+    use task::{self, Command};
     use std::path::PathBuf;
 
     #[test]
@@ -142,11 +142,11 @@ mod tests {
 
         let rules = Rules::from_str(&data).unwrap();
 
-        let inputs = vec![Res::FilePath(FilePath::from("foo.c")),
-                          Res::FilePath(FilePath::from("foo.h"))];
+        let inputs = vec![res::Any::FilePath(FilePath::from("foo.c")),
+                          res::Any::FilePath(FilePath::from("foo.h"))];
 
-        let outputs = vec![Res::FilePath(FilePath::from("foo.o"))];
-        let tasks = vec![Task::Command(Command::new(PathBuf::from("gcc"),
+        let outputs = vec![res::Any::FilePath(FilePath::from("foo.o"))];
+        let tasks = vec![task::Any::Command(Command::new(PathBuf::from("gcc"),
                                                     vec!["foo.c".to_owned()]))];
 
         assert_eq!(rules,

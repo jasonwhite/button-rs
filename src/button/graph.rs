@@ -40,7 +40,7 @@ use petgraph::{graphmap, Direction};
 use crossbeam;
 use crossbeam::sync::MsQueue;
 
-use resource;
+use res;
 use task;
 use rules::Rules;
 
@@ -63,14 +63,14 @@ pub enum Edge {
 /// A node in the graph.
 #[derive(Clone, Copy, Ord, Eq, PartialOrd, PartialEq, Hash, Debug)]
 pub enum Node<'a> {
-    Resource(&'a resource::Res),
-    Task(&'a Vec<task::Task>),
+    Resource(&'a res::Any),
+    Task(&'a Vec<task::Any>),
 }
 
 impl<'a> fmt::Display for Node<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Node::Resource(r) => write!(f, "resource:{}", r),
+            Node::Resource(r) => write!(f, "res:{}", r),
             Node::Task(t) => write!(f, "task:{:?}", t),
         }
     }
@@ -188,11 +188,11 @@ impl<N> fmt::Display for Race<N>
 /// Error when one or more race conditions are detected in the build graph.
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct RaceError<'a> {
-    pub races: Vec<Race<&'a resource::Res>>,
+    pub races: Vec<Race<&'a res::Any>>,
 }
 
 impl<'a> RaceError<'a> {
-    pub fn new(mut races: Vec<Race<&'a resource::Res>>) -> RaceError {
+    pub fn new(mut races: Vec<Race<&'a res::Any>>) -> RaceError {
         // Sort to avoid non-determinism in the output and to make testing
         // easier.
         races.sort();
@@ -532,8 +532,8 @@ fn traversal_worker<'a, F, E>(id: usize,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use resource::{Res, FilePath};
-    use task::{Task, Command};
+    use res::{self, FilePath};
+    use task::{self, Command};
     use std::path::PathBuf;
 
     #[test]
@@ -622,8 +622,8 @@ mod tests {
 
         let graph = from_rules(&rules);
 
-        let foo = Res::FilePath(FilePath::from("foo.o"));
-        let bar = Res::FilePath(FilePath::from("bar.o"));
+        let foo = res::Any::FilePath(FilePath::from("foo.o"));
+        let bar = res::Any::FilePath(FilePath::from("bar.o"));
 
         let races = vec![Race::new(&bar, 2), Race::new(&foo, 3)];
 
@@ -673,8 +673,8 @@ mod tests {
 
         let graph = from_rules(&rules);
 
-        let foo_c = Res::FilePath(FilePath::from("foo.c"));
-        let task = vec![Task::Command(Command::new(PathBuf::from("gcc"),
+        let foo_c = res::Any::FilePath(FilePath::from("foo.c"));
+        let task = vec![task::Any::Command(Command::new(PathBuf::from("gcc"),
                                                    vec!["foo.c".to_owned()]))];
 
         let cycles = vec![Cycle::new(vec![Node::Resource(&foo_c),
