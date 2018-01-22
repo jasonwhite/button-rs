@@ -19,11 +19,12 @@
 // THE SOFTWARE.
 
 use std::io;
+use std::fs;
 use std::io::Write as IoWrite;
 use std::fmt;
 use std::fmt::Write as FmtWrite;
 use std::time::Duration;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process;
 use std::collections::BTreeMap;
 use std::ffi::OsString;
@@ -63,8 +64,19 @@ pub struct Command {
     #[serde(default)]
     response_file: NeverAlwaysAuto,
 
-    /// Redirect standard output to a file instead.
+    /// File to send to standard input. If `None`, the standard input stream
+    /// reads from `/dev/null` or equivalent.
+    stdin: Option<PathBuf>,
+
+    /// Redirect standard output to a file instead. If the path is `/dev/null`,
+    /// a cross-platform way of sending the output to a black hole is used. If
+    /// `None`, the output is logged by this task.
     stdout: Option<PathBuf>,
+
+    /// Redirect standard error to a file instead. If the path is `/dev/null`, a
+    /// cross-platform way of sending the output to a black hole is used. If
+    /// `None`, the output is logged by this task.
+    stderr: Option<PathBuf>,
 
     /// String to display when executing the task. If `None`, the command
     /// arguments are displayed in full instead.
@@ -75,8 +87,7 @@ pub struct Command {
     timeout: Option<Duration>,
 
     /// Retry settings.
-    #[serde(default)]
-    retry: retry::Retry,
+    retry: Option<retry::Retry>,
 }
 
 impl Command {
@@ -87,10 +98,12 @@ impl Command {
             cwd: None,
             env: None,
             response_file: NeverAlwaysAuto::default(),
+            stdin: None,
             stdout: None,
+            stderr: None,
             display: None,
             timeout: None,
-            retry: retry::Retry::new(),
+            retry: None,
         })
     }
 }
@@ -98,36 +111,36 @@ impl Command {
 impl Command {
     // Sets the working directory for the command.
     #[allow(dead_code)]
-    pub fn cwd(mut self, path: PathBuf) -> Command {
+    pub fn cwd(&mut self, path: PathBuf) -> &mut Command {
         self.cwd = Some(path);
         self
     }
 
     // Sets the stdout file for the command.
     #[allow(dead_code)]
-    pub fn stdout(mut self, path: PathBuf) -> Command {
+    pub fn stdout(&mut self, path: PathBuf) -> &mut Command {
         self.stdout = Some(path);
         self
     }
 
     // Sets the display string for the command.
     #[allow(dead_code)]
-    pub fn display(mut self, display: String) -> Command {
+    pub fn display(&mut self, display: String) -> &mut Command {
         self.display = Some(display);
         self
     }
 
     // Sets the timeout for the command.
     #[allow(dead_code)]
-    pub fn timeout(mut self, timeout: Duration) -> Command {
+    pub fn timeout(&mut self, timeout: Duration) -> &mut Command {
         self.timeout = Some(timeout);
         self
     }
 
     // Sets the retry configuration.
     #[allow(dead_code)]
-    pub fn retry(mut self, retry: retry::Retry) -> Command {
-        self.retry = retry;
+    pub fn retry(&mut self, retry: retry::Retry) -> &mut Command {
+        self.retry = Some(retry);
         self
     }
 
@@ -144,7 +157,36 @@ impl Command {
         //  5. Implement timeouts.
 
         let mut cmd = process::Command::new(&self.args[0]);
-        cmd.stdin(process::Stdio::null());
+
+        if let Some(ref path) = self.stdin {
+            if path == Path::new("/dev/null") {
+                cmd.stdin(process::Stdio::null());
+            } else {
+                cmd.stdin(fs::File::open(path)?);
+            }
+        } else {
+            // We don't ever want the build system to pause waiting for user
+            // input from the parent process' input stream.
+            cmd.stdin(process::Stdio::null());
+        }
+
+        if let Some(ref path) = self.stdout {
+            if path == Path::new("/dev/null") {
+                // Use cross-platform method.
+                cmd.stdout(process::Stdio::null());
+            } else {
+                cmd.stdout(fs::File::create(path)?);
+            }
+        }
+
+        if let Some(ref path) = self.stderr {
+            if path == Path::new("/dev/null") {
+                // Use cross-platform method.
+                cmd.stderr(process::Stdio::null());
+            } else {
+                cmd.stderr(fs::File::create(path)?);
+            }
+        }
 
         // Generate a response file if necessary.
         let generate_response_file = match self.response_file {
@@ -244,8 +286,11 @@ impl fmt::Debug for Command {
 
 impl Task for Command {
     fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
-        self.retry
-            .call(|| self.execute_impl(log), retry::progress_dummy)
+        if let Some(ref retry) = self.retry {
+            retry.call(|| self.execute_impl(log), retry::progress_dummy)
+        } else {
+            self.execute_impl(log)
+        }
     }
 }
 
