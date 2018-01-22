@@ -18,10 +18,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+use std::fmt;
+use std::path::PathBuf;
+
 use super::filepath::FilePath;
 use super::traits::{Error, Resource, ResourceState};
-
-use std::fmt;
 
 /// Complete list of resource types. This list is used for deserialization
 /// purposes.
@@ -44,6 +45,12 @@ impl fmt::Debug for Any {
         match self {
             &Any::FilePath(ref x) => x.fmt(f),
         }
+    }
+}
+
+impl From<PathBuf> for Any {
+    fn from(res: PathBuf) -> Self {
+        Any::FilePath(FilePath::new(res))
     }
 }
 

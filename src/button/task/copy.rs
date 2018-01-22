@@ -21,10 +21,11 @@
 use std::io;
 use std::fs;
 use std::fmt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use super::traits::{Error, Task};
 
+use res;
 use retry;
 
 /// A task to create a directory.
@@ -66,13 +67,13 @@ impl Task for Copy {
             .call(|| self.execute_impl(log), retry::progress_dummy)
     }
 
-    fn known_inputs(&self) -> Vec<&Path> {
-        vec![self.from.as_ref()]
+    fn known_inputs(&self) -> Vec<res::Any> {
+        vec![self.from.clone().into()]
     }
 
-    fn known_outputs(&self) -> Vec<&Path> {
+    fn known_outputs(&self) -> Vec<res::Any> {
         // TODO: Depend on output directory.
-        vec![self.to.as_ref()]
+        vec![self.to.clone().into()]
     }
 }
 

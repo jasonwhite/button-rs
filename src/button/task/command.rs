@@ -33,6 +33,8 @@ use tempfile::{NamedTempFile, TempPath};
 
 use super::traits::{Error, Task};
 use util::{NeverAlwaysAuto, Counter};
+
+use res;
 use retry;
 
 /// A task that executes a single command. A command is simply a process to be
@@ -293,31 +295,32 @@ impl Task for Command {
         }
     }
 
-    fn known_inputs(&self) -> Vec<&Path> {
+    fn known_inputs(&self) -> Vec<res::Any> {
         let mut inputs = Vec::new();
-        inputs.push(self.program.as_ref());
+        inputs.push(self.program.clone().into());
 
         if let Some(ref path) = self.stdin {
             if path != Path::new("/dev/null") {
-                inputs.push(path.as_ref());
+                inputs.push(path.clone().into());
             }
         }
 
         inputs
     }
 
-    fn known_outputs(&self) -> Vec<&Path> {
+    fn known_outputs(&self) -> Vec<res::Any> {
+        // TODO: Depend on output directory.
         let mut outputs = Vec::new();
 
         if let Some(ref path) = self.stdout {
             if path != Path::new("/dev/null") {
-                outputs.push(path.as_ref());
+                outputs.push(path.clone().into());
             }
         }
 
         if let Some(ref path) = self.stderr {
             if path != Path::new("/dev/null") {
-                outputs.push(path.as_ref());
+                outputs.push(path.clone().into());
             }
         }
 

@@ -21,10 +21,11 @@
 use std::fmt;
 use std::io;
 use std::time;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use super::traits::{Error, Task};
 
+use res;
 use retry;
 
 /// A task to download a URL. This would normally be a task with no input
@@ -92,8 +93,8 @@ impl Task for Download {
             .call(|| self.execute_impl(log), retry::progress_dummy)
     }
 
-    fn known_outputs(&self) -> Vec<&Path> {
+    fn known_outputs(&self) -> Vec<res::Any> {
         // TODO: Depend on output directory.
-        vec![self.path.as_ref()]
+        vec![self.path.clone().into()]
     }
 }

@@ -20,10 +20,11 @@
 
 use std::fmt;
 use std::io;
-use std::path::Path;
 use std::hash::Hash;
 
 use serde::Serialize;
+
+use res;
 
 /// FIXME: Use a more abstract error type.
 pub type Error = io::Error;
@@ -49,18 +50,14 @@ pub trait Task
     /// Inputs the task knows about *a priori*. It must calculate these by
     /// *only* looking at the task parameters. It cannot do anything fancy like
     /// running an external process to determine these.
-    ///
-    /// TODO: Generalize to return arbitrary resource types.
-    fn known_inputs(&self) -> Vec<&Path> {
+    fn known_inputs(&self) -> Vec<res::Any> {
         Vec::new()
     }
 
     /// Outputs the task knows about *a priori*. It must calculate these by
     /// *only* looking at the task parameters. It cannot do anything fancy like
     /// running an external process to determine these.
-    ///
-    /// TODO: Generalize to return arbitrary resource types.
-    fn known_outputs(&self) -> Vec<&Path> {
+    fn known_outputs(&self) -> Vec<res::Any> {
         Vec::new()
     }
 }

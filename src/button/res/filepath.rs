@@ -40,8 +40,7 @@ pub struct FilePath {
 }
 
 impl FilePath {
-    #[allow(dead_code)]
-    fn new(path: PathBuf) -> FilePath {
+    pub fn new(path: PathBuf) -> FilePath {
         FilePath { path: path }
     }
 
