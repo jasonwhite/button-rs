@@ -21,7 +21,7 @@
 use std::io;
 use std::fs;
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use node::{Error, Task};
 
@@ -64,6 +64,15 @@ impl Task for Copy {
     fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
         self.retry
             .call(|| self.execute_impl(log), retry::progress_dummy)
+    }
+
+    fn known_inputs(&self) -> Vec<&Path> {
+        vec![self.from.as_ref()]
+    }
+
+    fn known_outputs(&self) -> Vec<&Path> {
+        // TODO: Depend on output directory.
+        vec![self.to.as_ref()]
     }
 }
 

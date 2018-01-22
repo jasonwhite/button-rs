@@ -123,6 +123,7 @@ mod tests {
     use super::*;
     use resource::{Res, FilePath};
     use task::{Task, Command};
+    use std::path::PathBuf;
 
     #[test]
     fn test_loading() {
@@ -145,7 +146,7 @@ mod tests {
                           Res::FilePath(FilePath::from("foo.h"))];
 
         let outputs = vec![Res::FilePath(FilePath::from("foo.o"))];
-        let tasks = vec![Task::Command(Command::new("gcc".to_owned(),
+        let tasks = vec![Task::Command(Command::new(PathBuf::from("gcc"),
                                                     vec!["foo.c".to_owned()]))];
 
         assert_eq!(rules,

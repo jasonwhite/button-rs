@@ -40,7 +40,7 @@ use retry;
 #[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
 pub struct Command {
     /// Program name.
-    program: String,
+    program: PathBuf,
 
     /// Program arguments.
     args: Vec<String>,
@@ -95,7 +95,7 @@ pub struct Command {
 
 impl Command {
     #[cfg(test)]
-    pub fn new(program: String, args: Vec<String>) -> Box<Command> {
+    pub fn new(program: PathBuf, args: Vec<String>) -> Box<Command> {
         Box::new(Command {
             program: program,
             args: args,
@@ -291,6 +291,37 @@ impl Task for Command {
         } else {
             self.execute_impl(log)
         }
+    }
+
+    fn known_inputs(&self) -> Vec<&Path> {
+        let mut inputs = Vec::new();
+        inputs.push(self.program.as_ref());
+
+        if let Some(ref path) = self.stdin {
+            if path != Path::new("/dev/null") {
+                inputs.push(path.as_ref());
+            }
+        }
+
+        inputs
+    }
+
+    fn known_outputs(&self) -> Vec<&Path> {
+        let mut outputs = Vec::new();
+
+        if let Some(ref path) = self.stdout {
+            if path != Path::new("/dev/null") {
+                outputs.push(path.as_ref());
+            }
+        }
+
+        if let Some(ref path) = self.stderr {
+            if path != Path::new("/dev/null") {
+                outputs.push(path.as_ref());
+            }
+        }
+
+        outputs
     }
 }
 

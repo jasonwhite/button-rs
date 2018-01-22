@@ -25,7 +25,7 @@ pub use self::filepath::FilePath;
 use std::fmt;
 use node::{ResourceState, Resource, Error};
 
-/// Complete list of resource types. This list is used for derserialization
+/// Complete list of resource types. This list is used for deserialization
 /// purposes.
 #[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash)]
 #[serde(untagged)]

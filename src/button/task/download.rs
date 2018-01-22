@@ -21,7 +21,7 @@
 use std::fmt;
 use std::io;
 use std::time;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use node::{Error, Task};
 
@@ -90,5 +90,10 @@ impl Task for Download {
     fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
         self.retry
             .call(|| self.execute_impl(log), retry::progress_dummy)
+    }
+
+    fn known_outputs(&self) -> Vec<&Path> {
+        // TODO: Depend on output directory.
+        vec![self.path.as_ref()]
     }
 }

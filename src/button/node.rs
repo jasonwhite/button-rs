@@ -20,6 +20,7 @@
 
 use std::fmt;
 use std::io;
+use std::path::Path;
 
 use std::hash::Hash;
 use serde::Serialize;
@@ -84,4 +85,22 @@ pub trait Task
     /// Ideally, the *explicit* inputs and outputs are a subset of the
     /// *implicit* inputs and outputs.
     fn execute(&self, log: &mut io::Write) -> Result<(), Error>;
+
+    /// Inputs the task knows about *a priori*. It must calculate these by
+    /// *only* looking at the task parameters. It cannot do anything fancy like
+    /// running an external process to determine these.
+    ///
+    /// TODO: Generalize to return arbitrary resource types.
+    fn known_inputs(&self) -> Vec<&Path> {
+        Vec::new()
+    }
+
+    /// Outputs the task knows about *a priori*. It must calculate these by
+    /// *only* looking at the task parameters. It cannot do anything fancy like
+    /// running an external process to determine these.
+    ///
+    /// TODO: Generalize to return arbitrary resource types.
+    fn known_outputs(&self) -> Vec<&Path> {
+        Vec::new()
+    }
 }

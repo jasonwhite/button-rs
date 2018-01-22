@@ -534,6 +534,7 @@ mod tests {
     use super::*;
     use resource::{Res, FilePath};
     use task::{Task, Command};
+    use std::path::PathBuf;
 
     #[test]
     fn test_good_graph() {
@@ -673,7 +674,7 @@ mod tests {
         let graph = from_rules(&rules);
 
         let foo_c = Res::FilePath(FilePath::from("foo.c"));
-        let task = vec![Task::Command(Command::new("gcc".to_owned(),
+        let task = vec![Task::Command(Command::new(PathBuf::from("gcc"),
                                                    vec!["foo.c".to_owned()]))];
 
         let cycles = vec![Cycle::new(vec![Node::Resource(&foo_c),
