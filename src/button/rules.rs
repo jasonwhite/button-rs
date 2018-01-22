@@ -121,8 +121,8 @@ impl Rules {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use res::{self, FilePath};
-    use task::{self, Command};
+    use res::FilePath;
+    use task::Command;
     use std::path::PathBuf;
 
     #[test]
@@ -142,12 +142,12 @@ mod tests {
 
         let rules = Rules::from_str(&data).unwrap();
 
-        let inputs = vec![res::Any::FilePath(FilePath::from("foo.c")),
-                          res::Any::FilePath(FilePath::from("foo.h"))];
+        let inputs = vec![FilePath::from("foo.c").into(),
+                          FilePath::from("foo.h").into()];
 
-        let outputs = vec![res::Any::FilePath(FilePath::from("foo.o"))];
-        let tasks = vec![task::Any::Command(Command::new(PathBuf::from("gcc"),
-                                                    vec!["foo.c".to_owned()]))];
+        let outputs = vec![FilePath::from("foo.o").into()];
+        let tasks = vec![Command::new(PathBuf::from("gcc"),
+                                      vec!["foo.c".to_owned()]).into()];
 
         assert_eq!(rules,
                    Rules::new(vec![Rule {

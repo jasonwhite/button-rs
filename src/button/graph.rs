@@ -532,8 +532,8 @@ fn traversal_worker<'a, F, E>(id: usize,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use res::{self, FilePath};
-    use task::{self, Command};
+    use res::FilePath;
+    use task::Command;
     use std::path::PathBuf;
 
     #[test]
@@ -622,8 +622,8 @@ mod tests {
 
         let graph = from_rules(&rules);
 
-        let foo = res::Any::FilePath(FilePath::from("foo.o"));
-        let bar = res::Any::FilePath(FilePath::from("bar.o"));
+        let foo = FilePath::from("foo.o").into();
+        let bar = FilePath::from("bar.o").into();
 
         let races = vec![Race::new(&bar, 2), Race::new(&foo, 3)];
 
@@ -673,9 +673,9 @@ mod tests {
 
         let graph = from_rules(&rules);
 
-        let foo_c = res::Any::FilePath(FilePath::from("foo.c"));
-        let task = vec![task::Any::Command(Command::new(PathBuf::from("gcc"),
-                                                   vec!["foo.c".to_owned()]))];
+        let foo_c = FilePath::from("foo.c").into();
+        let task = vec![Command::new(PathBuf::from("gcc"),
+                                     vec!["foo.c".to_owned()]).into()];
 
         let cycles = vec![Cycle::new(vec![Node::Resource(&foo_c),
                                           Node::Task(&task)])];

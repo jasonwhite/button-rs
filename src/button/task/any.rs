@@ -66,6 +66,36 @@ impl fmt::Debug for Any {
     }
 }
 
+impl From<Command> for Any {
+    fn from(res: Command) -> Self {
+        Any::Command(Box::new(res))
+    }
+}
+
+impl From<Box<Command>> for Any {
+    fn from(res: Box<Command>) -> Self {
+        Any::Command(res)
+    }
+}
+
+impl From<Download> for Any {
+    fn from(res: Download) -> Self {
+        Any::Download(res)
+    }
+}
+
+impl From<Mkdir> for Any {
+    fn from(res: Mkdir) -> Self {
+        Any::Mkdir(res)
+    }
+}
+
+impl From<Copy> for Any {
+    fn from(res: Copy) -> Self {
+        Any::Copy(res)
+    }
+}
+
 impl Task for Any {
     fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
         match self {

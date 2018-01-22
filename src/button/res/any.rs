@@ -47,6 +47,12 @@ impl fmt::Debug for Any {
     }
 }
 
+impl From<FilePath> for Any {
+    fn from(res: FilePath) -> Self {
+        Any::FilePath(res)
+    }
+}
+
 impl Resource for Any {
     fn state(&self) -> Result<ResourceState, Error> {
         match self {
@@ -60,4 +66,3 @@ impl Resource for Any {
         }
     }
 }
-
