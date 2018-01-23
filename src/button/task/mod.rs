@@ -21,13 +21,13 @@
 mod traits;
 mod command;
 mod download;
-mod mkdir;
+mod makedir;
 mod copy;
 mod any;
 
 pub use self::traits::{Error, Task};
 pub use self::command::Command;
 pub use self::download::Download;
-pub use self::mkdir::Mkdir;
+pub use self::makedir::MakeDir;
 pub use self::copy::Copy;
 pub use self::any::Any;

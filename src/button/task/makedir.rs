@@ -29,7 +29,7 @@ use retry;
 
 /// A task to create a directory.
 #[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
-pub struct Mkdir {
+pub struct MakeDir {
     /// Path to the directory to create.
     path: PathBuf,
 
@@ -38,25 +38,25 @@ pub struct Mkdir {
     retry: retry::Retry,
 }
 
-impl Mkdir {
+impl MakeDir {
     fn execute_impl(&self, _log: &mut io::Write) -> Result<(), Error> {
         fs::create_dir_all(&self.path)
     }
 }
 
-impl fmt::Display for Mkdir {
+impl fmt::Display for MakeDir {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "mkdir {:?}", self.path)
     }
 }
 
-impl fmt::Debug for Mkdir {
+impl fmt::Debug for MakeDir {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self)
     }
 }
 
-impl Task for Mkdir {
+impl Task for MakeDir {
     fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
         self.retry
             .call(|| self.execute_impl(log), retry::progress_dummy)

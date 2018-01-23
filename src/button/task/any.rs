@@ -24,7 +24,7 @@ use std::io;
 use super::traits::{Error, Task};
 use super::command::Command;
 use super::download::Download;
-use super::mkdir::Mkdir;
+use super::makedir::MakeDir;
 use super::copy::Copy;
 
 /// Any possible task. This list is used for deserialization purposes.
@@ -38,7 +38,7 @@ pub enum Any {
     Download(Download),
 
     /// Create a directory.
-    Mkdir(Mkdir),
+    MakeDir(MakeDir),
 
     /// Copy a file.
     Copy(Copy),
@@ -49,7 +49,7 @@ impl fmt::Display for Any {
         match self {
             &Any::Command(ref x) => x.fmt(f),
             &Any::Download(ref x) => x.fmt(f),
-            &Any::Mkdir(ref x) => x.fmt(f),
+            &Any::MakeDir(ref x) => x.fmt(f),
             &Any::Copy(ref x) => x.fmt(f),
         }
     }
@@ -60,7 +60,7 @@ impl fmt::Debug for Any {
         match self {
             &Any::Command(ref x) => x.fmt(f),
             &Any::Download(ref x) => x.fmt(f),
-            &Any::Mkdir(ref x) => x.fmt(f),
+            &Any::MakeDir(ref x) => x.fmt(f),
             &Any::Copy(ref x) => x.fmt(f),
         }
     }
@@ -84,9 +84,9 @@ impl From<Download> for Any {
     }
 }
 
-impl From<Mkdir> for Any {
-    fn from(res: Mkdir) -> Self {
-        Any::Mkdir(res)
+impl From<MakeDir> for Any {
+    fn from(res: MakeDir) -> Self {
+        Any::MakeDir(res)
     }
 }
 
@@ -101,7 +101,7 @@ impl Task for Any {
         match self {
             &Any::Command(ref x) => x.execute(log),
             &Any::Download(ref x) => x.execute(log),
-            &Any::Mkdir(ref x) => x.execute(log),
+            &Any::MakeDir(ref x) => x.execute(log),
             &Any::Copy(ref x) => x.execute(log),
         }
     }
