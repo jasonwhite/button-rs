@@ -104,14 +104,14 @@ impl<'a> Build<'a> {
     /// Called when visiting a task type node in the build graph.
     fn visit_task(&self,
                   id: usize,
-                  node: &[task::Any])
+                  node: &task::List)
                   -> Result<bool, io::Error> {
 
         let mut stdout = io::stdout();
 
         let mut output = Vec::new();
 
-        for task in node {
+        for task in node.iter() {
             writeln!(output, "[{}] {}", id, task)?;
 
             match task.execute(&mut output) {

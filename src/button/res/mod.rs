@@ -24,4 +24,4 @@ mod any;
 
 pub use self::traits::{Checksum, Error, Resource, ResourceState};
 pub use self::filepath::FilePath;
-pub use self::any::Any;
+pub use self::any::{Any, Set};

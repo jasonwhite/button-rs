@@ -48,16 +48,17 @@ pub trait Task
     fn execute(&self, log: &mut io::Write) -> Result<(), Error>;
 
     /// Inputs the task knows about *a priori*. It must calculate these by
-    /// *only* looking at the task parameters. It cannot do anything fancy like
-    /// running an external process to determine these.
-    fn known_inputs(&self) -> Vec<res::Any> {
-        Vec::new()
-    }
+    /// *only* looking at the task parameters. It should not do anything fancy
+    /// like running an external process to determine these.
+    ///
+    /// If the task would delete a resource, it should remove it from the set of
+    /// inputs. It may be the case that one task adds an input, but a later task
+    /// deletes it. In such a case, that file is effectively a temporary file
+    /// and can be ignored.
+    fn known_inputs(&self, _resources: &mut res::Set) { }
 
     /// Outputs the task knows about *a priori*. It must calculate these by
     /// *only* looking at the task parameters. It cannot do anything fancy like
     /// running an external process to determine these.
-    fn known_outputs(&self) -> Vec<res::Any> {
-        Vec::new()
-    }
+    fn known_outputs(&self, _resources: &mut res::Set) { }
 }

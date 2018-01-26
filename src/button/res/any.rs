@@ -23,6 +23,10 @@ use std::path::PathBuf;
 
 use super::filepath::FilePath;
 use super::traits::{Error, Resource, ResourceState};
+use std::collections::HashSet;
+
+/// A set of resources.
+pub type Set = HashSet<Any>;
 
 /// Complete list of resource types. This list is used for deserialization
 /// purposes.

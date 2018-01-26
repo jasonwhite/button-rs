@@ -64,7 +64,7 @@ pub enum Edge {
 #[derive(Clone, Copy, Ord, Eq, PartialOrd, PartialEq, Hash, Debug)]
 pub enum Node<'a> {
     Resource(&'a res::Any),
-    Task(&'a Vec<task::Any>),
+    Task(&'a task::List),
 }
 
 impl<'a> fmt::Display for Node<'a> {
@@ -675,7 +675,7 @@ mod tests {
 
         let foo_c = FilePath::from("foo.c").into();
         let task = vec![Command::new(PathBuf::from("gcc"),
-                                     vec!["foo.c".to_owned()]).into()];
+                                     vec!["foo.c".to_owned()]).into()].into();
 
         let cycles = vec![Cycle::new(vec![Node::Resource(&foo_c),
                                           Node::Task(&task)])];

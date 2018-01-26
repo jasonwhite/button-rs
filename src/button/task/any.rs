@@ -27,6 +27,8 @@ use super::download::Download;
 use super::makedir::MakeDir;
 use super::copy::Copy;
 
+use res;
+
 /// Any possible task. This list is used for deserialization purposes.
 #[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -103,6 +105,24 @@ impl Task for Any {
             &Any::Download(ref x) => x.execute(log),
             &Any::MakeDir(ref x) => x.execute(log),
             &Any::Copy(ref x) => x.execute(log),
+        }
+    }
+
+    fn known_inputs(&self, set: &mut res::Set) {
+        match self {
+            &Any::Command(ref x) => x.known_inputs(set),
+            &Any::Download(ref x) => x.known_inputs(set),
+            &Any::MakeDir(ref x) => x.known_inputs(set),
+            &Any::Copy(ref x) => x.known_inputs(set),
+        }
+    }
+
+    fn known_outputs(&self, set: &mut res::Set) {
+        match self {
+            &Any::Command(ref x) => x.known_outputs(set),
+            &Any::Download(ref x) => x.known_outputs(set),
+            &Any::MakeDir(ref x) => x.known_outputs(set),
+            &Any::Copy(ref x) => x.known_outputs(set),
         }
     }
 }

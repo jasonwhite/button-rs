@@ -18,62 +18,90 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::io;
-use std::fs;
 use std::fmt;
-use std::path::PathBuf;
+use std::io;
+use std::ops;
+
+use serde::{Serialize, Serializer, Deserialize, Deserializer};
 
 use super::traits::{Error, Task};
+use super::any::Any;
 
 use res;
-use retry;
 
-/// A task to create a directory.
-#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
-pub struct Copy {
-    /// Path to copy from.
-    from: PathBuf,
-
-    /// Path to copy to.
-    to: PathBuf,
-
-    /// Retry settings.
-    #[serde(default)]
-    retry: retry::Retry,
+/// A list of tasks executed in sequence. This is the root task for all tasks.
+#[derive(Ord, PartialOrd, Eq, PartialEq, Hash)]
+pub struct List {
+    list: Vec<Any>,
 }
 
-impl Copy {
-    fn execute_impl(&self, _log: &mut io::Write) -> Result<(), Error> {
-        fs::copy(&self.from, &self.to)?;
-        Ok(())
+impl List {
+    pub fn new(list: Vec<Any>) -> List {
+        List { list: list }
     }
 }
 
-impl fmt::Display for Copy {
+impl Serialize for List {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer
+    {
+        self.list.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for List {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer<'de>
+    {
+        Deserialize::deserialize(deserializer)
+            .map(|v: Vec<Any>| List::new(v))
+    }
+}
+
+impl From<Vec<Any>> for List {
+    fn from(v: Vec<Any>) -> Self {
+        List { list: v }
+    }
+}
+
+impl ops::Deref for List {
+    type Target = Vec<Any>;
+    fn deref(&self) -> &Vec<Any> {
+        &self.list
+    }
+}
+
+impl fmt::Display for List {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "copy {:?} -> {:?}", self.from, self.to)
+        write!(f, "list of {} tasks", self.list.len())
     }
 }
 
-impl fmt::Debug for Copy {
+impl fmt::Debug for List {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "list of {} tasks", self.list.len())
     }
 }
 
-impl Task for Copy {
+impl Task for List {
     fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
-        self.retry
-            .call(|| self.execute_impl(log), retry::progress_dummy)
+        for task in &self.list {
+            task.execute(log)?;
+        }
+
+        Ok(())
     }
 
     fn known_inputs(&self, resources: &mut res::Set) {
-        resources.insert(self.from.clone().into());
+        for task in &self.list {
+            task.known_inputs(resources);
+        }
     }
 
     fn known_outputs(&self, resources: &mut res::Set) {
-        // TODO: Depend on output directory.
-        resources.insert(self.to.clone().into());
+        for task in &self.list {
+            task.known_outputs(resources);
+        }
     }
 }
 

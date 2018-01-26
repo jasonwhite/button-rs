@@ -93,8 +93,8 @@ impl Task for Download {
             .call(|| self.execute_impl(log), retry::progress_dummy)
     }
 
-    fn known_outputs(&self) -> Vec<res::Any> {
+    fn known_outputs(&self, resources: &mut res::Set) {
         // TODO: Depend on output directory.
-        vec![self.path.clone().into()]
+        resources.insert(self.path.clone().into());
     }
 }

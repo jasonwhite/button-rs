@@ -24,6 +24,7 @@ mod download;
 mod makedir;
 mod copy;
 mod any;
+mod list;
 
 pub use self::traits::{Error, Task};
 pub use self::command::Command;
@@ -31,3 +32,4 @@ pub use self::download::Download;
 pub use self::makedir::MakeDir;
 pub use self::copy::Copy;
 pub use self::any::Any;
+pub use self::list::List;

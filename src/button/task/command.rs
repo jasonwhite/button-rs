@@ -295,36 +295,29 @@ impl Task for Command {
         }
     }
 
-    fn known_inputs(&self) -> Vec<res::Any> {
-        let mut inputs = Vec::new();
-        inputs.push(self.program.clone().into());
+    fn known_inputs(&self, resources: &mut res::Set) {
+        resources.insert(self.program.clone().into());
 
         if let Some(ref path) = self.stdin {
             if path != Path::new("/dev/null") {
-                inputs.push(path.clone().into());
+                resources.insert(path.clone().into());
             }
         }
-
-        inputs
     }
 
-    fn known_outputs(&self) -> Vec<res::Any> {
+    fn known_outputs(&self, resources: &mut res::Set) {
         // TODO: Depend on output directory.
-        let mut outputs = Vec::new();
-
         if let Some(ref path) = self.stdout {
             if path != Path::new("/dev/null") {
-                outputs.push(path.clone().into());
+                resources.insert(path.clone().into());
             }
         }
 
         if let Some(ref path) = self.stderr {
             if path != Path::new("/dev/null") {
-                outputs.push(path.clone().into());
+                resources.insert(path.clone().into());
             }
         }
-
-        outputs
     }
 }
 

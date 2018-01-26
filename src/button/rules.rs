@@ -84,7 +84,7 @@ pub struct Rule {
     pub outputs: Vec<res::Any>,
 
     /// The sequence of tasks to execute.
-    pub tasks: Vec<task::Any>,
+    pub tasks: task::List,
 }
 
 #[derive(Debug, PartialEq)]
@@ -153,7 +153,7 @@ mod tests {
                    Rules::new(vec![Rule {
                                        inputs: inputs,
                                        outputs: outputs,
-                                       tasks: tasks,
+                                       tasks: tasks.into(),
                                    }]));
     }
 }
