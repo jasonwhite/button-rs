@@ -43,15 +43,18 @@ impl Default for NeverAlwaysAuto {
 }
 
 /// A fake writer to count the number of items going into it.
+#[allow(dead_code)]
 pub struct Counter {
     count: usize,
 }
 
 impl Counter {
+    #[allow(dead_code)]
     pub fn new() -> Counter {
         Counter { count: 0 }
     }
 
+    #[allow(dead_code)]
     pub fn count(&self) -> usize {
         self.count
     }

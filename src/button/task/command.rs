@@ -22,6 +22,7 @@ use std::io;
 use std::fs;
 use std::io::Write as IoWrite;
 use std::fmt;
+#[cfg(windows)]
 use std::fmt::Write as FmtWrite;
 use std::time::Duration;
 use std::path::{Path, PathBuf};
@@ -32,7 +33,7 @@ use std::ffi::OsString;
 use tempfile::{NamedTempFile, TempPath};
 
 use super::traits::{Error, Task};
-use util::{NeverAlwaysAuto, Counter};
+use util::NeverAlwaysAuto;
 
 use res;
 use retry;
@@ -99,18 +100,18 @@ impl Command {
     #[cfg(test)]
     pub fn new(program: PathBuf, args: Vec<String>) -> Box<Command> {
         Box::new(Command {
-            program: program,
-            args: args,
-            cwd: None,
-            env: None,
-            response_file: NeverAlwaysAuto::default(),
-            stdin: None,
-            stdout: None,
-            stderr: None,
-            display: None,
-            timeout: None,
-            retry: None,
-        })
+                     program: program,
+                     args: args,
+                     cwd: None,
+                     env: None,
+                     response_file: NeverAlwaysAuto::default(),
+                     stdin: None,
+                     stdout: None,
+                     stderr: None,
+                     display: None,
+                     timeout: None,
+                     retry: None,
+                 })
     }
 }
 
@@ -237,8 +238,8 @@ impl Command {
                                                code)))
                 }
                 None => {
-                    Err(io::Error::new(
-                            io::ErrorKind::Other, "Process terminated by signal"))
+                    Err(io::Error::new(io::ErrorKind::Other,
+                                       "Process terminated by signal"))
                 }
             }
         }
@@ -350,7 +351,7 @@ impl<'a> Arg<'a> {
                 // Dump backslashes if we hit a quotation mark.
                 if x == '"' {
                     // We need 2n+1 backslashes to escape a quote.
-                    for _ in 0..(backslashes+1) {
+                    for _ in 0..(backslashes + 1) {
                         writer.write_char('\\')?;
                     }
                 }
@@ -367,6 +368,31 @@ impl<'a> Arg<'a> {
                 writer.write_char('\\')?;
             }
 
+            writer.write_char('"')?;
+        }
+
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    pub fn quote(&self, writer: &mut fmt::Write) -> fmt::Result {
+        let quote = self.arg.chars().any(|c| " \n\t#<>'&|".contains(c)) ||
+                    self.arg.is_empty();
+
+        if quote {
+            writer.write_char('"')?;
+        }
+
+        for c in self.arg.chars() {
+            // Escape special characters.
+            if "\\\"$~".contains(c) {
+                writer.write_char('\\')?;
+            }
+
+            writer.write_char(c)?;
+        }
+
+        if quote {
             writer.write_char('"')?;
         }
 
@@ -433,6 +459,8 @@ fn args_too_large<S, I>(args: I) -> bool
     where I: IntoIterator<Item = S>,
           S: AsRef<str>
 {
+    use util::Counter;
+
     // The maximum length is 32768 characters, including the NULL terminator.
     let mut counter = Counter::new();
 
@@ -461,7 +489,7 @@ fn args_too_large<S, I>(args: I) -> bool
 
     for arg in args.into_iter() {
         // +1 for the NULL terminator.
-        size += arg.len() + 1;
+        size += arg.as_ref().len() + 1;
     }
 
     // +1 for the final NULL terminator.
@@ -481,8 +509,26 @@ mod tests {
         assert_eq!(format!("{}", Arg::new("foo bar")), "\"foo bar\"");
         assert_eq!(format!("{}", Arg::new("foo\tbar")), "\"foo\tbar\"");
         assert_eq!(format!("{}", Arg::new("foobar")), "foobar");
-        assert_eq!(format!("{}", Arg::new("\"foo bar\"")), "\"\\\"foo bar\\\"\"");
+        assert_eq!(format!("{}", Arg::new("\"foo bar\"")),
+                   "\"\\\"foo bar\\\"\"");
         assert_eq!(format!("{}", Arg::new(r"C:\foo\bar")), r"C:\foo\bar");
         assert_eq!(format!("{}", Arg::new(r"\\foo\bar")), r"\\foo\bar");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_arg_display() {
+        assert_eq!(format!("{}", Arg::new("foo bar")), "\"foo bar\"");
+        assert_eq!(format!("{}", Arg::new("foo\tbar")), "\"foo\tbar\"");
+        assert_eq!(format!("{}", Arg::new("foo\nbar")), "\"foo\nbar\"");
+        assert_eq!(format!("{}", Arg::new("foobar")), "foobar");
+        assert_eq!(format!("{}", Arg::new("\"foo bar\"")),
+                   "\"\\\"foo bar\\\"\"");
+        assert_eq!(format!("{}", Arg::new(r"\\foo\bar")), r"\\\\foo\\bar");
+        assert_eq!(format!("{}", Arg::new(r"$HOME")), r"\$HOME");
+        assert_eq!(format!("{}", Arg::new(r"foo>bar")), "\"foo>bar\"");
+        assert_eq!(format!("{}", Arg::new(r"foo&bar")), "\"foo&bar\"");
+        assert_eq!(format!("{}", Arg::new(r"~")), r"\~");
+        assert_eq!(format!("{}", Arg::new(r"foo|bar")), "\"foo|bar\"");
     }
 }
