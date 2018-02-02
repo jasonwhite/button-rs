@@ -24,10 +24,10 @@ use std::path::PathBuf;
 use super::filepath::FilePath;
 use super::dir::Dir;
 use super::traits::{Error, Resource, ResourceState};
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 /// A set of resources.
-pub type Set = HashSet<Any>;
+pub type Set = BTreeSet<Any>;
 
 /// Complete list of resource types. This list is used for deserialization
 /// purposes.

@@ -23,12 +23,12 @@ use std::error;
 use std::io;
 use std::fs;
 use std::fmt;
-use std::slice::Iter;
+use std::slice::{Iter, IterMut};
 
 use serde_json as json;
 
 use res;
-use task;
+use task::{self, Task};
 
 #[derive(Debug)]
 pub enum Error {
@@ -78,10 +78,10 @@ impl error::Error for Error {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Rule {
     /// Inputs to the task.
-    pub inputs: Vec<res::Any>,
+    pub inputs: res::Set,
 
     /// Outputs from the task.
-    pub outputs: Vec<res::Any>,
+    pub outputs: res::Set,
 
     /// The sequence of tasks to execute.
     pub tasks: task::List,
@@ -93,7 +93,13 @@ pub struct Rules {
 }
 
 impl Rules {
-    pub fn new(rules: Vec<Rule>) -> Rules {
+    pub fn new(mut rules: Vec<Rule>) -> Rules {
+        // Add known inputs and outputs so the user doesn't have to.
+        for r in rules.iter_mut() {
+            r.tasks.known_inputs(&mut r.inputs);
+            r.tasks.known_outputs(&mut r.outputs);
+        }
+
         Rules { rules: rules }
     }
 
@@ -115,6 +121,19 @@ impl Rules {
 
     pub fn iter(&self) -> Iter<Rule> {
         self.rules.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> IterMut<Rule> {
+        self.rules.iter_mut()
+    }
+}
+
+impl IntoIterator for Rules {
+    type Item = Rule;
+    type IntoIter = ::std::vec::IntoIter<Rule>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.rules.into_iter()
     }
 }
 
@@ -147,12 +166,13 @@ mod tests {
 
         let outputs = vec![FilePath::from("foo.o").into()];
         let tasks = vec![Command::new(PathBuf::from("gcc"),
-                                      vec!["foo.c".to_owned()]).into()];
+                                      vec!["foo.c".to_owned()])
+                                 .into()];
 
         assert_eq!(rules,
                    Rules::new(vec![Rule {
-                                       inputs: inputs,
-                                       outputs: outputs,
+                                       inputs: inputs.into_iter().collect(),
+                                       outputs: outputs.into_iter().collect(),
                                        tasks: tasks.into(),
                                    }]));
     }
