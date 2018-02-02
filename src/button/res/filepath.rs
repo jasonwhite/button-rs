@@ -34,6 +34,9 @@ use super::traits::{Resource, ResourceState, Error};
 
 
 /// A file resource. This can actually be a file *or* directory.
+///
+/// TODO: Split the directory portion out into a "glob" resource whose state
+/// changes when the list of matched files changes.
 #[derive(Serialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
 pub struct FilePath {
     path: PathBuf,

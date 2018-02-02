@@ -76,4 +76,3 @@ impl Task for Copy {
         resources.insert(self.to.clone().into());
     }
 }
-

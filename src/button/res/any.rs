@@ -22,6 +22,7 @@ use std::fmt;
 use std::path::PathBuf;
 
 use super::filepath::FilePath;
+use super::dir::Dir;
 use super::traits::{Error, Resource, ResourceState};
 use std::collections::HashSet;
 
@@ -34,12 +35,14 @@ pub type Set = HashSet<Any>;
 #[serde(untagged)]
 pub enum Any {
     FilePath(FilePath),
+    Dir(Dir),
 }
 
 impl fmt::Display for Any {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             &Any::FilePath(ref x) => x.fmt(f),
+            &Any::Dir(ref x) => x.fmt(f),
         }
     }
 }
@@ -48,6 +51,7 @@ impl fmt::Debug for Any {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             &Any::FilePath(ref x) => x.fmt(f),
+            &Any::Dir(ref x) => x.fmt(f),
         }
     }
 }
@@ -64,16 +68,24 @@ impl From<FilePath> for Any {
     }
 }
 
+impl From<Dir> for Any {
+    fn from(res: Dir) -> Self {
+        Any::Dir(res)
+    }
+}
+
 impl Resource for Any {
     fn state(&self) -> Result<ResourceState, Error> {
         match self {
             &Any::FilePath(ref x) => x.state(),
+            &Any::Dir(ref x) => x.state(),
         }
     }
 
     fn delete(&self) -> Result<(), Error> {
         match self {
             &Any::FilePath(ref x) => x.delete(),
+            &Any::Dir(ref x) => x.delete(),
         }
     }
 }

@@ -38,6 +38,8 @@ use util::NeverAlwaysAuto;
 use res;
 use retry;
 
+const DEV_NULL: &str = "/dev/null";
+
 /// A task that executes a single command. A command is simply a process to be
 /// spawned.
 #[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
@@ -162,7 +164,7 @@ impl Command {
         let mut cmd = process::Command::new(&self.program);
 
         if let Some(ref path) = self.stdin {
-            if path == Path::new("/dev/null") {
+            if path == Path::new(DEV_NULL) {
                 cmd.stdin(process::Stdio::null());
             } else {
                 cmd.stdin(fs::File::open(path)?);
@@ -174,7 +176,7 @@ impl Command {
         }
 
         if let Some(ref path) = self.stdout {
-            if path == Path::new("/dev/null") {
+            if path == Path::new(DEV_NULL) {
                 // Use cross-platform method.
                 cmd.stdout(process::Stdio::null());
             } else {
@@ -183,7 +185,7 @@ impl Command {
         }
 
         if let Some(ref path) = self.stderr {
-            if path == Path::new("/dev/null") {
+            if path == Path::new(DEV_NULL) {
                 // Use cross-platform method.
                 cmd.stderr(process::Stdio::null());
             } else {
@@ -296,27 +298,49 @@ impl Task for Command {
         }
     }
 
-    fn known_inputs(&self, resources: &mut res::Set) {
-        resources.insert(self.program.clone().into());
+    fn known_inputs(&self, set: &mut res::Set) {
+        set.insert(self.program.clone().into());
 
         if let Some(ref path) = self.stdin {
-            if path != Path::new("/dev/null") {
-                resources.insert(path.clone().into());
+            if path != Path::new(DEV_NULL) {
+                set.insert(path.clone().into());
+            }
+        }
+
+        // Depend on the working directory.
+        if let Some(ref path) = self.cwd {
+            set.insert(res::Dir::new(path.clone()).into());
+        }
+
+        // Depend on parent directory of the stdout file.
+        if let Some(ref path) = self.stdout {
+            if path != Path::new(DEV_NULL) {
+                if let Some(parent) = path.parent() {
+                    set.insert(res::Dir::new(parent.to_path_buf()).into());
+                }
+            }
+        }
+
+        // Depend on parent directory of the stderr file.
+        if let Some(ref path) = self.stderr {
+            if path != Path::new(DEV_NULL) {
+                if let Some(parent) = path.parent() {
+                    set.insert(res::Dir::new(parent.to_path_buf()).into());
+                }
             }
         }
     }
 
-    fn known_outputs(&self, resources: &mut res::Set) {
-        // TODO: Depend on output directory.
+    fn known_outputs(&self, set: &mut res::Set) {
         if let Some(ref path) = self.stdout {
-            if path != Path::new("/dev/null") {
-                resources.insert(path.clone().into());
+            if path != Path::new(DEV_NULL) {
+                set.insert(path.clone().into());
             }
         }
 
         if let Some(ref path) = self.stderr {
-            if path != Path::new("/dev/null") {
-                resources.insert(path.clone().into());
+            if path != Path::new(DEV_NULL) {
+                set.insert(path.clone().into());
             }
         }
     }

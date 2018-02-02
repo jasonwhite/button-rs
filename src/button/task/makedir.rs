@@ -25,6 +25,7 @@ use std::path::PathBuf;
 
 use super::traits::{Error, Task};
 
+use res;
 use retry;
 
 /// A task to create a directory.
@@ -39,6 +40,13 @@ pub struct MakeDir {
 }
 
 impl MakeDir {
+    pub fn new(path: PathBuf) -> MakeDir {
+        MakeDir {
+            path: path,
+            retry: retry::Retry::default(),
+        }
+    }
+
     fn execute_impl(&self, _log: &mut io::Write) -> Result<(), Error> {
         fs::create_dir_all(&self.path)
     }
@@ -60,5 +68,24 @@ impl Task for MakeDir {
     fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
         self.retry
             .call(|| self.execute_impl(log), retry::progress_dummy)
+    }
+
+    fn known_outputs(&self, set: &mut res::Set) {
+        set.insert(res::Dir::new(self.path.clone()).into());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use res;
+    use super::*;
+
+    #[test]
+    fn test_known_outputs() {
+        let task = MakeDir::new(PathBuf::from("foobar"));
+        let mut set = res::Set::new();
+        task.known_outputs(&mut set);
+        assert_eq!(set.len(), 1);
+        assert!(set.contains(&res::Dir::new("foobar".into()).into()));
     }
 }

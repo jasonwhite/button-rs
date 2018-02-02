@@ -18,10 +18,12 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-mod traits;
-mod filepath;
 mod any;
+mod dir;
+mod filepath;
+mod traits;
 
-pub use self::traits::{Checksum, Error, Resource, ResourceState};
-pub use self::filepath::FilePath;
 pub use self::any::{Any, Set};
+pub use self::filepath::FilePath;
+pub use self::dir::Dir;
+pub use self::traits::{Checksum, Error, Resource, ResourceState};
