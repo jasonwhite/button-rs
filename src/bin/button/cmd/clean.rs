@@ -25,7 +25,7 @@ use opts::Coloring;
 pub struct Clean {
     /// Path to the build description. If not specified, finds "button.json"
     /// in the current directory or parent directories.
-    #[structopt(long = "file", short = "s", parse(from_os_str))]
+    #[structopt(long = "file", short = "f", parse(from_os_str))]
     file: Option<PathBuf>,
 
     /// Doesn't delete anything. Just prints what would be deleted.

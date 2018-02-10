@@ -30,7 +30,7 @@ use super::traits::{Error, Task};
 use res;
 
 /// A list of tasks executed in sequence. This is the root task for all tasks.
-#[derive(Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
 pub struct List {
     list: Vec<Any>,
 }

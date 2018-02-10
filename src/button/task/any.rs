@@ -32,7 +32,9 @@ use super::traits::{Error, Task};
 use res;
 
 /// Any possible task. This list is used for deserialization purposes.
-#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[derive(
+    Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone,
+)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Any {
     /// A batch script.

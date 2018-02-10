@@ -17,672 +17,509 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+use std::cmp::min;
+use std::hash::Hash;
+use std::slice;
 
-//! In order for the build graph to be useful, it needs to do the following:
-//!
-//!  1. Perform a diff with another build graph in at most O(n) time. The diff
-//!     must be over both the nodes and edges of the graph. This requires
-//!     storing the graph's nodes and edges in sorted order (either internally
-//!     or externally).
+use indexmap::map::{self, IndexMap};
 
-use std::cmp;
-use std::error;
-use std::fmt;
+pub trait NodeTrait: Ord + Hash {}
+impl<N> NodeTrait for N where N: Ord + Hash {}
 
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Condvar, Mutex};
-
-use petgraph::algo::tarjan_scc;
-use petgraph::visit::IntoNodeIdentifiers;
-use petgraph::{graphmap, Direction};
-
-use crossbeam;
-use crossbeam::sync::MsQueue;
-
-use res;
-use rules::Rules;
-use task;
-
-#[derive(Clone, Copy, Ord, Eq, PartialOrd, PartialEq, Hash, Debug)]
-pub enum Edge {
-    /// An explicit edge is one that is user-defined in the build description.
-    /// That is, it is *explicitly* declared.
-    Explicit,
-
-    /// An implicit edge is one that is automatically determined after the task
-    /// is executed. That is, it is *implicitly* discovered. Tasks, when
-    /// executed, return resources that are read from or written to. The edges
-    /// associated with these resources are then implicit. It is usually the
-    /// case that, for every implicit edge, there is an equivalent explicit
-    /// edge.
-    #[allow(dead_code)]
-    Implicit,
+#[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
+pub enum Direction {
+    Outgoing,
+    Incoming,
 }
 
-/// A node in the graph.
-#[derive(Clone, Copy, Ord, Eq, PartialOrd, PartialEq, Hash, Debug)]
-pub enum Node<'a> {
-    Resource(&'a res::Any),
-    Task(&'a task::List),
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+struct NodeNeighbors {
+    pub incoming: Vec<usize>,
+    pub outgoing: Vec<usize>,
 }
 
-impl<'a> fmt::Display for Node<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Node::Resource(r) => write!(f, "res:{}", r),
-            Node::Task(t) => write!(f, "task:{:?}", t),
+impl NodeNeighbors {
+    pub fn new() -> NodeNeighbors {
+        NodeNeighbors {
+            incoming: Vec::new(),
+            outgoing: Vec::new(),
         }
     }
 }
 
-/// The build graph.
-pub type BuildGraph<'a> = graphmap::DiGraphMap<Node<'a>, Edge>;
-
-/// A cycle in the graph. A cycle is denoted by the nodes contained in the
-/// cycle. The nodes in the cycle should be in topological order. That is, each
-/// node's parent must be the previous node in the list.
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub struct Cycle<'a> {
-    nodes: Vec<Node<'a>>,
-}
-
-impl<'a> Cycle<'a> {
-    pub fn new(nodes: Vec<Node<'a>>) -> Cycle {
-        Cycle { nodes: nodes }
-    }
-}
-
-impl<'a> fmt::Display for Cycle<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // Nodes in the cycle are listed in reverse topological order. Since we
-        // want to list them topological order, we reverse the iterator.
-        let mut it = self.nodes.iter().rev();
-
-        // Unwrapping because there must always be at least one node in a cycle.
-        // If this panics, then the code creating the cycle is buggy.
-        let first = it.next().unwrap();
-
-        write!(f, "    {}\n", first)?;
-
-        for node in it {
-            write!(f, " -> {}\n", node)?;
-        }
-
-        // Make the cycle obvious
-        write!(f, " -> {}\n", first)
-    }
-}
-
-/// Error for when one or more cycles are detected in the build graph.
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub struct CyclesError<'a> {
-    pub cycles: Vec<Cycle<'a>>,
-}
-
-impl<'a> CyclesError<'a> {
-    pub fn new(mut cycles: Vec<Cycle<'a>>) -> CyclesError {
-        // Sort to avoid non-determinism in the output and to make testing
-        // easier.
-        cycles.sort();
-
-        CyclesError { cycles: cycles }
-    }
-}
-
-const CYCLE_EXPLANATION: &'static str = "\
-Cycles in the build graph cause incorrect builds and are strictly forbidden.
-Please edit the build description to remove the cycle(s) listed above.";
-
-impl<'a> fmt::Display for CyclesError<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{} cycle(s) detected in the build graph...\n\n",
-            self.cycles.len()
-        )?;
-
-        for (i, cycle) in self.cycles.iter().enumerate() {
-            write!(f, "Cycle {}\n", i + 1)?;
-            write!(f, "{}\n", cycle)?;
-        }
-
-        write!(f, "{}", CYCLE_EXPLANATION)
-    }
-}
-
-impl<'a> error::Error for CyclesError<'a> {
-    fn description(&self) -> &str {
-        "Cycle(s) detected in the build graph."
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
-        None
-    }
-}
-
-/// A race condition in the build graph.
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub struct Race<N> {
-    /// The node with two or more incoming edges.
-    pub node: N,
-
-    /// The number of incoming edges.
-    pub count: usize,
-}
-
-impl<N> Race<N> {
-    fn new(node: N, count: usize) -> Race<N> {
-        Race {
-            node: node,
-            count: count,
-        }
-    }
-}
-
-impl<N> fmt::Display for Race<N>
+/// Directed graph.
+#[derive(Clone, Eq, PartialEq)]
+pub struct Graph<N, E>
 where
-    N: fmt::Display,
+    N: NodeTrait,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} (output of {} tasks)", self.node, self.count)
-    }
+    nodes: IndexMap<N, NodeNeighbors>,
+    edges: IndexMap<(usize, usize), E>,
 }
 
-/// Error when one or more race conditions are detected in the build graph.
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub struct RaceError<'a> {
-    pub races: Vec<Race<&'a res::Any>>,
-}
-
-impl<'a> RaceError<'a> {
-    pub fn new(mut races: Vec<Race<&'a res::Any>>) -> RaceError {
-        // Sort to avoid non-determinism in the output and to make testing
-        // easier.
-        races.sort();
-
-        RaceError { races: races }
-    }
-}
-
-const RACE_EXPLANATION: &'static str = "\
-Race conditions in the build graph cause incorrect incremental builds and are
-strictly forbidden. The resources listed above are the output of more than one
-task. Depending on the order in which the task is executed, one task will
-overwrite the output of the other. Please edit the build description to fix the
-race condition(s).";
-
-impl<'a> fmt::Display for RaceError<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{} race condition(s) detected in the build graph:\n\n",
-            self.races.len()
-        )?;
-
-        for race in &self.races {
-            write!(f, " - {}\n", race)?;
-        }
-
-        write!(f, "\n{}", RACE_EXPLANATION)
-    }
-}
-
-impl<'a> error::Error for RaceError<'a> {
-    fn description(&self) -> &str {
-        "Race condition(s) detected in the build graph."
+impl<N, E> Graph<N, E>
+where
+    N: NodeTrait,
+{
+    /// Creates a new `Graph`.
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    fn cause(&self) -> Option<&error::Error> {
-        None
-    }
-}
-
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub enum Error<'a> {
-    Races(RaceError<'a>),
-    Cycles(CyclesError<'a>),
-}
-
-impl<'a> From<RaceError<'a>> for Error<'a> {
-    fn from(err: RaceError<'a>) -> Error<'a> {
-        Error::Races(err)
-    }
-}
-
-impl<'a> From<CyclesError<'a>> for Error<'a> {
-    fn from(err: CyclesError<'a>) -> Error<'a> {
-        Error::Cycles(err)
-    }
-}
-
-impl<'a> fmt::Display for Error<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Error::Races(ref err) => write!(f, "{}", err),
-            Error::Cycles(ref err) => write!(f, "{}", err),
-        }
-    }
-}
-
-impl<'a> error::Error for Error<'a> {
-    fn description(&self) -> &str {
-        match *self {
-            Error::Races(ref err) => err.description(),
-            Error::Cycles(ref err) => err.description(),
+    /// Creates a new `Graph` with an estimated capacity.
+    pub fn with_capacity(nodes: usize, edges: usize) -> Self {
+        Graph {
+            nodes: IndexMap::with_capacity(nodes),
+            edges: IndexMap::with_capacity(edges),
         }
     }
 
-    fn cause(&self) -> Option<&error::Error> {
-        match *self {
-            Error::Races(ref err) => Some(err),
-            Error::Cycles(ref err) => Some(err),
-        }
-    }
-}
-
-/// Creates a build graph from the given rules. If the graph would contain race
-/// conditions or cycles, an error is returned. Thus, the returned graph is
-/// guaranteed to be bipartite and acyclic.
-pub fn from_rules(rules: &Rules) -> Result<BuildGraph, Error> {
-    let mut graph = BuildGraph::new();
-
-    for rule in rules.iter() {
-        let task = graph.add_node(Node::Task(&rule.tasks));
-
-        for r in &rule.inputs {
-            let node = graph.add_node(Node::Resource(r));
-            graph.add_edge(node, task, Edge::Explicit);
-        }
-
-        for r in &rule.outputs {
-            let node = graph.add_node(Node::Resource(r));
-            graph.add_edge(task, node, Edge::Explicit);
-        }
+    /// Returns the current node and edge capacity of the graph.
+    pub fn capacity(&self) -> (usize, usize) {
+        (self.nodes.capacity(), self.edges.capacity())
     }
 
-    // Check the graph to make sure the structure is sound.
-    Ok(check_cycles(check_races(graph)?)?)
-}
+    /// Returns the number of nodes in the graph.
+    pub fn node_count(&self) -> usize {
+        self.nodes.len()
+    }
 
-/// Checks for race conditions in the graph. That is, if any node has two or
-/// more parents. In such a case where two tasks output the same resource,
-/// depending on the order in which they get executed, they could be overwriting
-/// each other's output.
-fn check_races(graph: BuildGraph) -> Result<BuildGraph, RaceError> {
-    let mut races = Vec::new();
+    /// Returns the index of the given node if it exists.
+    pub fn node_index(&self, n: &N) -> Option<usize> {
+        self.nodes.get_full(n).map(|x| x.0)
+    }
 
-    for node in graph.nodes() {
-        match node {
-            Node::Resource(r) => {
-                let incoming =
-                    graph.neighbors_directed(node, Direction::Incoming).count();
+    /// Translates an index to a node.
+    pub fn node(&self, index: usize) -> Option<&N> {
+        self.nodes.get_index(index).map(|x| x.0)
+    }
 
-                if incoming > 1 {
-                    races.push(Race::new(r, incoming));
+    /// Returns the number of edges in the graph.
+    pub fn edge_count(&self) -> usize {
+        self.edges.len()
+    }
+
+    /// Removes all nodes and edges
+    pub fn clear(&mut self) {
+        self.nodes.clear();
+        self.edges.clear();
+    }
+
+    /// Add node `n` to the graph. Returns the index of the node.
+    pub fn add_node(&mut self, n: N) -> usize {
+        let entry = self.nodes.entry(n);
+        let index = entry.index();
+        entry.or_insert(NodeNeighbors::new());
+        index
+    }
+
+    /// Returns `true` if the node exists in the graph.
+    pub fn contains_node(&self, n: N) -> bool {
+        self.nodes.contains_key(&n)
+    }
+
+    /// Adds an edge to the graph. Returns the old weight of the edge if it
+    /// already existed.
+    pub fn add_edge(&mut self, a: usize, b: usize, weight: E) -> Option<E> {
+        let old = self.edges.insert((a, b), weight);
+        if old.is_some() {
+            old
+        } else {
+            // New edge. It needs to be inserted into the node
+            if let Some((_, v)) = self.nodes.get_index_mut(a) {
+                v.outgoing.push(b);
+            }
+
+            if a != b {
+                if let Some((_, v)) = self.nodes.get_index_mut(b) {
+                    v.incoming.push(a);
                 }
             }
-            Node::Task(_) => {}
-        };
-    }
 
-    if races.is_empty() {
-        Ok(graph)
-    } else {
-        Err(RaceError::new(races))
-    }
-}
-
-/// Checks for cycles in the graph using Tarjan's algorithm for finding strongly
-/// connected components.
-fn check_cycles(graph: BuildGraph) -> Result<BuildGraph, CyclesError> {
-    let mut cycles = Vec::new();
-
-    for scc in tarjan_scc(&graph) {
-        if scc.len() > 1 {
-            // Only strongly connected components (SCCs) with more than 1 node
-            // have a cycle.
-            cycles.push(Cycle::new(scc));
+            None
         }
     }
 
-    if cycles.is_empty() {
-        Ok(graph)
-    } else {
-        Err(CyclesError::new(cycles))
+    /// Returns `true` if the edge exists.
+    pub fn contains_edge(&self, a: usize, b: usize) -> bool {
+        self.edges.contains_key(&(a, b))
+    }
+
+    /// An iterator over the nodes of the graph.
+    pub fn nodes(&self) -> Nodes<N> {
+        Nodes {
+            iter: self.nodes.keys(),
+        }
+    }
+
+    /// Returns an iterator over all edges in the graph.
+    pub fn all_edges(&self) -> AllEdges<E> {
+        AllEdges {
+            iter: self.edges.iter(),
+        }
+    }
+
+    /// Returns an iterator over all the outgoing edges for the given node. If
+    /// the node does not exist, returns an empty iterator.
+    pub fn outgoing(&self, index: usize) -> Neighbors {
+        Neighbors {
+            iter: match self.nodes.get_index(index) {
+                Some((_, neighbors)) => neighbors.outgoing.iter(),
+                None => [].iter(),
+            },
+        }
+    }
+
+    /// Returns an iterator over all the incoming edges for the given node. If
+    /// the node does not exist, returns an empty iterator.
+    pub fn incoming(&self, index: usize) -> Neighbors {
+        Neighbors {
+            iter: match self.nodes.get_index(index) {
+                Some((_, neighbors)) => neighbors.incoming.iter(),
+                None => [].iter(),
+            },
+        }
+    }
+
+    /// Returns the number of outgoing edges for the given node.
+    ///
+    /// Returns `None` if the node does not exist.
+    pub fn outgoing_count(&self, index: usize) -> Option<usize> {
+        self.nodes.get_index(index).map(|(_, v)| v.outgoing.len())
+    }
+
+    /// Returns the number of incoming edges for the given node.
+    ///
+    /// Returns `None` if the node does not exist.
+    pub fn incoming_count(&self, index: usize) -> Option<usize> {
+        self.nodes.get_index(index).map(|(_, v)| v.incoming.len())
+    }
+
+    /// Iterator over all "roots" of the graph. That is, all the node indices
+    /// that have no incoming edges.
+    ///
+    /// This is an O(n) operation.
+    pub fn roots(&self) -> Roots<N> {
+        Roots {
+            index: 0,
+            iter: self.nodes.values(),
+        }
     }
 }
 
-// This should be in the standard library.
-fn empty_or_any<I, F>(iter: &mut I, mut f: F) -> bool
+/// Creates a new empty `Graph`.
+impl<N, E> Default for Graph<N, E>
 where
-    I: Iterator,
-    F: FnMut(I::Item) -> bool,
+    N: NodeTrait,
 {
-    match iter.next() {
-        None => return true, // Empty
-        Some(x) => {
-            if f(x) {
-                return true;
-            }
-        }
-    };
-
-    for x in iter {
-        if f(x) {
-            return true;
-        }
+    fn default() -> Self {
+        Graph::with_capacity(0, 0)
     }
-
-    false
 }
 
-// Lock-free queue for nodes.
-type Queue<T> = MsQueue<Option<T>>;
-
-/// Traverses the graph in topological order. This function is the real meat of
-/// the build system. Everything else is just support code.
-///
-/// The function `visit` is called for each node that is to be visited. If the
-/// visitor function returns `true`, then its child nodes may be visited. If it
-/// returns `false`, then its child nodes will not be visited. This is useful if
-/// a resource is determined to be unchanged, obviating the need to do
-/// additional work.
-///
-/// TODO: Use a priority queue. Tasks that take the longest to execute should be
-/// started first to maximize efficiency. The first time the graph is traversed,
-/// all nodes are considered equal (because it's impossible to accurately
-/// predict the time it takes to execute a task without actually executing the
-/// task). A predicate function can be provided to do the sorting.
-pub fn traverse<F, E>(
-    g: &BuildGraph,
-    visit: F,
-    threads: usize,
-) -> Result<(), Vec<E>>
+/// Iterator over the nodes in the graph.
+pub struct Nodes<'a, N>
 where
-    F: Fn(usize, Node) -> Result<bool, E> + Send + Sync,
-    E: Send,
+    N: 'a + NodeTrait,
 {
-    // Always use at least one thread.
-    let threads = cmp::max(threads, 1);
+    iter: map::Keys<'a, N, NodeNeighbors>,
+}
 
-    // List of errors that occurred during the traversal.
-    let errors = Mutex::new(Vec::new());
+impl<'a, N> Iterator for Nodes<'a, N>
+where
+    N: 'a + NodeTrait,
+{
+    type Item = &'a N;
 
-    // Nodes that have been visited. The value in this map indicates whether or
-    // not the visitor function was called on it.
-    let visited = Mutex::new(HashMap::new());
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
 
-    // Start the traversal from all nodes that have no incoming edges.
-    let roots = g.node_identifiers().filter(move |&a| {
-        g.neighbors_directed(a, Direction::Incoming)
-            .next()
-            .is_none()
-    });
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
 
-    let queue = &Queue::new();
+    fn count(self) -> usize {
+        self.iter.count()
+    }
 
-    let (cvar, mutex) = (&Condvar::new(), Mutex::new(()));
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.iter.nth(n)
+    }
 
-    // Keeps a count of the number of nodes being processed (or waiting to be
-    // processed). When this reaches 0, we know there is no more work to do.
-    let active = &AtomicUsize::new(0);
-
-    crossbeam::scope(|scope| {
-        let visited = &visited;
-        let visit = &visit;
-        let errors = &errors;
-
-        for id in 0..threads {
-            scope.spawn(move || {
-                traversal_worker(
-                    id, queue, cvar, active, g, visited, visit, errors,
-                )
-            });
-        }
-
-        // Queue the root nodes.
-        for node in roots {
-            active.fetch_add(1, Ordering::SeqCst);
-            queue.push(Some(node));
-        }
-
-        let mut guard = mutex.lock().unwrap();
-        while active.load(Ordering::SeqCst) > 0 {
-            // Wait until all queued items are complete.
-            guard = cvar.wait(guard).unwrap();
-        }
-
-        // Send message to shutdown all threads.
-        for _ in 0..threads {
-            queue.push(None);
-        }
-    });
-
-    let errors = errors.into_inner().unwrap();
-
-    if errors.is_empty() {
-        Ok(())
-    } else {
-        Err(errors)
+    fn last(self) -> Option<Self::Item> {
+        self.iter.last()
     }
 }
 
-fn traversal_worker<'a, F, E>(
-    id: usize,
-    queue: &Queue<Node<'a>>,
-    cvar: &Condvar,
-    active: &AtomicUsize,
-    g: &'a BuildGraph,
-    visited_arc: &Mutex<HashMap<Node<'a>, bool>>,
-    visit: &F,
-    errors: &Mutex<Vec<E>>,
-) where
-    F: Fn(usize, Node) -> Result<bool, E> + Sync,
-    E: Send,
+/// Iterator over all of the edges in the graph.
+pub struct AllEdges<'a, E>
+where
+    E: 'a,
 {
-    while let Some(node) = queue.pop() {
-        // Only call the visitor function if:
-        //  1. This node has no parents, or
-        //  2. Any of its parents have had its visitor function called.
-        //
-        // Although the entire graph is traversed (unless an error occurs), we
-        // may only call the visitor function on a subset of it.
-        let do_visit = {
-            let mut parents = g.neighbors_directed(node, Direction::Incoming);
-            let visited = visited_arc.lock().unwrap();
-            empty_or_any(&mut parents, |p| visited.get(&p) == Some(&true))
-        };
+    iter: map::Iter<'a, (usize, usize), E>,
+}
 
-        let keep_going = if do_visit { visit(id, node) } else { Ok(false) };
+impl<'a, E> Iterator for AllEdges<'a, E>
+where
+    E: 'a,
+{
+    type Item = (usize, usize, &'a E);
 
-        let mut visited = visited_arc.lock().unwrap();
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.iter.next() {
+            None => None,
+            Some((&(a, b), w)) => Some((a, b, w)),
+        }
+    }
 
-        match keep_going {
-            Ok(keep_going) => visited.insert(node, keep_going),
-            Err(err) => {
-                let mut errors = errors.lock().unwrap();
-                errors.push(err);
-                visited.insert(node, false);
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
 
-                // In case of error, do not traverse child nodes. Nothing
-                // that depends on this node should be visited.
-                active.fetch_sub(1, Ordering::SeqCst);
-                cvar.notify_one();
-                continue;
-            }
-        };
+    fn count(self) -> usize {
+        self.iter.count()
+    }
 
-        for neigh in g.neighbors(node) {
-            // Only visit a child node if that child's parents have all been
-            // visited. There might be more efficient ways to do this. We could
-            // keep a count of visited parents for each node instead.
-            let mut parents = g.neighbors_directed(neigh, Direction::Incoming);
-            if !visited.contains_key(&neigh)
-                && parents.all(|p| visited.contains_key(&p))
-            {
-                active.fetch_add(1, Ordering::SeqCst);
-                queue.push(Some(neigh));
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.iter.nth(n).map(|(&(a, b), w)| (a, b, w))
+    }
+
+    fn last(self) -> Option<Self::Item> {
+        self.iter.last().map(|(&(a, b), w)| (a, b, w))
+    }
+}
+
+pub struct Neighbors<'a> {
+    iter: slice::Iter<'a, usize>,
+}
+
+impl<'a> Iterator for Neighbors<'a> {
+    type Item = &'a usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+
+    fn count(self) -> usize {
+        self.iter.count()
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.iter.nth(n)
+    }
+
+    fn last(self) -> Option<Self::Item> {
+        self.iter.last()
+    }
+}
+
+/// Iterator over the roots of the graph.
+pub struct Roots<'a, N>
+where
+    N: 'a,
+{
+    // Current index in the list.
+    index: usize,
+    iter: map::Values<'a, N, NodeNeighbors>,
+}
+
+impl<'a, N> Iterator for Roots<'a, N> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(neighbors) = self.iter.next() {
+            let index = self.index;
+            self.index += 1;
+
+            if neighbors.incoming.len() == 0 {
+                return Some(index);
             }
         }
 
-        // Notify that an element was taken off of the queue. When the queue
-        // becomes empty, a message is sent to each worker thread to shutdown.
-        active.fetch_sub(1, Ordering::SeqCst);
-        cvar.notify_one();
+        None
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (_, upper) = self.iter.size_hint();
+        (0, upper)
+    }
+}
+
+/// Returns the strongly connected components in the graph using Tarjan's
+/// algorithm for strongly connected components.
+pub fn tarjan_scc<N, E>(g: &Graph<N, E>) -> Vec<Vec<usize>>
+where
+    N: NodeTrait,
+{
+    // TODO: Don't do this recursively and use an iterative version of this
+    // algorithm instead. There may be cases where the graph is too deep and
+    // overflows the stack.
+
+    /// Bookkeeping data for each node.
+    #[derive(Copy, Clone, Debug)]
+    struct NodeData {
+        index: Option<usize>,
+
+        /// The smallest index of any node known to be reachable from this
+        /// node. If this value is equal to the index of this node,
+        /// then it is the root of the strongly conected component.
+        lowlink: usize,
+
+        /// `true` if this vertex is curently on the depth-first search stack.
+        on_stack: bool,
+    }
+
+    #[derive(Debug)]
+    struct Data<'a> {
+        index: usize,
+        nodes: Vec<NodeData>,
+        stack: Vec<usize>,
+        sccs: &'a mut Vec<Vec<usize>>,
+    }
+
+    fn scc_visit<N, E>(v: usize, g: &Graph<N, E>, data: &mut Data)
+    where
+        N: NodeTrait,
+    {
+        if data.nodes[v].index.is_some() {
+            // already visited
+            return;
+        }
+
+        let v_index = data.index;
+        data.nodes[v].index = Some(v_index);
+        data.nodes[v].lowlink = v_index;
+        data.nodes[v].on_stack = true;
+        data.stack.push(v);
+        data.index += 1;
+
+        for w in g.outgoing(v) {
+            match data.nodes[*w].index {
+                None => {
+                    scc_visit(*w, g, data);
+                    data.nodes[v].lowlink =
+                        min(data.nodes[v].lowlink, data.nodes[*w].lowlink);
+                }
+                Some(w_index) => {
+                    if data.nodes[*w].on_stack {
+                        // Successor w is in stack S and hence in the current
+                        // SCC
+                        let v_lowlink = &mut data.nodes[v].lowlink;
+                        *v_lowlink = min(*v_lowlink, w_index);
+                    }
+                }
+            }
+        }
+
+        // If v is a root node, pop the stack and generate an SCC
+        if let Some(v_index) = data.nodes[v].index {
+            if data.nodes[v].lowlink == v_index {
+                let mut cur_scc = Vec::new();
+                loop {
+                    let w = data.stack.pop().unwrap();
+                    data.nodes[w].on_stack = false;
+                    cur_scc.push(w);
+                    if w == v {
+                        break;
+                    }
+                }
+                data.sccs.push(cur_scc);
+            }
+        }
+    }
+
+    let mut sccs = Vec::new();
+    {
+        let map = vec![
+            NodeData {
+                index: None,
+                lowlink: !0,
+                on_stack: false
+            };
+            g.node_count()
+        ];
+
+        let mut data = Data {
+            index: 0,
+            nodes: map,
+            stack: Vec::new(),
+            sccs: &mut sccs,
+        };
+
+        for i in 0..g.node_count() {
+            scc_visit(i, g, &mut data);
+        }
+    }
+
+    sccs
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use res::FilePath;
-    use std::path::PathBuf;
-    use task::Command;
 
     #[test]
-    fn test_good_graph() {
-        let data = r#"[
-        {
-            "inputs": ["foo.c", "foo.h"],
-            "tasks": [
-                {
-                    "type": "command",
-                    "program": "gcc",
-                    "args": ["-c", "foo.c", "-o", "foo.o"]
-                }
-            ],
-            "outputs": ["foo.o"]
-        },
-        {
-            "inputs": ["bar.c", "foo.h"],
-            "tasks": [
-                {
-                    "type": "command",
-                    "program": "gcc",
-                    "args": ["-c", "bar.c", "-o", "bar.o"]
-                }
-            ],
-            "outputs": ["bar.o"]
-        },
-        {
-            "inputs": ["foo.o", "bar.o"],
-            "tasks": [
-                {
-                    "type": "command",
-                    "program": "gcc",
-                    "args": ["foo.o", "bar.o", "-o", "foobar"]
-                }
-            ],
-            "outputs": ["foobar"]
-        }
-        ]"#;
+    fn test_smoke() {
+        let mut g = Graph::new();
+        let a = g.add_node("a");
+        let b = g.add_node("b");
+        assert_eq!(a, 0);
+        assert_eq!(b, 1);
+        assert_eq!(g.node_count(), 2);
 
-        let rules = Rules::from_str(&data).unwrap();
-
-        assert!(from_rules(&rules).is_ok());
+        assert_eq!(g.add_edge(a, b, 42), None);
+        assert_eq!(g.add_edge(a, b, 1), Some(42));
+        assert_eq!(g.edge_count(), 1);
     }
 
     #[test]
-    fn test_races() {
-        let data = r#"[
-        {
-            "inputs": ["foo.c", "foo.h"],
-            "tasks": [
-                {
-                    "type": "command",
-                    "program": "gcc",
-                    "args": ["-c", "foo.c", "-o", "foo.o"]
-                }
-            ],
-            "outputs": ["foo.o", "bar.o"]
-        },
-        {
-            "inputs": ["bar.c", "foo.h"],
-            "tasks": [
-                {
-                    "type": "command",
-                    "program": "gcc",
-                    "args": ["-c", "bar.c", "-o", "bar.o"]
-                }
-            ],
-            "outputs": ["bar.o", "foo.o"]
-        },
-        {
-            "inputs": ["foo.o", "bar.o"],
-            "tasks": [
-                {
-                    "type": "command",
-                    "program": "gcc",
-                    "args": ["foo.o", "bar.o", "-o", "foobar"]
-                }
-            ],
-            "outputs": ["foobar", "foo.o"]
-        }
-        ]"#;
+    fn test_tarjan() {
+        // This is Wikipedia's example graph:
+        //
+        //  O ← 1 ← 2 ⇄ 3
+        //  ↓ ↗ ↑   ↑   ↑
+        //  4 ← 5 ⇄ 6 ← 7
+        //              ↺
+        let mut graph = Graph::new();
 
-        let rules = Rules::from_str(&data).unwrap();
+        // Top row
+        let a = graph.add_node("a");
+        let b = graph.add_node("b");
+        let c = graph.add_node("c");
+        let d = graph.add_node("d");
 
-        let graph = from_rules(&rules);
+        // Bottom row
+        let e = graph.add_node("e");
+        let f = graph.add_node("f");
+        let g = graph.add_node("g");
+        let h = graph.add_node("h");
 
-        let foo = FilePath::from("foo.o").into();
-        let bar = FilePath::from("bar.o").into();
+        graph.add_edge(a, e, ());
+        graph.add_edge(b, a, ());
+        graph.add_edge(c, b, ());
+        graph.add_edge(c, d, ());
+        graph.add_edge(d, c, ());
+        graph.add_edge(e, b, ());
+        graph.add_edge(f, b, ());
+        graph.add_edge(f, e, ());
+        graph.add_edge(f, g, ());
+        graph.add_edge(g, c, ());
+        graph.add_edge(g, f, ());
+        graph.add_edge(h, d, ());
+        graph.add_edge(h, g, ());
+        graph.add_edge(h, h, ());
 
-        let races = vec![Race::new(&bar, 2), Race::new(&foo, 3)];
+        let sccs = tarjan_scc(&graph);
+        assert_eq!(sccs.len(), 4);
 
-        assert_eq!(graph.unwrap_err(), Error::Races(RaceError::new(races)));
-    }
-
-    #[test]
-    fn test_cycles() {
-        let data = r#"[
-        {
-            "inputs": ["foo.c", "foo.h"],
-            "tasks": [
-                {
-                    "type": "command",
-                    "program": "gcc",
-                    "args": ["foo.c"]
-                }
-            ],
-            "outputs": ["foo.o", "foo.c"]
-        },
-        {
-            "inputs": ["bar.c", "foo.h"],
-            "tasks": [
-                {
-                    "type": "command",
-                    "program": "gcc",
-                    "args": ["bar.c"]
-                }
-            ],
-            "outputs": ["bar.o"]
-        },
-        {
-            "inputs": ["foo.o", "bar.o"],
-            "tasks": [
-                {
-                    "type": "command",
-                    "program": "gcc",
-                    "args": ["foo.o", "bar.o", "-o", "foobar"]
-                }
-            ],
-            "outputs": ["foobar"]
-        }
-        ]"#;
-
-        let rules = Rules::from_str(&data).unwrap();
-
-        let graph = from_rules(&rules);
-
-        let foo_c = FilePath::from("foo.c").into();
-        let task = vec![
-            Command::new(PathBuf::from("gcc"), vec!["foo.c".to_owned()]).into(),
-        ].into();
-
-        let cycles =
-            vec![Cycle::new(vec![Node::Resource(&foo_c), Node::Task(&task)])];
-
-        assert_eq!(graph.unwrap_err(), Error::Cycles(CyclesError::new(cycles)));
+        assert_eq!(sccs[0], vec![1, 4, 0]);
+        assert_eq!(sccs[1], vec![3, 2]);
+        assert_eq!(sccs[2], vec![6, 5]);
+        assert_eq!(sccs[3], vec![7]);
     }
 }

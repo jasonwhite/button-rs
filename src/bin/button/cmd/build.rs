@@ -30,7 +30,7 @@ use opts::{rules_path, Coloring};
 pub struct Build {
     /// Path to the build description. If not specified, finds "button.json" in
     /// the current directory or parent directories.
-    #[structopt(long = "file", short = "s", parse(from_os_str))]
+    #[structopt(long = "file", short = "f", parse(from_os_str))]
     file: Option<PathBuf>,
 
     /// Doesn't run the build. Just prints the tasks that will be executed.
@@ -123,7 +123,7 @@ impl Build {
         let build = build::Build::new(root, self.dryrun);
 
         match Rules::from_path(&file) {
-            Ok(rules) => match build.build(&rules, threads) {
+            Ok(rules) => match build.build(rules, threads) {
                 Ok(_) => 0,
                 Err(err) => {
                     println!("Error: {}", err);

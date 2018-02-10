@@ -191,6 +191,30 @@ impl PathExt for Path {
     }
 }
 
+/// Check if an iterator is empty or if the predicate returns true for any item.
+pub fn empty_or_any<I, F>(iter: &mut I, mut f: F) -> bool
+where
+    I: Iterator,
+    F: FnMut(I::Item) -> bool,
+{
+    match iter.next() {
+        None => return true, // Empty
+        Some(x) => {
+            if f(x) {
+                return true;
+            }
+        }
+    };
+
+    for x in iter {
+        if f(x) {
+            return true;
+        }
+    }
+
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -279,5 +303,11 @@ mod tests {
             PathBuf::from(String::from(r".\relative\") + long_name).normalize(),
             PathBuf::from(String::from(r"relative\") + long_name)
         );
+    }
+
+    #[test]
+    fn test_empty_or_any() {
+        assert!(empty_or_any(&mut [].iter(), |x: &bool| !x));
+        assert!(empty_or_any(&mut [true, false, true].iter(), |x| !x));
     }
 }

@@ -31,7 +31,9 @@ pub type Set = BTreeSet<Any>;
 
 /// Complete list of resource types. This list is used for deserialization
 /// purposes.
-#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[derive(
+    Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone,
+)]
 #[serde(untagged)]
 pub enum Any {
     FilePath(FilePath),

@@ -24,8 +24,8 @@ use std::io::{self, Write};
 
 use std::error::Error;
 
+use build_graph::{BuildGraph, Node};
 use error;
-use graph;
 use res;
 use rules::Rules;
 use task::{self, Task};
@@ -52,21 +52,21 @@ impl<'a> Build<'a> {
     }
 
     /// Runs a build.
-    pub fn build<'b>(
+    pub fn build(
         &self,
-        rules: &'b Rules,
+        rules: Rules,
         threads: usize,
-    ) -> Result<(), error::Error<'b>> {
+    ) -> Result<(), error::Error> {
         println!("Root directory: {:?}", self.root);
 
         if self.dryrun {
             println!("Note: This is a dry run. Nothing is affected.");
         }
 
-        let g = graph::from_rules(rules)?;
+        let g = BuildGraph::from_rules(rules)?;
 
         if let Err(errors) =
-            graph::traverse(&g, |id, node| self.visit(id, node), threads)
+            g.traverse(|id, node| self.visit(id, node), threads)
         {
             // TODO: Propagate errors.
             println!("The following errors occurred during the build:");
@@ -79,10 +79,10 @@ impl<'a> Build<'a> {
     }
 
     /// Visitor function for a node.
-    fn visit(&self, id: usize, node: graph::Node) -> Result<bool, io::Error> {
+    fn visit(&self, id: usize, node: &Node) -> Result<bool, io::Error> {
         match node {
-            graph::Node::Resource(r) => self.visit_resource(id, r),
-            graph::Node::Task(t) => self.visit_task(id, t),
+            Node::Resource(r) => self.visit_resource(id, r),
+            Node::Task(t) => self.visit_task(id, t),
         }
     }
 

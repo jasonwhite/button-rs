@@ -17,22 +17,48 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-#[macro_use]
-extern crate serde_derive;
-extern crate crossbeam;
-extern crate generic_array;
-extern crate indexmap;
-extern crate serde;
-extern crate serde_json;
-extern crate sha2;
-extern crate tempfile;
 
-pub mod build;
-pub mod build_graph;
-pub mod error;
-pub mod graph;
-pub mod res;
-pub mod retry;
-pub mod rules;
-pub mod task;
-mod util;
+//! The client/server request and response protocol. This is a streaming
+//! protocol.
+
+
+/// A client request.
+#[derive(Serialize, Deserialize, Debug)]
+pub enum Request {
+    /// Requests a new build. The client should then listen for a series of
+    /// responses from the server about the progress of the build.
+    Build(Build),
+
+    /// Requests the build graph.
+    Graph,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Build {
+    // TODO: Send the build graph to the server.
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum BuildEvent {
+    Started,
+
+    /// The build has finished.
+    ///
+    /// TODO: Include:
+    ///  * Duration of the build.
+    ///  *
+    Finished,
+}
+
+/// A server response.
+#[derive(Serialize, Deserialize, Debug)]
+pub enum Response {
+    /// Response for `Request::Build`.
+    ///
+    /// Indicates that a build has been started. Following this, the client
+    /// should then listen for `BuildEvent` responses.
+    Building,
+
+    /// Response for `Request::Graph`.
+    Graph,
+}
