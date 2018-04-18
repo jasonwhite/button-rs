@@ -21,8 +21,8 @@
 use std::fmt;
 use std::path::PathBuf;
 
-use super::filepath::FilePath;
 use super::dir::Dir;
+use super::filepath::FilePath;
 use super::traits::{Error, Resource, ResourceState};
 use std::collections::BTreeSet;
 

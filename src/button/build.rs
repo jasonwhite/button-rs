@@ -26,8 +26,8 @@ use std::error::Error;
 
 use error;
 use graph;
-use rules::Rules;
 use res;
+use rules::Rules;
 use task::{self, Task};
 
 /// Represents a build. This holds the context necessary for all build
@@ -45,10 +45,8 @@ pub struct Build<'a> {
 
 impl<'a> Build<'a> {
     pub fn new(root: &'a Path, dryrun: bool) -> Build<'a> {
-        Build {
-            root: root,
-            dryrun: dryrun,
-        }
+        Build { root: root,
+                dryrun: dryrun, }
     }
 
     /// Runs a build.
@@ -56,7 +54,6 @@ impl<'a> Build<'a> {
                      rules: &'b Rules,
                      threads: usize)
                      -> Result<(), error::Error<'b>> {
-
         println!("Root directory: {:?}", self.root);
 
         if self.dryrun {
@@ -65,9 +62,9 @@ impl<'a> Build<'a> {
 
         let g = graph::from_rules(rules)?;
 
-        if let Err(errors) = graph::traverse(&g,
-                                          |id, node| self.visit(id, node),
-                                          threads) {
+        if let Err(errors) =
+            graph::traverse(&g, |id, node| self.visit(id, node), threads)
+        {
             // TODO: Propagate errors.
             println!("The following errors occurred during the build:");
             for err in errors {
@@ -106,7 +103,6 @@ impl<'a> Build<'a> {
                   id: usize,
                   node: &task::List)
                   -> Result<bool, io::Error> {
-
         let mut stdout = io::stdout();
 
         let mut output = Vec::new();

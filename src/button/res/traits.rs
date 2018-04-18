@@ -19,12 +19,12 @@
 // THE SOFTWARE.
 
 use std::fmt;
-use std::io;
 use std::hash::Hash;
+use std::io;
 
 use serde::Serialize;
 
-use generic_array::{GenericArray, typenum};
+use generic_array::{typenum, GenericArray};
 
 pub type Checksum = GenericArray<u8, typenum::U32>;
 
@@ -52,8 +52,9 @@ pub type Error = io::Error;
 /// A resource is merely an *identifier*. It should not store any state about
 /// the actual thing it is referencing. The only state that can be stored with a
 /// resource is `ResourceState`.
-pub trait Resource
-    : Serialize + Ord + PartialOrd + Eq + PartialEq + Hash + fmt::Display {
+pub trait Resource:
+    Serialize + Ord + PartialOrd + Eq + PartialEq + Hash + fmt::Display
+{
     /// Gets the state of the resource. This is used to determine if it has
     /// changed.
     fn state(&self) -> Result<ResourceState, Error>;

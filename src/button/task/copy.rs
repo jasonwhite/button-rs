@@ -18,9 +18,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::io;
-use std::fs;
 use std::fmt;
+use std::fs;
+use std::io;
 use std::path::PathBuf;
 
 use super::traits::{Error, Task};
@@ -63,8 +63,7 @@ impl fmt::Debug for Copy {
 
 impl Task for Copy {
     fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
-        self.retry
-            .call(|| self.execute_impl(log), retry::progress_dummy)
+        self.retry.call(|| self.execute_impl(log), retry::progress_dummy)
     }
 
     fn known_inputs(&self, resources: &mut res::Set) {

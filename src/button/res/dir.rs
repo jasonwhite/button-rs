@@ -18,17 +18,16 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::fmt;
 use std::ffi::OsStr;
-use std::str::FromStr;
-use std::path::PathBuf;
+use std::fmt;
 use std::fs;
 use std::io;
+use std::path::PathBuf;
+use std::str::FromStr;
 
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 
-use super::traits::{Resource, ResourceState, Error};
-
+use super::traits::{Error, Resource, ResourceState};
 
 /// A directory resource. We don't care about the contents of this resource.
 #[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
@@ -44,7 +43,7 @@ impl Dir {
 
 impl<'a, T: ?Sized + AsRef<OsStr>> From<&'a T> for Dir {
     fn from(s: &'a T) -> Dir {
-        Dir { path: PathBuf::from(s.as_ref()) }
+        Dir { path: PathBuf::from(s.as_ref()), }
     }
 }
 
@@ -52,7 +51,7 @@ impl FromStr for Dir {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Dir { path: PathBuf::from(s) })
+        Ok(Dir { path: PathBuf::from(s), })
     }
 }
 

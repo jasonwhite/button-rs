@@ -25,24 +25,24 @@
 //!     storing the graph's nodes and edges in sorted order (either internally
 //!     or externally).
 
+use std::cmp;
 use std::error;
 use std::fmt;
-use std::cmp;
 
-use std::sync::{Mutex, Condvar};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Condvar, Mutex};
 
-use petgraph::visit::IntoNodeIdentifiers;
 use petgraph::algo::tarjan_scc;
+use petgraph::visit::IntoNodeIdentifiers;
 use petgraph::{graphmap, Direction};
 
 use crossbeam;
 use crossbeam::sync::MsQueue;
 
 use res;
-use task;
 use rules::Rules;
+use task;
 
 #[derive(Clone, Copy, Ord, Eq, PartialOrd, PartialEq, Hash, Debug)]
 pub enum Edge {
@@ -134,7 +134,6 @@ Please edit the build description to remove the cycle(s) listed above.";
 
 impl<'a> fmt::Display for CyclesError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-
         write!(f,
                "{} cycle(s) detected in the build graph...\n\n",
                self.cycles.len())?;
@@ -170,10 +169,8 @@ pub struct Race<N> {
 
 impl<N> Race<N> {
     fn new(node: N, count: usize) -> Race<N> {
-        Race {
-            node: node,
-            count: count,
-        }
+        Race { node: node,
+               count: count, }
     }
 }
 
@@ -181,7 +178,9 @@ impl<N> fmt::Display for Race<N>
     where N: fmt::Display
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} (output of {} tasks)", self.node, self.count)
+        write!(f,
+               "{} (output of {} tasks)",
+               self.node, self.count)
     }
 }
 
@@ -210,7 +209,6 @@ race condition(s).";
 
 impl<'a> fmt::Display for RaceError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-
         write!(f,
                "{} race condition(s) detected in the build graph:\n\n",
                self.races.len())?;
@@ -310,8 +308,9 @@ fn check_races(graph: BuildGraph) -> Result<BuildGraph, RaceError> {
     for node in graph.nodes() {
         match node {
             Node::Resource(r) => {
-                let incoming =
-                    graph.neighbors_directed(node, Direction::Incoming).count();
+                let incoming = graph.neighbors_directed(node,
+                                                        Direction::Incoming)
+                                    .count();
 
                 if incoming > 1 {
                     races.push(Race::new(r, incoming));
@@ -331,7 +330,6 @@ fn check_races(graph: BuildGraph) -> Result<BuildGraph, RaceError> {
 /// Checks for cycles in the graph using Tarjan's algorithm for finding strongly
 /// connected components.
 fn check_cycles(graph: BuildGraph) -> Result<BuildGraph, CyclesError> {
-
     let mut cycles = Vec::new();
 
     for scc in tarjan_scc(&graph) {
@@ -407,12 +405,10 @@ pub fn traverse<F, E>(g: &BuildGraph,
     let visited = Mutex::new(HashMap::new());
 
     // Start the traversal from all nodes that have no incoming edges.
-    let roots = g.node_identifiers()
-        .filter(move |&a| {
-                    g.neighbors_directed(a, Direction::Incoming)
-                        .next()
-                        .is_none()
-                });
+    let roots = g.node_identifiers().filter(move |&a| {
+        g.neighbors_directed(a, Direction::Incoming).next()
+         .is_none()
+    });
 
     let queue = &Queue::new();
 
@@ -423,40 +419,36 @@ pub fn traverse<F, E>(g: &BuildGraph,
     let active = &AtomicUsize::new(0);
 
     crossbeam::scope(|scope| {
-        let visited = &visited;
-        let visit = &visit;
-        let errors = &errors;
+                         let visited = &visited;
+                         let visit = &visit;
+                         let errors = &errors;
 
-        for id in 0..threads {
-            scope.spawn(move || {
-                traversal_worker(id,
-                                 queue,
-                                 cvar,
-                                 active,
-                                 g,
-                                 visited,
-                                 visit,
-                                 errors)
-            });
-        }
+                         for id in 0..threads {
+                             scope.spawn(move || {
+                                             traversal_worker(id, queue, cvar,
+                                                              active, g,
+                                                              visited, visit,
+                                                              errors)
+                                         });
+                         }
 
-        // Queue the root nodes.
-        for node in roots {
-            active.fetch_add(1, Ordering::SeqCst);
-            queue.push(Some(node));
-        }
+                         // Queue the root nodes.
+                         for node in roots {
+                             active.fetch_add(1, Ordering::SeqCst);
+                             queue.push(Some(node));
+                         }
 
-        let mut guard = mutex.lock().unwrap();
-        while active.load(Ordering::SeqCst) > 0 {
-            // Wait until all queued items are complete.
-            guard = cvar.wait(guard).unwrap();
-        }
+                         let mut guard = mutex.lock().unwrap();
+                         while active.load(Ordering::SeqCst) > 0 {
+                             // Wait until all queued items are complete.
+                             guard = cvar.wait(guard).unwrap();
+                         }
 
-        // Send message to shutdown all threads.
-        for _ in 0..threads {
-            queue.push(None);
-        }
-    });
+                         // Send message to shutdown all threads.
+                         for _ in 0..threads {
+                             queue.push(None);
+                         }
+                     });
 
     let errors = errors.into_inner().unwrap();
 
@@ -491,7 +483,11 @@ fn traversal_worker<'a, F, E>(id: usize,
             empty_or_any(&mut parents, |p| visited.get(&p) == Some(&true))
         };
 
-        let keep_going = if do_visit { visit(id, node) } else { Ok(false) };
+        let keep_going = if do_visit {
+            visit(id, node)
+        } else {
+            Ok(false)
+        };
 
         let mut visited = visited_arc.lock().unwrap();
 
@@ -515,8 +511,9 @@ fn traversal_worker<'a, F, E>(id: usize,
             // visited. There might be more efficient ways to do this. We could
             // keep a count of visited parents for each node instead.
             let mut parents = g.neighbors_directed(neigh, Direction::Incoming);
-            if !visited.contains_key(&neigh) &&
-               parents.all(|p| visited.contains_key(&p)) {
+            if !visited.contains_key(&neigh)
+               && parents.all(|p| visited.contains_key(&p))
+            {
                 active.fetch_add(1, Ordering::SeqCst);
                 queue.push(Some(neigh));
             }
@@ -533,8 +530,8 @@ fn traversal_worker<'a, F, E>(id: usize,
 mod tests {
     use super::*;
     use res::FilePath;
-    use task::Command;
     use std::path::PathBuf;
+    use task::Command;
 
     #[test]
     fn test_good_graph() {
@@ -581,7 +578,6 @@ mod tests {
 
     #[test]
     fn test_races() {
-
         let data = r#"[
         {
             "inputs": ["foo.c", "foo.h"],
@@ -627,12 +623,12 @@ mod tests {
 
         let races = vec![Race::new(&bar, 2), Race::new(&foo, 3)];
 
-        assert_eq!(graph.unwrap_err(), Error::Races(RaceError::new(races)));
+        assert_eq!(graph.unwrap_err(),
+                   Error::Races(RaceError::new(races)));
     }
 
     #[test]
     fn test_cycles() {
-
         let data = r#"[
         {
             "inputs": ["foo.c", "foo.h"],
@@ -679,9 +675,10 @@ mod tests {
                                 .into()]
                 .into();
 
-        let cycles = vec![Cycle::new(vec![Node::Resource(&foo_c),
-                                          Node::Task(&task)])];
+        let cycles =
+            vec![Cycle::new(vec![Node::Resource(&foo_c), Node::Task(&task)])];
 
-        assert_eq!(graph.unwrap_err(), Error::Cycles(CyclesError::new(cycles)));
+        assert_eq!(graph.unwrap_err(),
+                   Error::Cycles(CyclesError::new(cycles)));
     }
 }

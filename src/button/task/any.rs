@@ -21,11 +21,11 @@
 use std::fmt;
 use std::io;
 
-use super::traits::{Error, Task};
 use super::command::Command;
+use super::copy::Copy;
 use super::download::Download;
 use super::makedir::MakeDir;
-use super::copy::Copy;
+use super::traits::{Error, Task};
 
 use res;
 

@@ -19,19 +19,19 @@
 // THE SOFTWARE.
 #[macro_use]
 extern crate serde_derive;
+extern crate crossbeam;
+extern crate generic_array;
+extern crate petgraph;
 extern crate serde;
 extern crate serde_json;
-extern crate petgraph;
-extern crate crossbeam;
 extern crate sha2;
-extern crate generic_array;
 extern crate tempfile;
 
-pub mod rules;
 pub mod build;
 pub mod error;
-pub mod res;
-pub mod task;
 pub mod graph;
+pub mod res;
 pub mod retry;
+pub mod rules;
+pub mod task;
 mod util;

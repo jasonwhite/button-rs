@@ -22,7 +22,8 @@ use std::fmt;
 use std::ops;
 
 /// A tri-state for checking if we should do things.
-#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Copy, Clone)]
+#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Copy,
+         Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum NeverAlwaysAuto {
     /// Never do the thing.

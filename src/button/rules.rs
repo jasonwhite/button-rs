@@ -18,11 +18,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::path::Path;
 use std::error;
-use std::io;
-use std::fs;
 use std::fmt;
+use std::fs;
+use std::io;
+use std::path::Path;
 use std::slice::{Iter, IterMut};
 
 use serde_json as json;
@@ -141,12 +141,11 @@ impl IntoIterator for Rules {
 mod tests {
     use super::*;
     use res::FilePath;
-    use task::Command;
     use std::path::PathBuf;
+    use task::Command;
 
     #[test]
     fn test_loading() {
-
         let data = r#"[{
             "inputs": ["foo.c", "foo.h"],
             "outputs": ["foo.o"],
@@ -170,10 +169,10 @@ mod tests {
                                  .into()];
 
         assert_eq!(rules,
-                   Rules::new(vec![Rule {
-                                       inputs: inputs.into_iter().collect(),
-                                       outputs: outputs.into_iter().collect(),
-                                       tasks: tasks.into(),
-                                   }]));
+                   Rules::new(vec![Rule { inputs: inputs.into_iter()
+                                                        .collect(),
+                                          outputs: outputs.into_iter()
+                                                          .collect(),
+                                          tasks: tasks.into(), }]));
     }
 }

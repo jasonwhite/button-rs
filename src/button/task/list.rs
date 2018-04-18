@@ -22,10 +22,10 @@ use std::fmt;
 use std::io;
 use std::ops;
 
-use serde::{Serialize, Serializer, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::traits::{Error, Task};
 use super::any::Any;
+use super::traits::{Error, Task};
 
 use res;
 
@@ -53,8 +53,7 @@ impl<'de> Deserialize<'de> for List {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where D: Deserializer<'de>
     {
-        Deserialize::deserialize(deserializer)
-            .map(|v: Vec<Any>| List::new(v))
+        Deserialize::deserialize(deserializer).map(|v: Vec<Any>| List::new(v))
     }
 }
 
@@ -104,4 +103,3 @@ impl Task for List {
         }
     }
 }
-

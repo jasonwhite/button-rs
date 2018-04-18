@@ -76,12 +76,13 @@
 // random offset within an interval. If the interval length is 0, there is
 // effectively no jittering.
 
-use std::thread::sleep;
-use std::time::Duration;
 use std::cmp::min;
 use std::error::Error;
+use std::thread::sleep;
+use std::time::Duration;
 
-#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Copy, Clone)]
+#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Copy,
+         Clone)]
 pub struct Retry {
     /// The number of times to *retry* a function. Note that the function is
     /// always called at least once.
@@ -101,12 +102,10 @@ pub struct Retry {
 
 impl Default for Retry {
     fn default() -> Retry {
-        Retry {
-            retries: 0,
-            delay: Duration::from_secs(1),
-            backoff: 2,
-            max_delay: None,
-        }
+        Retry { retries: 0,
+                delay: Duration::from_secs(1),
+                backoff: 2,
+                max_delay: None, }
     }
 }
 

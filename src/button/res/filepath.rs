@@ -18,20 +18,19 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::fmt;
 use std::ffi::OsStr;
-use std::str::FromStr;
-use std::path::PathBuf;
+use std::fmt;
 use std::fs;
 use std::io;
 use std::io::Read;
+use std::path::PathBuf;
+use std::str::FromStr;
 
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 
 use serde::{de, Deserialize, Deserializer};
 
-use super::traits::{Resource, ResourceState, Error};
-
+use super::traits::{Error, Resource, ResourceState};
 
 /// A file resource. This can actually be a file *or* directory.
 ///
@@ -109,7 +108,7 @@ impl FilePath {
 
 impl<'a, T: ?Sized + AsRef<OsStr>> From<&'a T> for FilePath {
     fn from(s: &'a T) -> FilePath {
-        FilePath { path: PathBuf::from(s.as_ref()) }
+        FilePath { path: PathBuf::from(s.as_ref()), }
     }
 }
 
@@ -117,7 +116,7 @@ impl FromStr for FilePath {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(FilePath { path: PathBuf::from(s) })
+        Ok(FilePath { path: PathBuf::from(s), })
     }
 }
 

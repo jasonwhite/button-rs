@@ -19,8 +19,8 @@
 // THE SOFTWARE.
 
 use std::fmt;
-use std::io;
 use std::hash::Hash;
+use std::io;
 
 use serde::Serialize;
 
@@ -39,8 +39,9 @@ pub type Error = io::Error;
 ///  * Copying a file or directory.
 ///  * Downloading a file.
 ///  * Creating a directory.
-pub trait Task
-    : Serialize + Ord + PartialOrd + Eq + PartialEq + Hash + fmt::Display {
+pub trait Task:
+    Serialize + Ord + PartialOrd + Eq + PartialEq + Hash + fmt::Display
+{
     /// Executes the task. The result of a task are the resources it used and
     /// the resources it output. These are its *implicit* inputs and outputs.
     /// Ideally, the *explicit* inputs and outputs are a subset of the
@@ -55,10 +56,10 @@ pub trait Task
     /// inputs. It may be the case that one task adds an input, but a later task
     /// deletes it. In such a case, that file is effectively a temporary file
     /// and can be ignored.
-    fn known_inputs(&self, _resources: &mut res::Set) { }
+    fn known_inputs(&self, _resources: &mut res::Set) {}
 
     /// Outputs the task knows about *a priori*. It must calculate these by
     /// *only* looking at the task parameters. It cannot do anything fancy like
     /// running an external process to determine these.
-    fn known_outputs(&self, _resources: &mut res::Set) { }
+    fn known_outputs(&self, _resources: &mut res::Set) {}
 }

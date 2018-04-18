@@ -18,9 +18,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::io;
-use std::fs;
 use std::fmt;
+use std::fs;
+use std::io;
 use std::path::PathBuf;
 
 use super::traits::{Error, Task};
@@ -41,10 +41,8 @@ pub struct MakeDir {
 
 impl MakeDir {
     pub fn new(path: PathBuf) -> MakeDir {
-        MakeDir {
-            path: path,
-            retry: retry::Retry::default(),
-        }
+        MakeDir { path: path,
+                  retry: retry::Retry::default(), }
     }
 
     fn execute_impl(&self, _log: &mut io::Write) -> Result<(), Error> {
@@ -66,8 +64,7 @@ impl fmt::Debug for MakeDir {
 
 impl Task for MakeDir {
     fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
-        self.retry
-            .call(|| self.execute_impl(log), retry::progress_dummy)
+        self.retry.call(|| self.execute_impl(log), retry::progress_dummy)
     }
 
     fn known_outputs(&self, set: &mut res::Set) {
@@ -77,8 +74,8 @@ impl Task for MakeDir {
 
 #[cfg(test)]
 mod tests {
-    use res;
     use super::*;
+    use res;
 
     #[test]
     fn test_known_outputs() {

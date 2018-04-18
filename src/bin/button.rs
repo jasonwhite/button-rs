@@ -29,7 +29,6 @@ mod opts;
 use std::process::exit;
 
 fn main() {
-
     let app_matches = app::app().get_matches();
 
     let (name, matches) = app_matches.subcommand();

@@ -18,18 +18,18 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-mod traits;
-mod command;
-mod download;
-mod makedir;
-mod copy;
 mod any;
+mod command;
+mod copy;
+mod download;
 mod list;
+mod makedir;
+mod traits;
 
-pub use self::traits::{Error, Task};
-pub use self::command::Command;
-pub use self::download::Download;
-pub use self::makedir::MakeDir;
-pub use self::copy::Copy;
 pub use self::any::Any;
+pub use self::command::Command;
+pub use self::copy::Copy;
+pub use self::download::Download;
 pub use self::list::List;
+pub use self::makedir::MakeDir;
+pub use self::traits::{Error, Task};

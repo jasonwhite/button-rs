@@ -24,6 +24,6 @@ mod filepath;
 mod traits;
 
 pub use self::any::{Any, Set};
-pub use self::filepath::FilePath;
 pub use self::dir::Dir;
+pub use self::filepath::FilePath;
 pub use self::traits::{Checksum, Error, Resource, ResourceState};

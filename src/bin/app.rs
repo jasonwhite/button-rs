@@ -21,23 +21,22 @@ use clap;
 
 /// Returns clap App arguments to use for parsing.
 pub fn app<'a, 'b>() -> clap::App<'a, 'b> {
-
     // Common options
-    let verbose_opt = clap::Arg::with_name("verbose")
-        .help("Print additional information.")
-        .long("verbose")
-        .short("v");
+    let verbose_opt =
+        clap::Arg::with_name("verbose").help("Print additional information.")
+                                       .long("verbose")
+                                       .short("v");
 
-    let file_opt = clap::Arg::with_name("file")
-        .help("Path to the build description.")
-        .takes_value(true)
-        .long("file")
-        .short("f");
+    let file_opt =
+        clap::Arg::with_name("file").help("Path to the build description.")
+                                    .takes_value(true)
+                                    .long("file")
+                                    .short("f");
 
-    let dryrun_opt = clap::Arg::with_name("dryrun")
-        .help("Print what might happen.")
-        .long("dryrun")
-        .short("n");
+    let dryrun_opt =
+        clap::Arg::with_name("dryrun").help("Print what might happen.")
+                                      .long("dryrun")
+                                      .short("n");
 
     let threads_opt = clap::Arg::with_name("threads")
         .help("The number of threads to use. Defaults to the number of cores \
@@ -46,12 +45,13 @@ pub fn app<'a, 'b>() -> clap::App<'a, 'b> {
         .long("threads")
         .short("t");
 
-    let color_opt = clap::Arg::with_name("color")
-        .help("When to colorize the output.")
-        .takes_value(true)
-        .long("color")
-        .possible_values(&["auto", "never", "always"])
-        .default_value("auto");
+    let color_opt =
+        clap::Arg::with_name("color").help("When to colorize the output.")
+                                     .takes_value(true)
+                                     .long("color")
+                                     .possible_values(&["auto", "never",
+                                                        "always"])
+                                     .default_value("auto");
 
     let common_opts = &[verbose_opt.clone(),
                         file_opt.clone(),

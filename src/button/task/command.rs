@@ -18,17 +18,17 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::io;
-use std::fs;
-use std::io::Write as IoWrite;
+use std::collections::BTreeMap;
+use std::ffi::OsString;
 use std::fmt;
 #[cfg(windows)]
 use std::fmt::Write as FmtWrite;
-use std::time::Duration;
+use std::fs;
+use std::io;
+use std::io::Write as IoWrite;
 use std::path::{Path, PathBuf};
 use std::process;
-use std::collections::BTreeMap;
-use std::ffi::OsString;
+use std::time::Duration;
 
 use tempfile::{NamedTempFile, TempPath};
 
@@ -101,19 +101,17 @@ pub struct Command {
 impl Command {
     #[cfg(test)]
     pub fn new(program: PathBuf, args: Vec<String>) -> Box<Command> {
-        Box::new(Command {
-                     program: program,
-                     args: args,
-                     cwd: None,
-                     env: None,
-                     response_file: NeverAlwaysAuto::default(),
-                     stdin: None,
-                     stdout: None,
-                     stderr: None,
-                     display: None,
-                     timeout: None,
-                     retry: None,
-                 })
+        Box::new(Command { program: program,
+                           args: args,
+                           cwd: None,
+                           env: None,
+                           response_file: NeverAlwaysAuto::default(),
+                           stdin: None,
+                           stdout: None,
+                           stderr: None,
+                           display: None,
+                           timeout: None,
+                           retry: None, })
     }
 }
 
@@ -253,7 +251,9 @@ impl fmt::Display for Command {
         if let Some(ref display) = self.display {
             write!(f, "{}", display)
         } else {
-            write!(f, "{}", Arg::new(self.program.to_string_lossy().as_ref()))?;
+            write!(f,
+                   "{}",
+                   Arg::new(self.program.to_string_lossy().as_ref()))?;
 
             for arg in self.args.iter() {
                 write!(f, " {}", Arg::new(arg))?;
@@ -268,7 +268,9 @@ impl fmt::Debug for Command {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "\"")?;
 
-        write!(f, "{}", Arg::new(self.program.to_string_lossy().as_ref()))?;
+        write!(f,
+               "{}",
+               Arg::new(self.program.to_string_lossy().as_ref()))?;
 
         for arg in self.args.iter() {
             write!(f, " {}", Arg::new(arg))?;
@@ -350,8 +352,8 @@ impl<'a> Arg<'a> {
     /// Quotes the argument such that it is safe to pass to the shell.
     #[cfg(windows)]
     pub fn quote(&self, writer: &mut fmt::Write) -> fmt::Result {
-        let quote = self.arg.chars().any(|c| c == ' ' || c == '\t') ||
-                    self.arg.is_empty();
+        let quote = self.arg.chars().any(|c| c == ' ' || c == '\t')
+                    || self.arg.is_empty();
 
         if quote {
             writer.write_char('"')?;
@@ -391,8 +393,9 @@ impl<'a> Arg<'a> {
 
     #[cfg(unix)]
     pub fn quote(&self, writer: &mut fmt::Write) -> fmt::Result {
-        let quote = self.arg.chars().any(|c| " \n\t#<>'&|".contains(c)) ||
-                    self.arg.is_empty();
+        let quote = self.arg.chars()
+                        .any(|c| " \n\t#<>'&|".contains(c))
+                    || self.arg.is_empty();
 
         if quote {
             writer.write_char('"')?;
@@ -521,80 +524,87 @@ mod tests {
     #[test]
     #[cfg(windows)]
     fn test_arg_display() {
-        assert_eq!(format!("{}", Arg::new("foo bar")), "\"foo bar\"");
-        assert_eq!(format!("{}", Arg::new("foo\tbar")), "\"foo\tbar\"");
+        assert_eq!(format!("{}", Arg::new("foo bar")),
+                   "\"foo bar\"");
+        assert_eq!(format!("{}", Arg::new("foo\tbar")),
+                   "\"foo\tbar\"");
         assert_eq!(format!("{}", Arg::new("foobar")), "foobar");
         assert_eq!(format!("{}", Arg::new("\"foo bar\"")),
                    "\"\\\"foo bar\\\"\"");
-        assert_eq!(format!("{}", Arg::new(r"C:\foo\bar")), r"C:\foo\bar");
-        assert_eq!(format!("{}", Arg::new(r"\\foo\bar")), r"\\foo\bar");
+        assert_eq!(format!("{}", Arg::new(r"C:\foo\bar")),
+                   r"C:\foo\bar");
+        assert_eq!(format!("{}", Arg::new(r"\\foo\bar")),
+                   r"\\foo\bar");
     }
 
     #[test]
     #[cfg(unix)]
     fn test_arg_display() {
-        assert_eq!(format!("{}", Arg::new("foo bar")), "\"foo bar\"");
-        assert_eq!(format!("{}", Arg::new("foo\tbar")), "\"foo\tbar\"");
-        assert_eq!(format!("{}", Arg::new("foo\nbar")), "\"foo\nbar\"");
+        assert_eq!(format!("{}", Arg::new("foo bar")),
+                   "\"foo bar\"");
+        assert_eq!(format!("{}", Arg::new("foo\tbar")),
+                   "\"foo\tbar\"");
+        assert_eq!(format!("{}", Arg::new("foo\nbar")),
+                   "\"foo\nbar\"");
         assert_eq!(format!("{}", Arg::new("foobar")), "foobar");
         assert_eq!(format!("{}", Arg::new("\"foo bar\"")),
                    "\"\\\"foo bar\\\"\"");
-        assert_eq!(format!("{}", Arg::new(r"\\foo\bar")), r"\\\\foo\\bar");
+        assert_eq!(format!("{}", Arg::new(r"\\foo\bar")),
+                   r"\\\\foo\\bar");
         assert_eq!(format!("{}", Arg::new(r"$HOME")), r"\$HOME");
-        assert_eq!(format!("{}", Arg::new(r"foo>bar")), "\"foo>bar\"");
-        assert_eq!(format!("{}", Arg::new(r"foo&bar")), "\"foo&bar\"");
+        assert_eq!(format!("{}", Arg::new(r"foo>bar")),
+                   "\"foo>bar\"");
+        assert_eq!(format!("{}", Arg::new(r"foo&bar")),
+                   "\"foo&bar\"");
         assert_eq!(format!("{}", Arg::new(r"~")), r"\~");
-        assert_eq!(format!("{}", Arg::new(r"foo|bar")), "\"foo|bar\"");
+        assert_eq!(format!("{}", Arg::new(r"foo|bar")),
+                   "\"foo|bar\"");
     }
 
     #[test]
     fn test_command_display() {
-        assert_eq!(
-            format!("{}", Command::new(
-                PathBuf::from("foo"),
-                vec![String::from("bar"), String::from("baz")]
-            )),
-            "foo bar baz"
-        );
+        assert_eq!(format!("{}",
+                           Command::new(PathBuf::from("foo"),
+                                        vec![String::from("bar"),
+                                             String::from("baz")])),
+                   "foo bar baz");
+
+        assert_eq!(format!("{}",
+                           Command::new(PathBuf::from("foo bar"),
+                                        vec![String::from("baz")])),
+                   "\"foo bar\" baz");
 
         assert_eq!(
-            format!("{}", Command::new(
-                PathBuf::from("foo bar"),
-                vec![String::from("baz")]
-            )),
-            "\"foo bar\" baz"
-        );
-
-        assert_eq!(
-            format!("{}", Command::new(
+                   format!(
+            "{}",
+            Command::new(
                 PathBuf::from("foo/bar/baz"),
                 vec![String::from("some argument")]
-            ).display(String::from("display this"))),
-            "display this"
+            ).display(String::from("display this"))
+        ),
+                   "display this"
         );
 
-        assert_eq!(
-            format!("{:?}", Command::new(
-                PathBuf::from("foo"),
-                vec![String::from("bar"), String::from("baz")]
-            )),
-            "\"foo bar baz\""
-        );
+        assert_eq!(format!("{:?}",
+                           Command::new(PathBuf::from("foo"),
+                                        vec![String::from("bar"),
+                                             String::from("baz")])),
+                   "\"foo bar baz\"");
+
+        assert_eq!(format!("{:?}",
+                           Command::new(PathBuf::from("foo bar"),
+                                        vec![String::from("baz")])),
+                   "\"\"foo bar\" baz\"");
 
         assert_eq!(
-            format!("{:?}", Command::new(
-                PathBuf::from("foo bar"),
-                vec![String::from("baz")]
-            )),
-            "\"\"foo bar\" baz\""
-        );
-
-        assert_eq!(
-            format!("{:?}", Command::new(
+                   format!(
+            "{:?}",
+            Command::new(
                 PathBuf::from("foo/bar/baz"),
                 vec![String::from("some argument")]
-            ).display(String::from("display this"))),
-            "\"foo/bar/baz \"some argument\"\""
+            ).display(String::from("display this"))
+        ),
+                   "\"foo/bar/baz \"some argument\"\""
         );
     }
 }

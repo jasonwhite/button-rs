@@ -21,8 +21,8 @@
 use std::error;
 use std::fmt;
 
-use rules;
 use graph;
+use rules;
 
 /// The main error enum. All other errors should trickle down into this one. If
 /// a build fails, this is what it should return.

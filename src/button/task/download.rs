@@ -20,8 +20,8 @@
 
 use std::fmt;
 use std::io;
-use std::time;
 use std::path::PathBuf;
+use std::time;
 
 use super::traits::{Error, Task};
 
@@ -53,17 +53,17 @@ impl Download {
     #[cfg(test)]
     #[allow(dead_code)]
     pub fn new(url: String, sha256: String, path: PathBuf) -> Download {
-        Download {
-            url: url,
-            sha256: sha256,
-            path: path,
-            timeout: None,
-            retry: retry::Retry::new(),
-        }
+        Download { url: url,
+                   sha256: sha256,
+                   path: path,
+                   timeout: None,
+                   retry: retry::Retry::new(), }
     }
 
     fn execute_impl(&self, log: &mut io::Write) -> Result<(), Error> {
-        writeln!(log, "Downloading `{:?}` to {:?}", self.url, self.path)?;
+        writeln!(log,
+                 "Downloading `{:?}` to {:?}",
+                 self.url, self.path)?;
 
         // TODO:
         //  1. Download to a temporary path.
@@ -89,8 +89,7 @@ impl fmt::Debug for Download {
 
 impl Task for Download {
     fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
-        self.retry
-            .call(|| self.execute_impl(log), retry::progress_dummy)
+        self.retry.call(|| self.execute_impl(log), retry::progress_dummy)
     }
 
     fn known_outputs(&self, resources: &mut res::Set) {
