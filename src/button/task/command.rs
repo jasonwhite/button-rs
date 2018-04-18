@@ -253,13 +253,9 @@ impl fmt::Display for Command {
         if let Some(ref display) = self.display {
             write!(f, "{}", display)
         } else {
-            let mut args = self.args.iter();
+            write!(f, "{}", Arg::new(self.program.to_string_lossy().as_ref()))?;
 
-            if let Some(arg) = args.next() {
-                write!(f, "{}", Arg::new(arg))?;
-            }
-
-            for arg in args {
+            for arg in self.args.iter() {
                 write!(f, " {}", Arg::new(arg))?;
             }
 
@@ -270,16 +266,11 @@ impl fmt::Display for Command {
 
 impl fmt::Debug for Command {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-
         write!(f, "\"")?;
 
-        let mut args = self.args.iter();
+        write!(f, "{}", Arg::new(self.program.to_string_lossy().as_ref()))?;
 
-        if let Some(arg) = args.next() {
-            write!(f, "{}", Arg::new(arg))?;
-        }
-
-        for arg in args {
+        for arg in self.args.iter() {
             write!(f, " {}", Arg::new(arg))?;
         }
 
@@ -554,5 +545,56 @@ mod tests {
         assert_eq!(format!("{}", Arg::new(r"foo&bar")), "\"foo&bar\"");
         assert_eq!(format!("{}", Arg::new(r"~")), r"\~");
         assert_eq!(format!("{}", Arg::new(r"foo|bar")), "\"foo|bar\"");
+    }
+
+    #[test]
+    fn test_command_display() {
+        assert_eq!(
+            format!("{}", Command::new(
+                PathBuf::from("foo"),
+                vec![String::from("bar"), String::from("baz")]
+            )),
+            "foo bar baz"
+        );
+
+        assert_eq!(
+            format!("{}", Command::new(
+                PathBuf::from("foo bar"),
+                vec![String::from("baz")]
+            )),
+            "\"foo bar\" baz"
+        );
+
+        assert_eq!(
+            format!("{}", Command::new(
+                PathBuf::from("foo/bar/baz"),
+                vec![String::from("some argument")]
+            ).display(String::from("display this"))),
+            "display this"
+        );
+
+        assert_eq!(
+            format!("{:?}", Command::new(
+                PathBuf::from("foo"),
+                vec![String::from("bar"), String::from("baz")]
+            )),
+            "\"foo bar baz\""
+        );
+
+        assert_eq!(
+            format!("{:?}", Command::new(
+                PathBuf::from("foo bar"),
+                vec![String::from("baz")]
+            )),
+            "\"\"foo bar\" baz\""
+        );
+
+        assert_eq!(
+            format!("{:?}", Command::new(
+                PathBuf::from("foo/bar/baz"),
+                vec![String::from("some argument")]
+            ).display(String::from("display this"))),
+            "\"foo/bar/baz \"some argument\"\""
+        );
     }
 }
