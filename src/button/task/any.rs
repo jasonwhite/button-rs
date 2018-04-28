@@ -21,10 +21,12 @@
 use std::fmt;
 use std::io;
 
+use super::batch_script::BatchScript;
 use super::command::Command;
 use super::copy::Copy;
 use super::download::Download;
 use super::makedir::MakeDir;
+
 use super::traits::{Error, Task};
 
 use res;
@@ -33,6 +35,9 @@ use res;
 #[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Any {
+    /// A batch script.
+    BatchScript(BatchScript),
+
     /// A single command execution.
     Command(Box<Command>),
 
@@ -49,6 +54,7 @@ pub enum Any {
 impl fmt::Display for Any {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            &Any::BatchScript(ref x) => x.fmt(f),
             &Any::Command(ref x) => x.fmt(f),
             &Any::Download(ref x) => x.fmt(f),
             &Any::MakeDir(ref x) => x.fmt(f),
@@ -60,11 +66,18 @@ impl fmt::Display for Any {
 impl fmt::Debug for Any {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            &Any::BatchScript(ref x) => x.fmt(f),
             &Any::Command(ref x) => x.fmt(f),
             &Any::Download(ref x) => x.fmt(f),
             &Any::MakeDir(ref x) => x.fmt(f),
             &Any::Copy(ref x) => x.fmt(f),
         }
+    }
+}
+
+impl From<BatchScript> for Any {
+    fn from(res: BatchScript) -> Self {
+        Any::BatchScript(res)
     }
 }
 
@@ -101,6 +114,7 @@ impl From<Copy> for Any {
 impl Task for Any {
     fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
         match self {
+            &Any::BatchScript(ref x) => x.execute(log),
             &Any::Command(ref x) => x.execute(log),
             &Any::Download(ref x) => x.execute(log),
             &Any::MakeDir(ref x) => x.execute(log),
@@ -110,6 +124,7 @@ impl Task for Any {
 
     fn known_inputs(&self, set: &mut res::Set) {
         match self {
+            &Any::BatchScript(ref x) => x.known_inputs(set),
             &Any::Command(ref x) => x.known_inputs(set),
             &Any::Download(ref x) => x.known_inputs(set),
             &Any::MakeDir(ref x) => x.known_inputs(set),
@@ -119,6 +134,7 @@ impl Task for Any {
 
     fn known_outputs(&self, set: &mut res::Set) {
         match self {
+            &Any::BatchScript(ref x) => x.known_outputs(set),
             &Any::Command(ref x) => x.known_outputs(set),
             &Any::Download(ref x) => x.known_outputs(set),
             &Any::MakeDir(ref x) => x.known_outputs(set),

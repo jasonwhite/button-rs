@@ -19,6 +19,7 @@
 // THE SOFTWARE.
 
 mod any;
+mod batch_script;
 mod command;
 mod copy;
 mod download;
@@ -27,6 +28,7 @@ mod makedir;
 mod traits;
 
 pub use self::any::Any;
+pub use self::batch_script::BatchScript;
 pub use self::command::Command;
 pub use self::copy::Copy;
 pub use self::download::Download;
