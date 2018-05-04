@@ -48,6 +48,10 @@ pub struct BatchScript {
     /// String to display when executing the task.
     display: Option<String>,
 
+    /// Turn echo off
+    #[serde(default)]
+    quiet: bool,
+
     /// Retry settings.
     retry: Option<retry::Retry>,
 }
@@ -76,6 +80,10 @@ impl BatchScript {
             tmp.as_file_mut().write(self.contents.as_bytes())?;
             tmp.into_temp_path()
         };
+
+        if self.quiet {
+            cmd.arg("/Q");
+        }
 
         cmd.args(&["/c", "call", temppath.to_str().unwrap()]);
 
