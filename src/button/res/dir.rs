@@ -43,7 +43,7 @@ impl Dir {
 
 impl<'a, T: ?Sized + AsRef<OsStr>> From<&'a T> for Dir {
     fn from(s: &'a T) -> Dir {
-        Dir { path: PathBuf::from(s.as_ref()), }
+        Dir::new(PathBuf::from(s.as_ref()))
     }
 }
 
@@ -51,7 +51,7 @@ impl FromStr for Dir {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Dir { path: PathBuf::from(s), })
+        Ok(Dir::new(PathBuf::from(s)))
     }
 }
 

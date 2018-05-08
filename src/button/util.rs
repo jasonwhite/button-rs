@@ -18,6 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+use std::path::{Path, PathBuf, Component, Prefix};
+use std::ffi;
 use std::fmt;
 use std::ops;
 
@@ -71,5 +73,170 @@ impl fmt::Write for Counter {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.count += s.len();
         Ok(())
+    }
+}
+
+pub trait PathExt {
+    /// Returns a normalized path. This does not touch the file system at all.
+    fn normalize(&self) -> PathBuf;
+}
+
+impl PathExt for Path {
+    fn normalize(&self) -> PathBuf {
+        let mut new_path = PathBuf::new();
+
+        let mut components = self.components();
+
+        #[cfg(windows)]
+        {
+            if self.as_os_str().len() >= 260 {
+                // If the path is >= 260 characters, we should prefix it with '\\?\'
+                // if possible.
+                if let Some(c) = components.next() {
+                    match c {
+                        Component::CurDir => {}
+                        Component::RootDir |
+                        Component::ParentDir |
+                        Component::Normal(_) => {
+                            // Can't add the prefix. It's a relative path.
+                            new_path.push(c.as_os_str());
+                        }
+                        Component::Prefix(prefix) => {
+                            match prefix.kind() {
+                                Prefix::UNC(server, share) => {
+                                    let mut p = ffi::OsString::from(r"\\?\UNC\");
+                                    p.push(server);
+                                    p.push(r"\");
+                                    p.push(share);
+                                    new_path.push(p);
+                                }
+                                Prefix::Disk(_) => {
+                                    let mut p = ffi::OsString::from(r"\\?\");
+                                    p.push(c.as_os_str());
+                                    new_path.push(p);
+                                }
+                                _ => {
+                                    new_path.push(c.as_os_str());
+                                }
+                            };
+                        }
+                    };
+                }
+            }
+        }
+
+        for c in components {
+            match c {
+                Component::CurDir => {}
+                Component::ParentDir => {
+                    let pop = match new_path.components().next_back() {
+                        Some(Component::Prefix(_)) |
+                        Some(Component::RootDir) => true,
+                        Some(Component::Normal(s)) => !s.is_empty(),
+                        _ => false,
+                    };
+
+                    if pop {
+                        new_path.pop();
+                    } else {
+                        new_path.push("..");
+                    }
+                }
+                _ => {
+                    new_path.push(c.as_os_str());
+                }
+            };
+        }
+
+        if new_path.as_os_str().is_empty() {
+            new_path.push(".");
+        }
+
+        new_path
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    #[cfg(windows)]
+    fn test_norm() {
+        assert_eq!(Path::new("../foo").parent(), Some(Path::new("..")));
+        assert_eq!(Path::new("foo").normalize(), Path::new("foo"));
+        assert_eq!(Path::new("./foo").normalize(), Path::new("foo"));
+        assert_eq!(Path::new(".").normalize(), Path::new("."));
+        assert_eq!(Path::new("..").normalize(), Path::new(".."));
+        assert_eq!(Path::new(r"..\..").normalize(), Path::new(r"..\.."));
+        assert_eq!(Path::new(r"..\..\..").normalize(), Path::new(r"..\..\.."));
+        assert_eq!(Path::new("").normalize(), Path::new("."));
+        assert_eq!(Path::new("foo/bar").normalize(), Path::new(r"foo\bar"));
+        assert_eq!(Path::new("C:/foo/../bar").normalize(), Path::new(r"C:\bar"));
+        assert_eq!(Path::new("C:/../bar").normalize(), Path::new(r"C:\bar"));
+        assert_eq!(Path::new("C:/../../bar").normalize(), Path::new(r"C:\bar"));
+        assert_eq!(Path::new("foo//bar///").normalize(), Path::new(r"foo\bar"));
+        assert_eq!(
+            Path::new(r"\\server\share\..\foo").normalize(),
+            Path::new(r"\\server\share\foo")
+        );
+        assert_eq!(
+            Path::new(r"\\server\share\..\foo\..").normalize(),
+            Path::new(r"\\server\share")
+        );
+        assert_eq!(
+            Path::new(r"..\foo\..\..\bar").normalize(),
+            Path::new(r"..\..\bar")
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_norm() {
+        assert_eq!(Path::new("../foo").parent(), Some(Path::new("..")));
+        assert_eq!(Path::new("foo").normalize(), Path::new("foo"));
+        assert_eq!(Path::new("./foo").normalize(), Path::new("foo"));
+        assert_eq!(Path::new(".").normalize(), Path::new("."));
+        assert_eq!(Path::new("..").normalize(), Path::new(".."));
+        assert_eq!(Path::new("../..").normalize(), Path::new("../.."));
+        assert_eq!(Path::new("../../..").normalize(), Path::new("../../.."));
+        assert_eq!(Path::new("").normalize(), Path::new("."));
+        assert_eq!(Path::new("foo/bar").normalize(), Path::new("foo/bar"));
+        assert_eq!(Path::new("/foo/../bar").normalize(), Path::new("/bar"));
+        assert_eq!(Path::new("/../bar").normalize(), Path::new("/bar"));
+        assert_eq!(Path::new("/../../bar").normalize(), Path::new("/bar"));
+        assert_eq!(Path::new("foo//bar///").normalize(), Path::new("foo/bar"));
+        assert_eq!(
+            Path::new("../foo/../../bar").normalize(),
+            Path::new("../../bar")
+        );
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn test_norm_long_paths() {
+        use std::iter;
+
+        let long_name: String = iter::repeat('a').take(260).collect();
+        let long_name = long_name.as_str();
+
+        // Long paths
+        assert_eq!(
+            PathBuf::from(String::from(r"C:\") + long_name).normalize(),
+            PathBuf::from(String::from(r"\\?\C:\") + long_name)
+        );
+        assert_eq!(
+            PathBuf::from(String::from(r"\\server\share\") + long_name).normalize(),
+            PathBuf::from(String::from(r"\\?\UNC\server\share\") + long_name)
+        );
+
+        // Long relative paths
+        assert_eq!(
+            PathBuf::from(String::from(r"..\relative\") + long_name).normalize(),
+            PathBuf::from(String::from(r"..\relative\") + long_name)
+        );
+        assert_eq!(
+            PathBuf::from(String::from(r".\relative\") + long_name).normalize(),
+            PathBuf::from(String::from(r"relative\") + long_name)
+        );
     }
 }

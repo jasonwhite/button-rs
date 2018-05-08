@@ -32,6 +32,8 @@ use serde::{de, Deserialize, Deserializer};
 
 use super::traits::{Error, Resource, ResourceState};
 
+use util::PathExt;
+
 /// A file resource. This can actually be a file *or* directory.
 ///
 /// TODO: Split the directory portion out into a "glob" resource whose state
@@ -43,7 +45,7 @@ pub struct FilePath {
 
 impl FilePath {
     pub fn new(path: PathBuf) -> FilePath {
-        FilePath { path: path }
+        FilePath { path: path.normalize() }
     }
 
     /// Assumes this resource is a regular file and returns its checksum.
@@ -116,7 +118,7 @@ impl FromStr for FilePath {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(FilePath { path: PathBuf::from(s), })
+        Ok(FilePath::new(PathBuf::from(s)))
     }
 }
 
@@ -185,5 +187,16 @@ impl Resource for FilePath {
             // problems deleting it.
             fs::remove_file(&self.path)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_normalized() {
+        assert_eq!(FilePath::new(PathBuf::from("./foo/..//bar/")),
+                   FilePath::new(PathBuf::from("bar")));
     }
 }
