@@ -72,13 +72,21 @@ impl ops::Deref for List {
 
 impl fmt::Display for List {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "list of {} tasks", self.list.len())
+        if self.list.len() == 1 {
+            write!(f, "{}", self.list[0])
+        } else {
+            write!(f, "list of {} tasks", self.list.len())
+        }
     }
 }
 
 impl fmt::Debug for List {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "list of {} tasks", self.list.len())
+        if self.list.len() == 1 {
+            write!(f, "{}", self.list[0])
+        } else {
+            write!(f, "list of {} tasks", self.list.len())
+        }
     }
 }
 
