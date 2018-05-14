@@ -110,7 +110,7 @@ impl FilePath {
 
 impl<'a, T: ?Sized + AsRef<OsStr>> From<&'a T> for FilePath {
     fn from(s: &'a T) -> FilePath {
-        FilePath { path: PathBuf::from(s.as_ref()), }
+        FilePath::new(PathBuf::from(s.as_ref()))
     }
 }
 
