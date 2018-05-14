@@ -95,7 +95,9 @@ impl<'a> Cycle<'a> {
 
 impl<'a> fmt::Display for Cycle<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut it = self.nodes.iter();
+        // Nodes in the cycle are listed in reverse topological order. Since we
+        // want to list them topological order, we reverse the iterator.
+        let mut it = self.nodes.iter().rev();
 
         // Unwrapping because there must always be at least one node in a cycle.
         // If this panics, then the code creating the cycle is buggy.
