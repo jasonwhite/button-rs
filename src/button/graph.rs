@@ -379,7 +379,7 @@ type Queue<T> = MsQueue<Option<T>>;
 /// the build system. Everything else is just support code.
 ///
 /// The function `visit` is called for each node that is to be visited. If the
-/// visitor function returns `true`, then its child nodes may be visited. It it
+/// visitor function returns `true`, then its child nodes may be visited. If it
 /// returns `false`, then its child nodes will not be visited. This is useful if
 /// a resource is determined to be unchanged, obviating the need to do
 /// additional work.

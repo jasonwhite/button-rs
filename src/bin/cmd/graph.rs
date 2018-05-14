@@ -49,7 +49,7 @@ impl Graph {
                    edges: value_t!(matches.value_of("edges"), opts::Edges)?, })
     }
 
-    /// Shows a pretty graph of your damn software.
+    /// Shows a pretty graph of the build.
     pub fn run(&self) -> i32 {
         println!("{:#?}", self);
 

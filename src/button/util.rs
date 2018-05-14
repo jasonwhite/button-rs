@@ -159,6 +159,7 @@ impl PathExt for Path {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     #[cfg(windows)]
     fn test_norm() {
