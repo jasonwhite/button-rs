@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+use std::cmp::Ordering;
 use std::ffi::OsStr;
 use std::fmt;
 use std::fs;
@@ -25,6 +26,7 @@ use std::io;
 use std::io::Read;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::hash::{Hash, Hasher};
 
 use sha2::{Digest, Sha256};
 
@@ -38,7 +40,7 @@ use util::PathExt;
 ///
 /// TODO: Split the directory portion out into a "glob" resource whose state
 /// changes when the list of matched files changes.
-#[derive(Serialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
+#[derive(Serialize, Eq, Clone)]
 pub struct FilePath {
     path: PathBuf,
 }
@@ -190,6 +192,62 @@ impl Resource for FilePath {
     }
 }
 
+impl Hash for FilePath {
+    #[cfg(windows)]
+    fn hash<H>(&self, state: &mut H)
+        where H: Hasher
+    {
+        let iter = self.path
+                       .to_str()
+                       .unwrap_or("")
+                       .chars()
+                       .flat_map(char::to_lowercase);
+        for c in iter {
+            c.hash(state);
+        }
+
+        '\0'.hash(state);
+    }
+
+    #[cfg(unix)]
+    fn hash<H>(&self, state: &mut H)
+        where H: Hasher
+    {
+        self.path.hash(state)
+    }
+}
+
+impl Ord for FilePath {
+    #[cfg(windows)]
+    fn cmp(&self, other: &FilePath) -> Ordering {
+        // The Ord implementation for `std::path::Path` is case-sensitive. It's
+        // important that path comparisons on Windows are case-insensitive. The
+        // nodes in the build graph don't link up correctly when file paths only
+        // differ by case. Thus, we implement our own path comparison here.
+        let a = self.path.to_str().unwrap_or("").chars().flat_map(char::to_lowercase);
+        let mut b = other.path.to_str().unwrap_or("").chars().flat_map(char::to_lowercase);
+        a.cmp(&mut b)
+    }
+
+    #[cfg(unix)]
+    fn cmp(&self, other: &FilePath) -> Ordering {
+        // File paths are case sensitive on non-Windows platforms.
+        self.path.cmp(other)
+    }
+}
+
+impl PartialOrd for FilePath {
+    fn partial_cmp(&self, other: &FilePath) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for FilePath {
+    fn eq(&self, other: &FilePath) -> bool {
+        self.cmp(other) == Ordering::Equal
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -198,5 +256,21 @@ mod tests {
     fn test_normalized() {
         assert_eq!(FilePath::new(PathBuf::from("./foo/..//bar/")),
                    FilePath::new(PathBuf::from("bar")));
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn test_comparison() {
+        assert_eq!(FilePath::from("foobar/baz"), FilePath::from("foobar/baz"));
+        assert_ne!(FilePath::from("doobar/baz"), FilePath::from("foobar/baz"));
+
+        assert!(FilePath::from("abc") < FilePath::from("abd"));
+        assert!(FilePath::from("abc") < FilePath::from("abcd"));
+
+        // Case insensitive comparison
+        assert_eq!(FilePath::from("foobar/baz"), FilePath::from("FooBar/Baz"));
+        assert_eq!(FilePath::from("foobar/baz"), FilePath::from(r"FooBar\Baz"));
+        assert_ne!(FilePath::from("foobar/baz"), FilePath::from("FooBar/Bazz"));
+        assert!(FilePath::from("foobar/baz") < FilePath::from("FooBar/Bazz"));
     }
 }
