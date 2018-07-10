@@ -38,22 +38,25 @@ pub struct Build<'a> {
     /// The working directories of tasks are relative to this path.
     root: &'a Path,
 
-    /// Whether or not this is a dry run. This needs to be passed to child build
-    /// systems.
+    /// Whether or not this is a dry run. This needs to be passed to child
+    /// build systems.
     dryrun: bool,
 }
 
 impl<'a> Build<'a> {
     pub fn new(root: &'a Path, dryrun: bool) -> Build<'a> {
-        Build { root: root,
-                dryrun: dryrun, }
+        Build {
+            root: root,
+            dryrun: dryrun,
+        }
     }
 
     /// Runs a build.
-    pub fn build<'b>(&self,
-                     rules: &'b Rules,
-                     threads: usize)
-                     -> Result<(), error::Error<'b>> {
+    pub fn build<'b>(
+        &self,
+        rules: &'b Rules,
+        threads: usize,
+    ) -> Result<(), error::Error<'b>> {
         println!("Root directory: {:?}", self.root);
 
         if self.dryrun {
@@ -84,11 +87,12 @@ impl<'a> Build<'a> {
     }
 
     /// Called when visiting a resource type node in the build graph.
-    fn visit_resource(&self,
-                      _id: usize,
-                      _node: &res::Any)
-                      -> Result<bool, io::Error> {
-        //println!("thread {} :: {}", id, node);
+    fn visit_resource(
+        &self,
+        _id: usize,
+        _node: &res::Any,
+    ) -> Result<bool, io::Error> {
+        // println!("thread {} :: {}", id, node);
 
         // TODO: Determine if this resource has changed.
 
@@ -99,10 +103,11 @@ impl<'a> Build<'a> {
     }
 
     /// Called when visiting a task type node in the build graph.
-    fn visit_task(&self,
-                  id: usize,
-                  node: &task::List)
-                  -> Result<bool, io::Error> {
+    fn visit_task(
+        &self,
+        id: usize,
+        node: &task::List,
+    ) -> Result<bool, io::Error> {
         let mut stdout = io::stdout();
 
         let mut output = Vec::new();

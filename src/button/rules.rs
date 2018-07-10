@@ -109,7 +109,8 @@ impl Rules {
     }
 
     pub fn from_reader<R>(reader: R) -> Result<Rules, Error>
-        where R: io::Read
+    where
+        R: io::Read,
     {
         Ok(Self::new(json::from_reader(reader)?))
     }
@@ -160,19 +161,23 @@ mod tests {
 
         let rules = Rules::from_str(&data).unwrap();
 
-        let inputs = vec![FilePath::from("foo.c").into(),
-                          FilePath::from("foo.h").into()];
+        let inputs = vec![
+            FilePath::from("foo.c").into(),
+            FilePath::from("foo.h").into(),
+        ];
 
         let outputs = vec![FilePath::from("foo.o").into()];
-        let tasks = vec![Command::new(PathBuf::from("gcc"),
-                                      vec!["foo.c".to_owned()])
-                                 .into()];
+        let tasks = vec![
+            Command::new(PathBuf::from("gcc"), vec!["foo.c".to_owned()]).into(),
+        ];
 
-        assert_eq!(rules,
-                   Rules::new(vec![Rule { inputs: inputs.into_iter()
-                                                        .collect(),
-                                          outputs: outputs.into_iter()
-                                                          .collect(),
-                                          tasks: tasks.into(), }]));
+        assert_eq!(
+            rules,
+            Rules::new(vec![Rule {
+                inputs: inputs.into_iter().collect(),
+                outputs: outputs.into_iter().collect(),
+                tasks: tasks.into(),
+            }])
+        );
     }
 }

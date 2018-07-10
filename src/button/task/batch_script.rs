@@ -32,7 +32,9 @@ use super::traits::{Error, Task};
 use retry;
 
 /// A task to create a directory.
-#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
+#[derive(
+    Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone,
+)]
 pub struct BatchScript {
     /// Contents of the batch script. This is first written to a temporary file
     /// and then executed.
@@ -58,7 +60,6 @@ pub struct BatchScript {
 
 impl BatchScript {
     fn execute_impl(&self, log: &mut io::Write) -> Result<(), Error> {
-
         let mut cmd = process::Command::new("cmd.exe");
 
         // Don't allow user input.
@@ -74,9 +75,7 @@ impl BatchScript {
 
         // Write the script contents to a temporary file for execution.
         let temppath = {
-            let mut tmp = tempfile::Builder::new()
-                .suffix(".bat")
-                .tempfile()?;
+            let mut tmp = tempfile::Builder::new().suffix(".bat").tempfile()?;
             tmp.as_file_mut().write(self.contents.as_bytes())?;
             tmp.into_temp_path()
         };
@@ -97,15 +96,14 @@ impl BatchScript {
             Ok(())
         } else {
             match output.status.code() {
-                Some(code) => {
-                    Err(io::Error::new(io::ErrorKind::Other,
-                                       format!("Process exited with error code {}",
-                                               code)))
-                }
-                None => {
-                    Err(io::Error::new(io::ErrorKind::Other,
-                                       "Process terminated by signal"))
-                }
+                Some(code) => Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("Process exited with error code {}", code),
+                )),
+                None => Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "Process terminated by signal",
+                )),
             }
         }
     }
@@ -135,4 +133,3 @@ impl Task for BatchScript {
         }
     }
 }
-

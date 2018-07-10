@@ -18,14 +18,15 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::path::{Path, PathBuf, Component, Prefix};
 use std::ffi;
 use std::fmt;
 use std::ops;
+use std::path::{Component, Path, PathBuf, Prefix};
 
 /// A tri-state for checking if we should do things.
-#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Copy,
-         Clone)]
+#[derive(
+    Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Copy, Clone,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum NeverAlwaysAuto {
     /// Never do the thing.
@@ -90,21 +91,22 @@ impl PathExt for Path {
         #[cfg(windows)]
         {
             if self.as_os_str().len() >= 260 {
-                // If the path is >= 260 characters, we should prefix it with '\\?\'
-                // if possible.
+                // If the path is >= 260 characters, we should prefix it with
+                // '\\?\' if possible.
                 if let Some(c) = components.next() {
                     match c {
                         Component::CurDir => {}
-                        Component::RootDir |
-                        Component::ParentDir |
-                        Component::Normal(_) => {
+                        Component::RootDir
+                        | Component::ParentDir
+                        | Component::Normal(_) => {
                             // Can't add the prefix. It's a relative path.
                             new_path.push(c.as_os_str());
                         }
                         Component::Prefix(prefix) => {
                             match prefix.kind() {
                                 Prefix::UNC(server, share) => {
-                                    let mut p = ffi::OsString::from(r"\\?\UNC\");
+                                    let mut p =
+                                        ffi::OsString::from(r"\\?\UNC\");
                                     p.push(server);
                                     p.push(r"\");
                                     p.push(share);
@@ -130,8 +132,8 @@ impl PathExt for Path {
                 Component::CurDir => {}
                 Component::ParentDir => {
                     let pop = match new_path.components().next_back() {
-                        Some(Component::Prefix(_)) |
-                        Some(Component::RootDir) => true,
+                        Some(Component::Prefix(_))
+                        | Some(Component::RootDir) => true,
                         Some(Component::Normal(s)) => !s.is_empty(),
                         _ => false,
                     };
@@ -172,7 +174,10 @@ mod tests {
         assert_eq!(Path::new(r"..\..\..").normalize(), Path::new(r"..\..\.."));
         assert_eq!(Path::new("").normalize(), Path::new("."));
         assert_eq!(Path::new("foo/bar").normalize(), Path::new(r"foo\bar"));
-        assert_eq!(Path::new("C:/foo/../bar").normalize(), Path::new(r"C:\bar"));
+        assert_eq!(
+            Path::new("C:/foo/../bar").normalize(),
+            Path::new(r"C:\bar")
+        );
         assert_eq!(Path::new("C:/../bar").normalize(), Path::new(r"C:\bar"));
         assert_eq!(Path::new("C:/../../bar").normalize(), Path::new(r"C:\bar"));
         assert_eq!(Path::new("foo//bar///").normalize(), Path::new(r"foo\bar"));
@@ -226,13 +231,15 @@ mod tests {
             PathBuf::from(String::from(r"\\?\C:\") + long_name)
         );
         assert_eq!(
-            PathBuf::from(String::from(r"\\server\share\") + long_name).normalize(),
+            PathBuf::from(String::from(r"\\server\share\") + long_name)
+                .normalize(),
             PathBuf::from(String::from(r"\\?\UNC\server\share\") + long_name)
         );
 
         // Long relative paths
         assert_eq!(
-            PathBuf::from(String::from(r"..\relative\") + long_name).normalize(),
+            PathBuf::from(String::from(r"..\relative\") + long_name)
+                .normalize(),
             PathBuf::from(String::from(r"..\relative\") + long_name)
         );
         assert_eq!(

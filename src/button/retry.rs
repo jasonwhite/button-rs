@@ -23,10 +23,10 @@
 //! # Examples
 //!
 //! ```no_run
-//! use std::time::Duration;
+//! use std::error::Error;
 //! use std::io;
 //! use std::io::Write;
-//! use std::error::Error;
+//! use std::time::Duration;
 //!
 //! use button::retry::Retry;
 //!
@@ -40,15 +40,21 @@
 //!     return if buf.trim() == answer {
 //!         Ok(())
 //!     } else {
-//!         Err(io::Error::new(io::ErrorKind::Other, "Sorry, that is not the answer."))
-//!     }
+//!         Err(io::Error::new(
+//!             io::ErrorKind::Other,
+//!             "Sorry, that is not the answer.",
+//!         ))
+//!     };
 //! }
 //!
-//! fn retry_progress(retry: &Retry,
-//!                   err: &io::Error,
-//!                   remaining: u32,
-//!                   delay: Duration) -> bool {
-//!     println!("Error: {} ({} attempt(s) remaining. Retrying in ~{} seconds...)",
+//! fn retry_progress(
+//!     retry: &Retry,
+//!     err: &io::Error,
+//!     remaining: u32,
+//!     delay: Duration,
+//! ) -> bool {
+//!     println!(
+//!         "Error: {} ({} attempt(s) remaining. Retrying in ~{} seconds...)",
 //!         err.description(),
 //!         remaining,
 //!         delay.as_secs()
@@ -81,8 +87,9 @@ use std::error::Error;
 use std::thread::sleep;
 use std::time::Duration;
 
-#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Copy,
-         Clone)]
+#[derive(
+    Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Copy, Clone,
+)]
 pub struct Retry {
     /// The number of times to *retry* a function. Note that the function is
     /// always called at least once.
@@ -102,10 +109,12 @@ pub struct Retry {
 
 impl Default for Retry {
     fn default() -> Retry {
-        Retry { retries: 0,
-                delay: Duration::from_secs(1),
-                backoff: 2,
-                max_delay: None, }
+        Retry {
+            retries: 0,
+            delay: Duration::from_secs(1),
+            backoff: 2,
+            max_delay: None,
+        }
     }
 }
 
@@ -148,8 +157,9 @@ impl Retry {
     /// never produced, returns the `Result` from the last call to the function
     /// that failed.
     pub fn call<F, T, E, P>(&self, mut f: F, mut progress: P) -> Result<T, E>
-        where F: FnMut() -> Result<T, E>,
-              P: FnMut(&Retry, &E, u32, Duration) -> bool
+    where
+        F: FnMut() -> Result<T, E>,
+        P: FnMut(&Retry, &E, u32, Duration) -> bool,
     {
         let mut attempt = self.retries + 1;
         let mut delay = self.delay;
@@ -187,28 +197,33 @@ impl Retry {
 /// Dummy progress callback function. If you don't want to report progress on
 /// for each retry, use this function.
 #[allow(unused_variables)]
-pub fn progress_dummy<E>(retry: &Retry,
-                         err: &E,
-                         remaining: u32,
-                         delay: Duration)
-                         -> bool {
+pub fn progress_dummy<E>(
+    retry: &Retry,
+    err: &E,
+    remaining: u32,
+    delay: Duration,
+) -> bool {
     // Keep going.
     true
 }
 
 /// Progress callback function for simply printing the progress of each retry.
 #[allow(unused)]
-pub fn progress_print<E>(retry: &Retry,
-                         err: &E,
-                         remaining: u32,
-                         delay: Duration)
-                         -> bool
-    where E: Error
+pub fn progress_print<E>(
+    retry: &Retry,
+    err: &E,
+    remaining: u32,
+    delay: Duration,
+) -> bool
+where
+    E: Error,
 {
-    println!("Error: {} ({}/{} attempt(s) remaining. Retrying in ~{} seconds...)",
-             err.description(),
-             remaining,
-             retry.retries,
-             delay.as_secs());
+    println!(
+        "Error: {} ({}/{} attempt(s) remaining. Retrying in ~{} seconds...)",
+        err.description(),
+        remaining,
+        retry.retries,
+        delay.as_secs()
+    );
     true
 }

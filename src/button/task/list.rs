@@ -43,7 +43,8 @@ impl List {
 
 impl Serialize for List {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         self.list.serialize(serializer)
     }
@@ -51,7 +52,8 @@ impl Serialize for List {
 
 impl<'de> Deserialize<'de> for List {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer<'de>
+    where
+        D: Deserializer<'de>,
     {
         Deserialize::deserialize(deserializer).map(|v: Vec<Any>| List::new(v))
     }

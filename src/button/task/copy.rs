@@ -29,7 +29,9 @@ use res;
 use retry;
 
 /// A task to create a directory.
-#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
+#[derive(
+    Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone,
+)]
 pub struct Copy {
     /// Path to copy from.
     from: PathBuf,
@@ -63,7 +65,8 @@ impl fmt::Debug for Copy {
 
 impl Task for Copy {
     fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
-        self.retry.call(|| self.execute_impl(log), retry::progress_dummy)
+        self.retry
+            .call(|| self.execute_impl(log), retry::progress_dummy)
     }
 
     fn known_inputs(&self, resources: &mut res::Set) {

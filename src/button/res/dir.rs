@@ -30,7 +30,9 @@ use sha2::{Digest, Sha256};
 use super::traits::{Error, Resource, ResourceState};
 
 /// A directory resource. We don't care about the contents of this resource.
-#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
+#[derive(
+    Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone,
+)]
 pub struct Dir {
     path: PathBuf,
 }
@@ -78,12 +80,10 @@ impl Resource for Dir {
                     Err(io::Error::new(io::ErrorKind::Other, "Not a directory"))
                 }
             }
-            Err(err) => {
-                match err.kind() {
-                    io::ErrorKind::NotFound => Ok(ResourceState::Missing),
-                    _ => Err(err),
-                }
-            }
+            Err(err) => match err.kind() {
+                io::ErrorKind::NotFound => Ok(ResourceState::Missing),
+                _ => Err(err),
+            },
         }
     }
 

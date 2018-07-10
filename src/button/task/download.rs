@@ -30,7 +30,9 @@ use retry;
 
 /// A task to download a URL. This would normally be a task with no input
 /// resources.
-#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
+#[derive(
+    Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone,
+)]
 pub struct Download {
     /// Process and arguments to spawn.
     url: String,
@@ -41,7 +43,8 @@ pub struct Download {
     /// Output path.
     path: PathBuf,
 
-    /// How much time to give it to download. If `None`, there is no time limit.
+    /// How much time to give it to download. If `None`, there is no time
+    /// limit.
     timeout: Option<time::Duration>,
 
     /// Retry settings.
@@ -53,17 +56,17 @@ impl Download {
     #[cfg(test)]
     #[allow(dead_code)]
     pub fn new(url: String, sha256: String, path: PathBuf) -> Download {
-        Download { url: url,
-                   sha256: sha256,
-                   path: path,
-                   timeout: None,
-                   retry: retry::Retry::new(), }
+        Download {
+            url: url,
+            sha256: sha256,
+            path: path,
+            timeout: None,
+            retry: retry::Retry::new(),
+        }
     }
 
     fn execute_impl(&self, log: &mut io::Write) -> Result<(), Error> {
-        writeln!(log,
-                 "Downloading `{:?}` to {:?}",
-                 self.url, self.path)?;
+        writeln!(log, "Downloading `{:?}` to {:?}", self.url, self.path)?;
 
         // TODO:
         //  1. Download to a temporary path.
@@ -89,7 +92,8 @@ impl fmt::Debug for Download {
 
 impl Task for Download {
     fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
-        self.retry.call(|| self.execute_impl(log), retry::progress_dummy)
+        self.retry
+            .call(|| self.execute_impl(log), retry::progress_dummy)
     }
 
     fn known_outputs(&self, resources: &mut res::Set) {

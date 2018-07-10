@@ -35,9 +35,10 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn from_matches<'a>(name: &str,
-                            matches: &ArgMatches<'a>)
-                            -> Result<Command> {
+    pub fn from_matches<'a>(
+        name: &str,
+        matches: &ArgMatches<'a>,
+    ) -> Result<Command> {
         match name {
             "build" => Build::from_matches(matches).map(Command::Build),
             "clean" => Clean::from_matches(matches).map(Command::Clean),

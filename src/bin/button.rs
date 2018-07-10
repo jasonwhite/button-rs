@@ -35,11 +35,11 @@ fn main() {
 
     if let Some(matches) = matches {
         exit(match cmd::Command::from_matches(name, matches) {
-                 Ok(command) => command.run(),
-                 Err(err) => {
-                     println!("{}", err);
-                     1
-                 }
-             });
+            Ok(command) => command.run(),
+            Err(err) => {
+                println!("{}", err);
+                1
+            }
+        });
     }
 }

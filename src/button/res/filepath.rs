@@ -22,11 +22,11 @@ use std::cmp::Ordering;
 use std::ffi::OsStr;
 use std::fmt;
 use std::fs;
+use std::hash::{Hash, Hasher};
 use std::io;
 use std::io::Read;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::hash::{Hash, Hasher};
 
 use sha2::{Digest, Sha256};
 
@@ -47,7 +47,9 @@ pub struct FilePath {
 
 impl FilePath {
     pub fn new(path: PathBuf) -> FilePath {
-        FilePath { path: path.normalize() }
+        FilePath {
+            path: path.normalize(),
+        }
     }
 
     /// Assumes this resource is a regular file and returns its checksum.
@@ -56,14 +58,12 @@ impl FilePath {
 
         let mut f = match fs::File::open(&self.path) {
             Ok(f) => Ok(f),
-            Err(err) => {
-                match err.kind() {
-                    io::ErrorKind::NotFound => {
-                        return Ok(ResourceState::Missing);
-                    }
-                    _ => Err(err),
+            Err(err) => match err.kind() {
+                io::ErrorKind::NotFound => {
+                    return Ok(ResourceState::Missing);
                 }
-            }
+                _ => Err(err),
+            },
         }?;
 
         const BUF_SIZE: usize = 16384;
@@ -139,7 +139,8 @@ impl fmt::Debug for FilePath {
 // Derserialize a `FilePath` from a string.
 impl<'de> Deserialize<'de> for FilePath {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer<'de>
+    where
+        D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
         FromStr::from_str(&s).map_err(de::Error::custom)
@@ -165,14 +166,12 @@ impl Resource for FilePath {
     fn delete(&self) -> Result<(), Error> {
         let metadata = match fs::metadata(&self.path) {
             Ok(metadata) => Ok(metadata),
-            Err(err) => {
-                match err.kind() {
-                    io::ErrorKind::NotFound => {
-                        return Ok(());
-                    }
-                    _ => Err(err),
+            Err(err) => match err.kind() {
+                io::ErrorKind::NotFound => {
+                    return Ok(());
                 }
-            }
+                _ => Err(err),
+            },
         }?;
 
         if metadata.is_dir() {
@@ -195,13 +194,15 @@ impl Resource for FilePath {
 impl Hash for FilePath {
     #[cfg(windows)]
     fn hash<H>(&self, state: &mut H)
-        where H: Hasher
+    where
+        H: Hasher,
     {
-        let iter = self.path
-                       .to_str()
-                       .unwrap_or("")
-                       .chars()
-                       .flat_map(char::to_lowercase);
+        let iter = self
+            .path
+            .to_str()
+            .unwrap_or("")
+            .chars()
+            .flat_map(char::to_lowercase);
         for c in iter {
             c.hash(state);
         }
@@ -211,7 +212,8 @@ impl Hash for FilePath {
 
     #[cfg(unix)]
     fn hash<H>(&self, state: &mut H)
-        where H: Hasher
+    where
+        H: Hasher,
     {
         self.path.hash(state)
     }
@@ -224,8 +226,18 @@ impl Ord for FilePath {
         // important that path comparisons on Windows are case-insensitive. The
         // nodes in the build graph don't link up correctly when file paths only
         // differ by case. Thus, we implement our own path comparison here.
-        let a = self.path.to_str().unwrap_or("").chars().flat_map(char::to_lowercase);
-        let mut b = other.path.to_str().unwrap_or("").chars().flat_map(char::to_lowercase);
+        let a = self
+            .path
+            .to_str()
+            .unwrap_or("")
+            .chars()
+            .flat_map(char::to_lowercase);
+        let mut b = other
+            .path
+            .to_str()
+            .unwrap_or("")
+            .chars()
+            .flat_map(char::to_lowercase);
         a.cmp(&mut b)
     }
 
@@ -254,8 +266,10 @@ mod tests {
 
     #[test]
     fn test_normalized() {
-        assert_eq!(FilePath::new(PathBuf::from("./foo/..//bar/")),
-                   FilePath::new(PathBuf::from("bar")));
+        assert_eq!(
+            FilePath::new(PathBuf::from("./foo/..//bar/")),
+            FilePath::new(PathBuf::from("bar"))
+        );
     }
 
     #[test]

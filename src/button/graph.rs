@@ -136,9 +136,11 @@ Please edit the build description to remove the cycle(s) listed above.";
 
 impl<'a> fmt::Display for CyclesError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "{} cycle(s) detected in the build graph...\n\n",
-               self.cycles.len())?;
+        write!(
+            f,
+            "{} cycle(s) detected in the build graph...\n\n",
+            self.cycles.len()
+        )?;
 
         for (i, cycle) in self.cycles.iter().enumerate() {
             write!(f, "Cycle {}\n", i + 1)?;
@@ -171,18 +173,19 @@ pub struct Race<N> {
 
 impl<N> Race<N> {
     fn new(node: N, count: usize) -> Race<N> {
-        Race { node: node,
-               count: count, }
+        Race {
+            node: node,
+            count: count,
+        }
     }
 }
 
 impl<N> fmt::Display for Race<N>
-    where N: fmt::Display
+where
+    N: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "{} (output of {} tasks)",
-               self.node, self.count)
+        write!(f, "{} (output of {} tasks)", self.node, self.count)
     }
 }
 
@@ -211,9 +214,11 @@ race condition(s).";
 
 impl<'a> fmt::Display for RaceError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "{} race condition(s) detected in the build graph:\n\n",
-               self.races.len())?;
+        write!(
+            f,
+            "{} race condition(s) detected in the build graph:\n\n",
+            self.races.len()
+        )?;
 
         for race in &self.races {
             write!(f, " - {}\n", race)?;
@@ -310,9 +315,8 @@ fn check_races(graph: BuildGraph) -> Result<BuildGraph, RaceError> {
     for node in graph.nodes() {
         match node {
             Node::Resource(r) => {
-                let incoming = graph.neighbors_directed(node,
-                                                        Direction::Incoming)
-                                    .count();
+                let incoming =
+                    graph.neighbors_directed(node, Direction::Incoming).count();
 
                 if incoming > 1 {
                     races.push(Race::new(r, incoming));
@@ -351,8 +355,9 @@ fn check_cycles(graph: BuildGraph) -> Result<BuildGraph, CyclesError> {
 
 // This should be in the standard library.
 fn empty_or_any<I, F>(iter: &mut I, mut f: F) -> bool
-    where I: Iterator,
-          F: FnMut(I::Item) -> bool
+where
+    I: Iterator,
+    F: FnMut(I::Item) -> bool,
 {
     match iter.next() {
         None => return true, // Empty
@@ -389,12 +394,14 @@ type Queue<T> = MsQueue<Option<T>>;
 /// all nodes are considered equal (because it's impossible to accurately
 /// predict the time it takes to execute a task without actually executing the
 /// task). A predicate function can be provided to do the sorting.
-pub fn traverse<F, E>(g: &BuildGraph,
-                      visit: F,
-                      threads: usize)
-                      -> Result<(), Vec<E>>
-    where F: Fn(usize, Node) -> Result<bool, E> + Send + Sync,
-          E: Send
+pub fn traverse<F, E>(
+    g: &BuildGraph,
+    visit: F,
+    threads: usize,
+) -> Result<(), Vec<E>>
+where
+    F: Fn(usize, Node) -> Result<bool, E> + Send + Sync,
+    E: Send,
 {
     // Always use at least one thread.
     let threads = cmp::max(threads, 1);
@@ -408,8 +415,9 @@ pub fn traverse<F, E>(g: &BuildGraph,
 
     // Start the traversal from all nodes that have no incoming edges.
     let roots = g.node_identifiers().filter(move |&a| {
-        g.neighbors_directed(a, Direction::Incoming).next()
-         .is_none()
+        g.neighbors_directed(a, Direction::Incoming)
+            .next()
+            .is_none()
     });
 
     let queue = &Queue::new();
@@ -421,36 +429,35 @@ pub fn traverse<F, E>(g: &BuildGraph,
     let active = &AtomicUsize::new(0);
 
     crossbeam::scope(|scope| {
-                         let visited = &visited;
-                         let visit = &visit;
-                         let errors = &errors;
+        let visited = &visited;
+        let visit = &visit;
+        let errors = &errors;
 
-                         for id in 0..threads {
-                             scope.spawn(move || {
-                                             traversal_worker(id, queue, cvar,
-                                                              active, g,
-                                                              visited, visit,
-                                                              errors)
-                                         });
-                         }
+        for id in 0..threads {
+            scope.spawn(move || {
+                traversal_worker(
+                    id, queue, cvar, active, g, visited, visit, errors,
+                )
+            });
+        }
 
-                         // Queue the root nodes.
-                         for node in roots {
-                             active.fetch_add(1, Ordering::SeqCst);
-                             queue.push(Some(node));
-                         }
+        // Queue the root nodes.
+        for node in roots {
+            active.fetch_add(1, Ordering::SeqCst);
+            queue.push(Some(node));
+        }
 
-                         let mut guard = mutex.lock().unwrap();
-                         while active.load(Ordering::SeqCst) > 0 {
-                             // Wait until all queued items are complete.
-                             guard = cvar.wait(guard).unwrap();
-                         }
+        let mut guard = mutex.lock().unwrap();
+        while active.load(Ordering::SeqCst) > 0 {
+            // Wait until all queued items are complete.
+            guard = cvar.wait(guard).unwrap();
+        }
 
-                         // Send message to shutdown all threads.
-                         for _ in 0..threads {
-                             queue.push(None);
-                         }
-                     });
+        // Send message to shutdown all threads.
+        for _ in 0..threads {
+            queue.push(None);
+        }
+    });
 
     let errors = errors.into_inner().unwrap();
 
@@ -461,16 +468,18 @@ pub fn traverse<F, E>(g: &BuildGraph,
     }
 }
 
-fn traversal_worker<'a, F, E>(id: usize,
-                              queue: &Queue<Node<'a>>,
-                              cvar: &Condvar,
-                              active: &AtomicUsize,
-                              g: &'a BuildGraph,
-                              visited_arc: &Mutex<HashMap<Node<'a>, bool>>,
-                              visit: &F,
-                              errors: &Mutex<Vec<E>>)
-    where F: Fn(usize, Node) -> Result<bool, E> + Sync,
-          E: Send
+fn traversal_worker<'a, F, E>(
+    id: usize,
+    queue: &Queue<Node<'a>>,
+    cvar: &Condvar,
+    active: &AtomicUsize,
+    g: &'a BuildGraph,
+    visited_arc: &Mutex<HashMap<Node<'a>, bool>>,
+    visit: &F,
+    errors: &Mutex<Vec<E>>,
+) where
+    F: Fn(usize, Node) -> Result<bool, E> + Sync,
+    E: Send,
 {
     while let Some(node) = queue.pop() {
         // Only call the visitor function if:
@@ -485,11 +494,7 @@ fn traversal_worker<'a, F, E>(id: usize,
             empty_or_any(&mut parents, |p| visited.get(&p) == Some(&true))
         };
 
-        let keep_going = if do_visit {
-            visit(id, node)
-        } else {
-            Ok(false)
-        };
+        let keep_going = if do_visit { visit(id, node) } else { Ok(false) };
 
         let mut visited = visited_arc.lock().unwrap();
 
@@ -514,7 +519,7 @@ fn traversal_worker<'a, F, E>(id: usize,
             // keep a count of visited parents for each node instead.
             let mut parents = g.neighbors_directed(neigh, Direction::Incoming);
             if !visited.contains_key(&neigh)
-               && parents.all(|p| visited.contains_key(&p))
+                && parents.all(|p| visited.contains_key(&p))
             {
                 active.fetch_add(1, Ordering::SeqCst);
                 queue.push(Some(neigh));
@@ -625,8 +630,7 @@ mod tests {
 
         let races = vec![Race::new(&bar, 2), Race::new(&foo, 3)];
 
-        assert_eq!(graph.unwrap_err(),
-                   Error::Races(RaceError::new(races)));
+        assert_eq!(graph.unwrap_err(), Error::Races(RaceError::new(races)));
     }
 
     #[test]
@@ -672,15 +676,13 @@ mod tests {
         let graph = from_rules(&rules);
 
         let foo_c = FilePath::from("foo.c").into();
-        let task = vec![Command::new(PathBuf::from("gcc"),
-                                     vec!["foo.c".to_owned()])
-                                .into()]
-                .into();
+        let task = vec![
+            Command::new(PathBuf::from("gcc"), vec!["foo.c".to_owned()]).into(),
+        ].into();
 
         let cycles =
             vec![Cycle::new(vec![Node::Resource(&foo_c), Node::Task(&task)])];
 
-        assert_eq!(graph.unwrap_err(),
-                   Error::Cycles(CyclesError::new(cycles)));
+        assert_eq!(graph.unwrap_err(), Error::Cycles(CyclesError::new(cycles)));
     }
 }

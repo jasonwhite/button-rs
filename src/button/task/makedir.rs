@@ -29,7 +29,9 @@ use res;
 use retry;
 
 /// A task to create a directory.
-#[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
+#[derive(
+    Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone,
+)]
 pub struct MakeDir {
     /// Path to the directory to create.
     path: PathBuf,
@@ -41,8 +43,10 @@ pub struct MakeDir {
 
 impl MakeDir {
     pub fn new(path: PathBuf) -> MakeDir {
-        MakeDir { path: path,
-                  retry: retry::Retry::default(), }
+        MakeDir {
+            path: path,
+            retry: retry::Retry::default(),
+        }
     }
 
     fn execute_impl(&self, _log: &mut io::Write) -> Result<(), Error> {
@@ -64,7 +68,8 @@ impl fmt::Debug for MakeDir {
 
 impl Task for MakeDir {
     fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
-        self.retry.call(|| self.execute_impl(log), retry::progress_dummy)
+        self.retry
+            .call(|| self.execute_impl(log), retry::progress_dummy)
     }
 
     fn known_outputs(&self, set: &mut res::Set) {
