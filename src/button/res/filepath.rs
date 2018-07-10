@@ -244,7 +244,7 @@ impl Ord for FilePath {
     #[cfg(unix)]
     fn cmp(&self, other: &FilePath) -> Ordering {
         // File paths are case sensitive on non-Windows platforms.
-        self.path.cmp(other)
+        self.path.cmp(&other.path)
     }
 }
 

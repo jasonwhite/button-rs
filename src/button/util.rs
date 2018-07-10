@@ -18,10 +18,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::ffi;
 use std::fmt;
 use std::ops;
-use std::path::{Component, Path, PathBuf, Prefix};
+use std::path::{Component, Path, PathBuf};
 
 /// A tri-state for checking if we should do things.
 #[derive(
@@ -83,51 +82,85 @@ pub trait PathExt {
 }
 
 impl PathExt for Path {
+    #[cfg(windows)]
     fn normalize(&self) -> PathBuf {
+        use std::ffi::OsString;
+        use std::path::Prefix;
+
         let mut new_path = PathBuf::new();
 
         let mut components = self.components();
 
-        #[cfg(windows)]
-        {
-            if self.as_os_str().len() >= 260 {
-                // If the path is >= 260 characters, we should prefix it with
-                // '\\?\' if possible.
-                if let Some(c) = components.next() {
-                    match c {
-                        Component::CurDir => {}
-                        Component::RootDir
-                        | Component::ParentDir
-                        | Component::Normal(_) => {
-                            // Can't add the prefix. It's a relative path.
-                            new_path.push(c.as_os_str());
-                        }
-                        Component::Prefix(prefix) => {
-                            match prefix.kind() {
-                                Prefix::UNC(server, share) => {
-                                    let mut p =
-                                        ffi::OsString::from(r"\\?\UNC\");
-                                    p.push(server);
-                                    p.push(r"\");
-                                    p.push(share);
-                                    new_path.push(p);
-                                }
-                                Prefix::Disk(_) => {
-                                    let mut p = ffi::OsString::from(r"\\?\");
-                                    p.push(c.as_os_str());
-                                    new_path.push(p);
-                                }
-                                _ => {
-                                    new_path.push(c.as_os_str());
-                                }
-                            };
-                        }
-                    };
-                }
+        if self.as_os_str().len() >= 260 {
+            // If the path is >= 260 characters, we should prefix it with
+            // '\\?\' if possible.
+            if let Some(c) = components.next() {
+                match c {
+                    Component::CurDir => {}
+                    Component::RootDir
+                    | Component::ParentDir
+                    | Component::Normal(_) => {
+                        // Can't add the prefix. It's a relative path.
+                        new_path.push(c.as_os_str());
+                    }
+                    Component::Prefix(prefix) => {
+                        match prefix.kind() {
+                            Prefix::UNC(server, share) => {
+                                let mut p = OsString::from(r"\\?\UNC\");
+                                p.push(server);
+                                p.push(r"\");
+                                p.push(share);
+                                new_path.push(p);
+                            }
+                            Prefix::Disk(_) => {
+                                let mut p = OsString::from(r"\\?\");
+                                p.push(c.as_os_str());
+                                new_path.push(p);
+                            }
+                            _ => {
+                                new_path.push(c.as_os_str());
+                            }
+                        };
+                    }
+                };
             }
         }
 
         for c in components {
+            match c {
+                Component::CurDir => {}
+                Component::ParentDir => {
+                    let pop = match new_path.components().next_back() {
+                        Some(Component::Prefix(_))
+                        | Some(Component::RootDir) => true,
+                        Some(Component::Normal(s)) => !s.is_empty(),
+                        _ => false,
+                    };
+
+                    if pop {
+                        new_path.pop();
+                    } else {
+                        new_path.push("..");
+                    }
+                }
+                _ => {
+                    new_path.push(c.as_os_str());
+                }
+            };
+        }
+
+        if new_path.as_os_str().is_empty() {
+            new_path.push(".");
+        }
+
+        new_path
+    }
+
+    #[cfg(unix)]
+    fn normalize(&self) -> PathBuf {
+        let mut new_path = PathBuf::new();
+
+        for c in self.components() {
             match c {
                 Component::CurDir => {}
                 Component::ParentDir => {
