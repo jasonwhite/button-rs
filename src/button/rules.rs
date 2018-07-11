@@ -18,8 +18,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::error;
-use std::fmt;
 use std::fs;
 use std::io;
 use std::path::Path;
@@ -30,46 +28,24 @@ use serde_json as json;
 use res;
 use task::{self, Task};
 
-#[derive(Debug)]
-pub enum Error {
+#[derive(Debug, Fail)]
+pub enum RulesError {
+    #[fail(display = "{}", _0)]
     Io(io::Error),
-    Parse(json::error::Error),
+
+    #[fail(display = "JSON parsing error: {}", _0)]
+    Json(json::error::Error),
 }
 
-impl From<io::Error> for Error {
-    fn from(err: io::Error) -> Error {
-        Error::Io(err)
+impl From<io::Error> for RulesError {
+    fn from(err: io::Error) -> RulesError {
+        RulesError::Io(err)
     }
 }
 
-impl From<json::error::Error> for Error {
-    fn from(err: json::error::Error) -> Error {
-        Error::Parse(err)
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Error::Io(ref err) => write!(f, "Failed reading rules: {}", err),
-            Error::Parse(ref err) => write!(f, "Failed parsing rules: {}", err),
-        }
-    }
-}
-
-impl error::Error for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::Io(ref err) => err.description(),
-            Error::Parse(ref err) => err.description(),
-        }
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
-        match *self {
-            Error::Io(ref err) => Some(err),
-            Error::Parse(ref err) => Some(err),
-        }
+impl From<json::error::Error> for RulesError {
+    fn from(err: json::error::Error) -> RulesError {
+        RulesError::Json(err)
     }
 }
 
@@ -103,12 +79,12 @@ impl Rules {
         Rules { rules: rules }
     }
 
-    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Rules, Error> {
+    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Rules, RulesError> {
         let f = fs::File::open(path)?;
         Ok(Self::from_reader(io::BufReader::new(f))?)
     }
 
-    pub fn from_reader<R>(reader: R) -> Result<Rules, Error>
+    pub fn from_reader<R>(reader: R) -> Result<Rules, RulesError>
     where
         R: io::Read,
     {
@@ -116,7 +92,7 @@ impl Rules {
     }
 
     #[cfg(test)]
-    pub fn from_str<'a>(s: &'a str) -> Result<Rules, Error> {
+    pub fn from_str<'a>(s: &'a str) -> Result<Rules, RulesError> {
         Ok(Self::new(json::from_str(s)?))
     }
 

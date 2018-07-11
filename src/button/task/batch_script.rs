@@ -27,9 +27,9 @@ use std::process;
 
 use tempfile;
 
-use super::traits::{Error, Task};
+use super::traits::{TaskResult, Task};
 
-use retry;
+use util::{Retry, progress_dummy};
 
 /// A task to create a directory.
 #[derive(
@@ -55,11 +55,11 @@ pub struct BatchScript {
     quiet: bool,
 
     /// Retry settings.
-    retry: Option<retry::Retry>,
+    retry: Option<Retry>,
 }
 
 impl BatchScript {
-    fn execute_impl(&self, log: &mut io::Write) -> Result<(), Error> {
+    fn execute_impl(&self, log: &mut io::Write) -> TaskResult {
         let mut cmd = process::Command::new("cmd.exe");
 
         // Don't allow user input.
@@ -95,7 +95,7 @@ impl BatchScript {
         if output.status.success() {
             Ok(())
         } else {
-            match output.status.code() {
+            Ok(match output.status.code() {
                 Some(code) => Err(io::Error::new(
                     io::ErrorKind::Other,
                     format!("Process exited with error code {}", code),
@@ -104,7 +104,7 @@ impl BatchScript {
                     io::ErrorKind::Other,
                     "Process terminated by signal",
                 )),
-            }
+            }?)
         }
     }
 }
@@ -125,9 +125,9 @@ impl fmt::Debug for BatchScript {
 }
 
 impl Task for BatchScript {
-    fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
+    fn execute(&self, log: &mut io::Write) -> TaskResult {
         if let Some(ref retry) = self.retry {
-            retry.call(|| self.execute_impl(log), retry::progress_dummy)
+            retry.call(|| self.execute_impl(log), progress_dummy)
         } else {
             self.execute_impl(log)
         }

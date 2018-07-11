@@ -22,13 +22,13 @@ use std::path::Path;
 
 use std::io::{self, Write};
 
-use std::error::Error;
-
 use build_graph::{BuildGraph, Node};
-use error;
 use res;
 use rules::Rules;
 use task::{self, Task};
+
+use failure::Error;
+use failure::ResultExt;
 
 /// Represents a build. This holds the context necessary for all build
 /// operations.
@@ -36,6 +36,7 @@ pub struct Build<'a> {
     /// Root of the build. This is the directory containing the "button.json"
     /// file and is the default path from which all subprocesses are spawned.
     /// The working directories of tasks are relative to this path.
+    #[allow(dead_code)]
     root: &'a Path,
 
     /// Whether or not this is a dry run. This needs to be passed to child
@@ -56,9 +57,7 @@ impl<'a> Build<'a> {
         &self,
         rules: Rules,
         threads: usize,
-    ) -> Result<(), error::Error> {
-        println!("Root directory: {:?}", self.root);
-
+    ) -> Result<(), Error> {
         if self.dryrun {
             println!("Note: This is a dry run. Nothing is affected.");
         }
@@ -79,7 +78,7 @@ impl<'a> Build<'a> {
     }
 
     /// Visitor function for a node.
-    fn visit(&self, id: usize, node: &Node) -> Result<bool, io::Error> {
+    fn visit(&self, id: usize, node: &Node) -> Result<bool, Error> {
         match node {
             Node::Resource(r) => self.visit_resource(id, r),
             Node::Task(t) => self.visit_task(id, t),
@@ -91,7 +90,7 @@ impl<'a> Build<'a> {
         &self,
         _id: usize,
         _node: &res::Any,
-    ) -> Result<bool, io::Error> {
+    ) -> Result<bool, Error> {
         // println!("thread {} :: {}", id, node);
 
         // TODO: Determine if this resource has changed.
@@ -107,7 +106,7 @@ impl<'a> Build<'a> {
         &self,
         id: usize,
         node: &task::List,
-    ) -> Result<bool, io::Error> {
+    ) -> Result<bool, Error> {
         let mut stdout = io::stdout();
 
         let mut output = Vec::new();
@@ -117,7 +116,7 @@ impl<'a> Build<'a> {
 
             match task.execute(&mut output) {
                 Err(err) => {
-                    writeln!(output, "Error: {}", err.description())?;
+                    writeln!(output, "Error: {}", err)?;
                     stdout.write(&output)?;
                     return Err(err);
                 }

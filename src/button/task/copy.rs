@@ -23,10 +23,10 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 
-use super::traits::{Error, Task};
+use super::traits::{TaskResult, Task};
 
 use res;
-use retry;
+use util::{Retry, progress_dummy};
 
 /// A task to create a directory.
 #[derive(
@@ -41,11 +41,11 @@ pub struct Copy {
 
     /// Retry settings.
     #[serde(default)]
-    retry: retry::Retry,
+    retry: Retry,
 }
 
 impl Copy {
-    fn execute_impl(&self, _log: &mut io::Write) -> Result<(), Error> {
+    fn execute_impl(&self, _log: &mut io::Write) -> TaskResult {
         fs::copy(&self.from, &self.to)?;
         Ok(())
     }
@@ -64,9 +64,9 @@ impl fmt::Debug for Copy {
 }
 
 impl Task for Copy {
-    fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
+    fn execute(&self, log: &mut io::Write) -> TaskResult {
         self.retry
-            .call(|| self.execute_impl(log), retry::progress_dummy)
+            .call(|| self.execute_impl(log), progress_dummy)
     }
 
     fn known_inputs(&self, resources: &mut res::Set) {

@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Jason White
+// Copyright (c) 2018 Jason White
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -17,39 +17,36 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-use std::path::PathBuf;
 
-use failure::Error;
-use opts::Coloring;
+mod counter;
+mod iter;
+mod path;
+mod retry;
 
-#[derive(StructOpt, Debug)]
-pub struct Clean {
-    /// Path to the build description. If not specified, finds "button.json"
-    /// in the current directory or parent directories.
-    #[structopt(long = "file", short = "f", parse(from_os_str))]
-    file: Option<PathBuf>,
+pub use self::counter::Counter;
+pub use self::iter::empty_or_any;
+pub use self::path::PathExt;
+pub use self::retry::{Retry, progress_dummy, progress_print};
 
-    /// Doesn't delete anything. Just prints what would be deleted.
-    #[structopt(long = "dryrun", short = "n")]
-    dryrun: bool,
+/// A tri-state for checking if we should do things.
+#[derive(
+    Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Copy, Clone,
+)]
+#[serde(rename_all = "lowercase")]
+pub enum NeverAlwaysAuto {
+    /// Never do the thing.
+    Never,
 
-    /// Print additional information.
-    #[structopt(long = "verbose", short = "v")]
-    verbose: bool,
+    /// Always do the thing.
+    Always,
 
-    /// When to colorize the output.
-    #[structopt(long = "color")]
-    color: Coloring,
-
-    /// Deletes the build state too.
-    #[structopt(long = "purge")]
-    purge: bool,
+    /// Only do the thing under certain circumstances.
+    Auto,
 }
 
-impl Clean {
-    pub fn main(&self) -> Result<(), Error> {
-        println!("{:#?}", self);
-
-        Ok(())
+impl Default for NeverAlwaysAuto {
+    /// Never do the thing by default.
+    fn default() -> Self {
+        NeverAlwaysAuto::Never
     }
 }

@@ -21,6 +21,8 @@ use std::path::PathBuf;
 
 use opts::Edges;
 
+use failure::Error;
+
 #[derive(StructOpt, Debug)]
 pub struct Graph {
     /// Path to the build description. If not specified, finds "button.json"
@@ -55,9 +57,9 @@ pub struct Graph {
 
 impl Graph {
     /// Shows a pretty graph of the build.
-    pub fn main(&self) -> i32 {
+    pub fn main(&self) -> Result<(), Error> {
         println!("{:#?}", self);
 
-        0
+        Ok(())
     }
 }

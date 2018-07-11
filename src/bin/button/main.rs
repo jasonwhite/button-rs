@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 extern crate button;
+extern crate failure;
 extern crate num_cpus;
 #[macro_use]
 extern crate structopt;
@@ -28,6 +29,17 @@ mod opts;
 use structopt::StructOpt;
 
 fn main() {
-    // Parse arguments and delegate to a subcommand.
-    cmd::Command::from_args().main();
+    // Parse arguments and delegate to a subcommand. If any errors occur, print
+    // out the error and its chain of causes.
+    if let Err(error) = cmd::Command::from_args().main() {
+        let mut causes = error.causes();
+
+        if let Some(cause) = causes.next() {
+            println!("    Error: {}", cause);
+        }
+
+        for cause in causes {
+            println!("Caused by: {}", cause);
+        }
+    }
 }

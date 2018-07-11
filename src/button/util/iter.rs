@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Jason White
+// Copyright (c) 2018 Jason White
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -17,39 +17,38 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-use std::path::PathBuf;
 
-use failure::Error;
-use opts::Coloring;
+/// Check if an iterator is empty or if the predicate returns true for any item.
+pub fn empty_or_any<I, F>(iter: &mut I, mut f: F) -> bool
+where
+    I: Iterator,
+    F: FnMut(I::Item) -> bool,
+{
+    match iter.next() {
+        None => return true, // Empty
+        Some(x) => {
+            if f(x) {
+                return true;
+            }
+        }
+    };
 
-#[derive(StructOpt, Debug)]
-pub struct Clean {
-    /// Path to the build description. If not specified, finds "button.json"
-    /// in the current directory or parent directories.
-    #[structopt(long = "file", short = "f", parse(from_os_str))]
-    file: Option<PathBuf>,
+    for x in iter {
+        if f(x) {
+            return true;
+        }
+    }
 
-    /// Doesn't delete anything. Just prints what would be deleted.
-    #[structopt(long = "dryrun", short = "n")]
-    dryrun: bool,
-
-    /// Print additional information.
-    #[structopt(long = "verbose", short = "v")]
-    verbose: bool,
-
-    /// When to colorize the output.
-    #[structopt(long = "color")]
-    color: Coloring,
-
-    /// Deletes the build state too.
-    #[structopt(long = "purge")]
-    purge: bool,
+    false
 }
 
-impl Clean {
-    pub fn main(&self) -> Result<(), Error> {
-        println!("{:#?}", self);
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-        Ok(())
+    #[test]
+    fn test_empty_or_any() {
+        assert!(empty_or_any(&mut [].iter(), |x: &bool| !x));
+        assert!(empty_or_any(&mut [true, false, true].iter(), |x| !x));
     }
 }

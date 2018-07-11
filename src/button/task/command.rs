@@ -32,11 +32,11 @@ use std::time::Duration;
 
 use tempfile::{NamedTempFile, TempPath};
 
-use super::traits::{Error, Task};
+use super::traits::{TaskResult, Task};
 use util::NeverAlwaysAuto;
 
 use res;
-use retry;
+use util::{Retry, progress_dummy};
 
 const DEV_NULL: &str = "/dev/null";
 
@@ -97,7 +97,7 @@ pub struct Command {
     timeout: Option<Duration>,
 
     /// Retry settings.
-    retry: Option<retry::Retry>,
+    retry: Option<Retry>,
 }
 
 impl Command {
@@ -150,12 +150,12 @@ impl Command {
 
     // Sets the retry configuration.
     #[allow(dead_code)]
-    pub fn retry(&mut self, retry: retry::Retry) -> &mut Command {
+    pub fn retry(&mut self, retry: Retry) -> &mut Command {
         self.retry = Some(retry);
         self
     }
 
-    fn execute_impl(&self, log: &mut io::Write) -> Result<(), Error> {
+    fn execute_impl(&self, log: &mut io::Write) -> TaskResult {
         // TODO:
         //  1. Spawn the process
         //  2. Capture stdout/stderr appropriately.
@@ -235,7 +235,7 @@ impl Command {
         if output.status.success() {
             Ok(())
         } else {
-            match output.status.code() {
+            Ok(match output.status.code() {
                 Some(code) => Err(io::Error::new(
                     io::ErrorKind::Other,
                     format!("Process exited with error code {}", code),
@@ -244,7 +244,7 @@ impl Command {
                     io::ErrorKind::Other,
                     "Process terminated by signal",
                 )),
-            }
+            }?)
         }
     }
 }
@@ -282,9 +282,9 @@ impl fmt::Debug for Command {
 }
 
 impl Task for Command {
-    fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
+    fn execute(&self, log: &mut io::Write) -> TaskResult {
         if let Some(ref retry) = self.retry {
-            retry.call(|| self.execute_impl(log), retry::progress_dummy)
+            retry.call(|| self.execute_impl(log), progress_dummy)
         } else {
             self.execute_impl(log)
         }

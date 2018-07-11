@@ -102,14 +102,14 @@ where
     N: NodeTrait + fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
+        writeln!(
             f,
-            "{} cycle(s) detected in the build graph...\n\n",
+            "{} cycle(s) detected in the build graph...\n",
             self.cycles.len()
         )?;
 
         for (i, cycle) in self.cycles.iter().enumerate() {
-            write!(f, "Cycle {}\n", i + 1)?;
+            writeln!(f, "Cycle {}", i + 1)?;
 
             // The nodes in a cycle are listed in reverse topological order.
             // Thus, we need to print them out in reverse order so that it makes
@@ -124,17 +124,17 @@ where
             // cycle is buggy.
             let first = it.next().unwrap();
 
-            write!(f, "    {}\n", first)?;
+            writeln!(f, "    {}", first)?;
 
             for node in it {
-                write!(f, " -> {}\n", node)?;
+                writeln!(f, " -> {}", node)?;
             }
 
             // Make the cycle obvious
-            write!(f, " -> {}\n", first)?;
+            writeln!(f, " -> {}", first)?;
         }
 
-        write!(f, "{}", CYCLE_EXPLANATION)
+        write!(f, "\n{}", CYCLE_EXPLANATION)
     }
 }
 
@@ -161,7 +161,7 @@ where
 }
 
 /// A race condition in the build graph.
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[derive(Fail, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct Race<N> {
     /// The node with two or more incoming edges.
     pub node: N,

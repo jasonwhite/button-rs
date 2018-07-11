@@ -26,6 +26,8 @@ pub use self::build::Build;
 pub use self::clean::Clean;
 pub use self::graph::Graph;
 
+use failure::Error;
+
 #[derive(StructOpt, Debug)]
 pub enum Command {
     /// Builds everything.
@@ -42,7 +44,7 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn main(&self) -> i32 {
+    pub fn main(&self) -> Result<(), Error> {
         match self {
             &Command::Build(ref x) => x.main(),
             &Command::Clean(ref x) => x.main(),

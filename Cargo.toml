@@ -12,6 +12,8 @@ path = "src/button/lib.rs"
 
 [dependencies]
 crossbeam = "0.2"
+failure = "0.1"
+failure_derive = "0.1"
 generic-array = "0.8"
 num_cpus = "1"
 indexmap = "1"

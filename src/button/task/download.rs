@@ -23,10 +23,10 @@ use std::io;
 use std::path::PathBuf;
 use std::time;
 
-use super::traits::{Error, Task};
+use super::traits::{TaskResult, Task};
 
 use res;
-use retry;
+use util::{Retry, progress_dummy};
 
 /// A task to download a URL. This would normally be a task with no input
 /// resources.
@@ -49,7 +49,7 @@ pub struct Download {
 
     /// Retry settings.
     #[serde(default)]
-    retry: retry::Retry,
+    retry: Retry,
 }
 
 impl Download {
@@ -61,11 +61,11 @@ impl Download {
             sha256: sha256,
             path: path,
             timeout: None,
-            retry: retry::Retry::new(),
+            retry: Retry::new(),
         }
     }
 
-    fn execute_impl(&self, log: &mut io::Write) -> Result<(), Error> {
+    fn execute_impl(&self, log: &mut io::Write) -> TaskResult {
         writeln!(log, "Downloading `{:?}` to {:?}", self.url, self.path)?;
 
         // TODO:
@@ -91,9 +91,9 @@ impl fmt::Debug for Download {
 }
 
 impl Task for Download {
-    fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
+    fn execute(&self, log: &mut io::Write) -> TaskResult {
         self.retry
-            .call(|| self.execute_impl(log), retry::progress_dummy)
+            .call(|| self.execute_impl(log), progress_dummy)
     }
 
     fn known_outputs(&self, resources: &mut res::Set) {

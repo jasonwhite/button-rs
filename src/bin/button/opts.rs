@@ -76,15 +76,20 @@ impl FromStr for Edges {
     }
 }
 
-/// Returns an absolute path to the rules, starting at the given directory. The
-/// canonical name for the JSON rules file is "button.json". This function shall
-/// search for the file in the given starting directory and all parent
-/// directories. Returns `None` if it cannot be found.
+/// Returns a path to the rules, starting at the given directory. The canonical
+/// name for the JSON rules file is "button.json". This function shall search
+/// for the file in the given starting directory and all parent directories.
+/// Returns `None` if it cannot be found.
 pub fn find_rules_path(start: &Path) -> Option<PathBuf> {
     let path = start.join("button.json");
 
     if path.is_file() {
-        Some(path)
+        // Path was found. Return a path relative to `start`.
+        Some(
+            path.strip_prefix(start)
+                .map(Path::to_path_buf)
+                .unwrap_or(path),
+        )
     } else {
         // Search in the parent directory.
         match start.parent() {

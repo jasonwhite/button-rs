@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Jason White
+// Copyright (c) 2018 Jason White
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -17,39 +17,37 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-use std::path::PathBuf;
 
-use failure::Error;
-use opts::Coloring;
+use std::fmt;
+use std::ops;
 
-#[derive(StructOpt, Debug)]
-pub struct Clean {
-    /// Path to the build description. If not specified, finds "button.json"
-    /// in the current directory or parent directories.
-    #[structopt(long = "file", short = "f", parse(from_os_str))]
-    file: Option<PathBuf>,
-
-    /// Doesn't delete anything. Just prints what would be deleted.
-    #[structopt(long = "dryrun", short = "n")]
-    dryrun: bool,
-
-    /// Print additional information.
-    #[structopt(long = "verbose", short = "v")]
-    verbose: bool,
-
-    /// When to colorize the output.
-    #[structopt(long = "color")]
-    color: Coloring,
-
-    /// Deletes the build state too.
-    #[structopt(long = "purge")]
-    purge: bool,
+/// A fake writer to count the number of items going into it.
+#[allow(dead_code)]
+pub struct Counter {
+    count: usize,
 }
 
-impl Clean {
-    pub fn main(&self) -> Result<(), Error> {
-        println!("{:#?}", self);
+impl Counter {
+    #[allow(dead_code)]
+    pub fn new() -> Counter {
+        Counter { count: 0 }
+    }
 
+    #[allow(dead_code)]
+    pub fn count(&self) -> usize {
+        self.count
+    }
+}
+
+impl ops::AddAssign<usize> for Counter {
+    fn add_assign(&mut self, rhs: usize) {
+        self.count += rhs;
+    }
+}
+
+impl fmt::Write for Counter {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.count += s.len();
         Ok(())
     }
 }

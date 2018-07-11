@@ -26,8 +26,10 @@ use serde::Serialize;
 
 use res;
 
-/// FIXME: Use a more abstract error type.
-pub type Error = io::Error;
+use failure;
+
+pub type TaskError = failure::Error;
+pub type TaskResult = Result<(), TaskError>;
 
 /// A task is a routine to be executed that produces resources as outputs.
 ///
@@ -46,7 +48,7 @@ pub trait Task:
     /// the resources it output. These are its *implicit* inputs and outputs.
     /// Ideally, the *explicit* inputs and outputs are a subset of the
     /// *implicit* inputs and outputs.
-    fn execute(&self, log: &mut io::Write) -> Result<(), Error>;
+    fn execute(&self, log: &mut io::Write) -> TaskResult;
 
     /// Inputs the task knows about *a priori*. It must calculate these by
     /// *only* looking at the task parameters. It should not do anything fancy

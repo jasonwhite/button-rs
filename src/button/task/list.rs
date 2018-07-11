@@ -25,7 +25,7 @@ use std::ops;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::any::Any;
-use super::traits::{Error, Task};
+use super::traits::{TaskResult, Task};
 
 use res;
 
@@ -93,7 +93,7 @@ impl fmt::Debug for List {
 }
 
 impl Task for List {
-    fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
+    fn execute(&self, log: &mut io::Write) -> TaskResult {
         for task in &self.list {
             task.execute(log)?;
         }

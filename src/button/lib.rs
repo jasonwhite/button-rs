@@ -20,6 +20,9 @@
 #[macro_use]
 extern crate serde_derive;
 extern crate crossbeam;
+extern crate failure;
+#[macro_use]
+extern crate failure_derive;
 extern crate generic_array;
 extern crate indexmap;
 extern crate serde;
@@ -32,7 +35,6 @@ pub mod build_graph;
 pub mod error;
 pub mod graph;
 pub mod res;
-pub mod retry;
 pub mod rules;
 pub mod task;
 mod util;

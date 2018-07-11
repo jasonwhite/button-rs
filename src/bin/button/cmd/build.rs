@@ -26,6 +26,8 @@ use button::rules::Rules;
 
 use opts::{rules_path, Coloring};
 
+use failure::{Error, ResultExt};
+
 #[derive(StructOpt, Debug)]
 pub struct Build {
     /// Path to the build description. If not specified, finds "button.json" in
@@ -110,7 +112,7 @@ impl Build {
     ///  5. Walk the graph starting at the queued nodes to create a subgraph.
     ///     This needs to be done because the graph traversal for the build is
     ///     not guaranteed to be traversed in the correct order.
-    pub fn main(&self) -> i32 {
+    pub fn main(&self) -> Result<(), Error> {
         let file = rules_path(&self.file);
         let threads = if self.threads == 0 {
             num_cpus::get()
@@ -120,20 +122,13 @@ impl Build {
 
         let root = file.parent().unwrap_or_else(|| Path::new("."));
 
-        let build = build::Build::new(root, self.dryrun);
+        let rules = Rules::from_path(&file).with_context(|_err| {
+            format!("Failed loading rules from file {:?}", file)
+        })?;
 
-        match Rules::from_path(&file) {
-            Ok(rules) => match build.build(rules, threads) {
-                Ok(_) => 0,
-                Err(err) => {
-                    println!("Error: {}", err);
-                    1
-                }
-            },
-            Err(err) => {
-                println!("Error: {}", err);
-                1
-            }
-        }
+        let build = build::Build::new(root, self.dryrun);
+        build.build(rules, threads)?;
+
+        Ok(())
     }
 }

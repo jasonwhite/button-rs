@@ -27,7 +27,7 @@ use super::copy::Copy;
 use super::download::Download;
 use super::makedir::MakeDir;
 
-use super::traits::{Error, Task};
+use super::traits::{TaskResult, Task};
 
 use res;
 
@@ -114,7 +114,7 @@ impl From<Copy> for Any {
 }
 
 impl Task for Any {
-    fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
+    fn execute(&self, log: &mut io::Write) -> TaskResult {
         match self {
             &Any::BatchScript(ref x) => x.execute(log),
             &Any::Command(ref x) => x.execute(log),

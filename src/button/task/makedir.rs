@@ -23,10 +23,10 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 
-use super::traits::{Error, Task};
+use super::traits::{TaskResult, Task};
 
 use res;
-use retry;
+use util::{Retry, progress_dummy};
 
 /// A task to create a directory.
 #[derive(
@@ -38,19 +38,19 @@ pub struct MakeDir {
 
     /// Retry settings.
     #[serde(default)]
-    retry: retry::Retry,
+    retry: Retry,
 }
 
 impl MakeDir {
     pub fn new(path: PathBuf) -> MakeDir {
         MakeDir {
             path: path,
-            retry: retry::Retry::default(),
+            retry: Retry::default(),
         }
     }
 
-    fn execute_impl(&self, _log: &mut io::Write) -> Result<(), Error> {
-        fs::create_dir_all(&self.path)
+    fn execute_impl(&self, _log: &mut io::Write) -> TaskResult {
+        Ok(fs::create_dir_all(&self.path)?)
     }
 }
 
@@ -67,9 +67,9 @@ impl fmt::Debug for MakeDir {
 }
 
 impl Task for MakeDir {
-    fn execute(&self, log: &mut io::Write) -> Result<(), Error> {
+    fn execute(&self, log: &mut io::Write) -> TaskResult {
         self.retry
-            .call(|| self.execute_impl(log), retry::progress_dummy)
+            .call(|| self.execute_impl(log), progress_dummy)
     }
 
     fn known_outputs(&self, set: &mut res::Set) {
