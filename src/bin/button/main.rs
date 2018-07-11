@@ -17,43 +17,17 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+extern crate button;
+extern crate num_cpus;
+#[macro_use]
+extern crate structopt;
 
-mod build;
-mod clean;
-mod graph;
+mod cmd;
+mod opts;
 
-use clap::{ArgMatches, Result};
+use structopt::StructOpt;
 
-pub use self::build::Build;
-pub use self::clean::Clean;
-pub use self::graph::Graph;
-
-pub enum Command {
-    Build(Build),
-    Clean(Clean),
-    Graph(Graph),
-}
-
-impl Command {
-    pub fn from_matches<'a>(
-        name: &str,
-        matches: &ArgMatches<'a>,
-    ) -> Result<Command> {
-        match name {
-            "build" => Build::from_matches(matches).map(Command::Build),
-            "clean" => Clean::from_matches(matches).map(Command::Clean),
-            "graph" => Graph::from_matches(matches).map(Command::Graph),
-
-            // If all subcommands are matched above, then this shouldn't happen.
-            _ => unreachable!(),
-        }
-    }
-
-    pub fn run(&self) -> i32 {
-        match self {
-            &Command::Build(ref x) => x.run(),
-            &Command::Clean(ref x) => x.run(),
-            &Command::Graph(ref x) => x.run(),
-        }
-    }
+fn main() {
+    // Parse arguments and delegate to a subcommand.
+    cmd::Command::from_args().main();
 }

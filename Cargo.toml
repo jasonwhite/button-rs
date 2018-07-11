@@ -1,20 +1,16 @@
 [package]
 name = "button"
+description = "A fast and correct build system backend."
 version = "0.1.0"
 authors = ["Jason White"]
 license = "MIT"
 repository = "https://github.com/jasonwhite/button-rs"
-autobins = false
-
-[[bin]]
-name = "button"
 
 [lib]
 name = "button"
 path = "src/button/lib.rs"
 
 [dependencies]
-clap = "2"
 num_cpus = "1"
 serde = "1.0"
 serde_derive = "1.0"
@@ -24,3 +20,4 @@ crossbeam = "0.2"
 sha2 = "0.6"
 generic-array = "0.8"
 tempfile = "3"
+structopt = "0.2"

@@ -17,29 +17,38 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-extern crate button;
-#[macro_use]
-extern crate clap;
-extern crate num_cpus;
+use std::path::PathBuf;
 
-mod app;
-mod cmd;
-mod opts;
+use opts::Coloring;
 
-use std::process::exit;
+#[derive(StructOpt, Debug)]
+pub struct Clean {
+    /// Path to the build description. If not specified, finds "button.json"
+    /// in the current directory or parent directories.
+    #[structopt(long = "file", short = "s", parse(from_os_str))]
+    file: Option<PathBuf>,
 
-fn main() {
-    let app_matches = app::app().get_matches();
+    /// Doesn't delete anything. Just prints what would be deleted.
+    #[structopt(long = "dryrun", short = "n")]
+    dryrun: bool,
 
-    let (name, matches) = app_matches.subcommand();
+    /// Print additional information.
+    #[structopt(long = "verbose", short = "v")]
+    verbose: bool,
 
-    if let Some(matches) = matches {
-        exit(match cmd::Command::from_matches(name, matches) {
-            Ok(command) => command.run(),
-            Err(err) => {
-                println!("{}", err);
-                1
-            }
-        });
+    /// When to colorize the output.
+    #[structopt(long = "color")]
+    color: Coloring,
+
+    /// Deletes the build state too.
+    #[structopt(long = "purge")]
+    purge: bool,
+}
+
+impl Clean {
+    pub fn main(&self) -> i32 {
+        println!("{:#?}", self);
+
+        0
     }
 }

@@ -31,15 +31,21 @@ pub enum Coloring {
     Always,
 }
 
+impl Coloring {
+    pub fn variants() -> [&'static str; 3] {
+        ["auto", "never", "always"]
+    }
+}
+
 impl FromStr for Coloring {
-    type Err = ();
+    type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "auto" => Ok(Coloring::Auto),
             "never" => Ok(Coloring::Never),
             "always" => Ok(Coloring::Always),
-            _ => Err(()),
+            _ => Err("invalid coloring mode"),
         }
     }
 }
@@ -51,15 +57,21 @@ pub enum Edges {
     Both,
 }
 
+impl Edges {
+    pub fn variants() -> [&'static str; 3] {
+        ["explicit", "implicit", "both"]
+    }
+}
+
 impl FromStr for Edges {
-    type Err = ();
+    type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "explicit" => Ok(Edges::Explicit),
             "implicit" => Ok(Edges::Implicit),
             "both" => Ok(Edges::Both),
-            _ => Err(()),
+            _ => Err("invalid edge type"),
         }
     }
 }
@@ -83,9 +95,9 @@ pub fn find_rules_path(start: &Path) -> Option<PathBuf> {
 }
 
 /// Returns a path to the rules.
-pub fn rules_path(path: Option<&Path>) -> PathBuf {
-    match path {
-        Some(path) => path.to_path_buf(),
+pub fn rules_path(path: &Option<PathBuf>) -> PathBuf {
+    match *path {
+        Some(ref path) => path.to_path_buf(),
         None => {
             let cwd = env::current_dir().unwrap();
             match find_rules_path(&cwd) {

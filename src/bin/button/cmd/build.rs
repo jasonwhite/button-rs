@@ -19,39 +19,62 @@
 // THE SOFTWARE.
 use std::path::{Path, PathBuf};
 
-use clap;
 use num_cpus;
 
 use button::build;
 use button::rules::Rules;
 
-use opts;
+use opts::{rules_path, Coloring};
 
-/// 'build' subcommand options
-#[derive(Debug)]
+#[derive(StructOpt, Debug)]
 pub struct Build {
-    pub file: PathBuf,
-    pub dryrun: bool,
-    pub color: opts::Coloring,
-    pub threads: usize,
-    pub autobuild: bool,
-    pub delay: usize,
+    /// Path to the build description. If not specified, finds "button.json" in
+    /// the current directory or parent directories.
+    #[structopt(long = "file", short = "s", parse(from_os_str))]
+    file: Option<PathBuf>,
+
+    /// Doesn't run the build. Just prints the tasks that will be executed.
+    #[structopt(short = "n", long = "dryrun")]
+    dryrun: bool,
+
+    /// Print additional information.
+    #[structopt(short = "v", long = "verbose")]
+    verbose: bool,
+
+    /// When to colorize the output.
+    #[structopt(
+        long = "color",
+        default_value = "auto",
+        raw(
+            possible_values = "&Coloring::variants()",
+            case_insensitive = "true"
+        )
+    )]
+    color: Coloring,
+
+    /// The number of threads to use. Defaults to the number of logical cores.
+    #[structopt(short = "t", long = "threads", default_value = "0")]
+    threads: usize,
+
+    /// Watch for changes and build automatically.
+    #[structopt(long = "watch")]
+    watch: bool,
+
+    /// Used with "--watch". The directory to watch for changes in. Useful when
+    /// building inside a FUSE file system. Defaults to the current working
+    /// directory.
+    #[structopt(long = "watch-dir", parse(from_os_str))]
+    watch_dir: Option<PathBuf>,
+
+    /// Used with "--watch". The number of milliseconds to wait before
+    /// building. The timeout is reset every time a new change is seen.
+    /// Useful when source code is changed by a tool (e.g., git checkout,
+    /// automatic formatting, etc).
+    #[structopt(long = "watch-delay", default_value = "100")]
+    watch_delay: usize,
 }
 
 impl Build {
-    pub fn from_matches(matches: &clap::ArgMatches) -> clap::Result<Build> {
-        let cpu_count = num_cpus::get();
-
-        Ok(Build {
-            file: opts::rules_path(matches.value_of("file").map(Path::new)),
-            dryrun: matches.is_present("dryrun"),
-            color: value_t!(matches.value_of("color"), opts::Coloring)?,
-            threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
-            autobuild: matches.is_present("auto"),
-            delay: value_t!(matches, "delay", usize)?,
-        })
-    }
-
     /// Runs an incremental build.
     ///
     /// The build algorithm proceeds as follows:
@@ -87,13 +110,20 @@ impl Build {
     ///  5. Walk the graph starting at the queued nodes to create a subgraph.
     ///     This needs to be done because the graph traversal for the build is
     ///     not guaranteed to be traversed in the correct order.
-    pub fn run(&self) -> i32 {
-        let root = self.file.parent().unwrap_or_else(|| Path::new("."));
+    pub fn main(&self) -> i32 {
+        let file = rules_path(&self.file);
+        let threads = if self.threads == 0 {
+            num_cpus::get()
+        } else {
+            self.threads
+        };
+
+        let root = file.parent().unwrap_or_else(|| Path::new("."));
 
         let build = build::Build::new(root, self.dryrun);
 
-        match Rules::from_path(&self.file) {
-            Ok(rules) => match build.build(&rules, self.threads) {
+        match Rules::from_path(&file) {
+            Ok(rules) => match build.build(&rules, threads) {
                 Ok(_) => 0,
                 Err(err) => {
                     println!("Error: {}", err);

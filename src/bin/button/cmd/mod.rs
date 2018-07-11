@@ -17,40 +17,36 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-use std::path::{Path, PathBuf};
 
-use clap;
-use num_cpus;
+mod build;
+mod clean;
+mod graph;
 
-use opts;
+pub use self::build::Build;
+pub use self::clean::Clean;
+pub use self::graph::Graph;
 
-/// 'clean' subcommand options
-#[derive(Debug)]
-pub struct Clean {
-    pub file: PathBuf,
-    pub dryrun: bool,
-    pub color: opts::Coloring,
-    pub threads: usize,
-    pub purge: bool,
+#[derive(StructOpt, Debug)]
+pub enum Command {
+    /// Builds everything.
+    #[structopt(name = "build")]
+    Build(Build),
+
+    /// Deletes all files created during the build.
+    #[structopt(name = "clean")]
+    Clean(Clean),
+
+    /// Generates a graphviz file of the build graph.
+    #[structopt(name = "graph")]
+    Graph(Graph),
 }
 
-impl Clean {
-    pub fn from_matches(matches: &clap::ArgMatches) -> clap::Result<Clean> {
-        let cpu_count = num_cpus::get();
-
-        Ok(Clean {
-            file: opts::rules_path(matches.value_of("file").map(Path::new)),
-            dryrun: matches.is_present("dryrun"),
-            color: value_t!(matches.value_of("color"), opts::Coloring)?,
-            threads: value_t!(matches, "threads", usize).unwrap_or(cpu_count),
-            purge: matches.is_present("purge"),
-        })
-    }
-
-    /// Cleans your damn software.
-    pub fn run(&self) -> i32 {
-        println!("{:#?}", self);
-
-        0
+impl Command {
+    pub fn main(&self) -> i32 {
+        match self {
+            &Command::Build(ref x) => x.main(),
+            &Command::Clean(ref x) => x.main(),
+            &Command::Graph(ref x) => x.main(),
+        }
     }
 }
