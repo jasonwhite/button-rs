@@ -37,4 +37,4 @@ pub mod graph;
 pub mod res;
 pub mod rules;
 pub mod task;
-mod util;
+pub mod util;

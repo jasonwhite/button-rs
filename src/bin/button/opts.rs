@@ -23,6 +23,8 @@ use std::str::FromStr;
 use std::env;
 use std::path::{Path, PathBuf};
 
+use button::util::PathExt;
+
 /// Coloring of command output.
 #[derive(Debug)]
 pub enum Coloring {
@@ -86,9 +88,8 @@ pub fn find_rules_path(start: &Path) -> Option<PathBuf> {
     if path.is_file() {
         // Path was found. Return a path relative to `start`.
         Some(
-            path.strip_prefix(start)
-                .map(Path::to_path_buf)
-                .unwrap_or(path),
+            path.relative_from(&env::current_dir().unwrap())
+                .unwrap_or(path)
         )
     } else {
         // Search in the parent directory.

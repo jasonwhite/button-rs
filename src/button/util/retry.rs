@@ -28,7 +28,7 @@
 //! use std::io::Write;
 //! use std::time::Duration;
 //!
-//! use button::retry::Retry;
+//! use button::util::Retry;
 //!
 //! fn find_answer(answer: &str) -> io::Result<()> {
 //!     print!("Please enter the correct answer: ");

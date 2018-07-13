@@ -23,6 +23,9 @@ use std::path::{Component, Path, PathBuf};
 pub trait PathExt {
     /// Returns a normalized path. This does not touch the file system at all.
     fn normalize(&self) -> PathBuf;
+
+    /// Returns a path relative to the given base path.
+    fn relative_from(&self, base: &Path) -> Option<PathBuf>;
 }
 
 impl PathExt for Path {
@@ -133,6 +136,44 @@ impl PathExt for Path {
 
         new_path
     }
+
+    fn relative_from(&self, base: &Path) -> Option<PathBuf> {
+        if self.is_absolute() != base.is_absolute() {
+            if self.is_absolute() {
+                Some(PathBuf::from(self))
+            } else {
+                None
+            }
+        } else {
+            let mut ita = self.components();
+            let mut itb = base.components();
+            let mut comps: Vec<Component> = vec![];
+            loop {
+                match (ita.next(), itb.next()) {
+                    (None, None) => break,
+                    (Some(a), None) => {
+                        comps.push(a);
+                        comps.extend(ita.by_ref());
+                        break;
+                    }
+                    (None, _) => comps.push(Component::ParentDir),
+                    (Some(a), Some(b)) if comps.is_empty() && a == b => (),
+                    (Some(a), Some(b)) if b == Component::CurDir => comps.push(a),
+                    (Some(_), Some(b)) if b == Component::ParentDir => return None,
+                    (Some(a), Some(_)) => {
+                        comps.push(Component::ParentDir);
+                        for _ in itb {
+                            comps.push(Component::ParentDir);
+                        }
+                        comps.push(a);
+                        comps.extend(ita.by_ref());
+                        break;
+                    }
+                }
+            }
+            Some(comps.iter().map(|c| c.as_os_str()).collect())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -222,6 +263,27 @@ mod tests {
         assert_eq!(
             PathBuf::from(String::from(r".\relative\") + long_name).normalize(),
             PathBuf::from(String::from(r"relative\") + long_name)
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_relative_from() {
+        assert_eq!(
+            Path::new("/bar/foo").relative_from(Path::new("/bar")),
+            Some(PathBuf::from("foo"))
+        );
+        assert_eq!(
+            Path::new("/foo").relative_from(Path::new("/bar")),
+            Some(PathBuf::from("../foo"))
+        );
+        assert_eq!(
+            Path::new("/foo/bar").relative_from(Path::new("/foo/bar")),
+            Some(PathBuf::from(""))
+        );
+        assert_eq!(
+            Path::new("foobar").relative_from(Path::new("foobar")),
+            Some(PathBuf::from(""))
         );
     }
 }
