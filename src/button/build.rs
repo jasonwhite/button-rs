@@ -53,11 +53,7 @@ impl<'a> Build<'a> {
     }
 
     /// Runs a build.
-    pub fn build(
-        &self,
-        rules: Rules,
-        threads: usize,
-    ) -> Result<(), Error> {
+    pub fn build(&self, rules: Rules, threads: usize) -> Result<(), Error> {
         if self.dryrun {
             println!("Note: This is a dry run. Nothing is affected.");
         }
@@ -102,11 +98,7 @@ impl<'a> Build<'a> {
     }
 
     /// Called when visiting a task type node in the build graph.
-    fn visit_task(
-        &self,
-        id: usize,
-        node: &task::List,
-    ) -> Result<bool, Error> {
+    fn visit_task(&self, id: usize, node: &task::List) -> Result<bool, Error> {
         let mut stdout = io::stdout();
 
         let mut output = Vec::new();

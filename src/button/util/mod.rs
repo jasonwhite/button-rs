@@ -26,7 +26,7 @@ mod retry;
 pub use self::counter::Counter;
 pub use self::iter::empty_or_any;
 pub use self::path::PathExt;
-pub use self::retry::{Retry, progress_dummy, progress_print};
+pub use self::retry::{progress_dummy, progress_print, Retry};
 
 /// A tri-state for checking if we should do things.
 #[derive(

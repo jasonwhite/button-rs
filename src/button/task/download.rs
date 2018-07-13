@@ -23,10 +23,10 @@ use std::io;
 use std::path::PathBuf;
 use std::time;
 
-use super::traits::{TaskResult, Task};
+use super::traits::{Task, TaskResult};
 
 use res;
-use util::{Retry, progress_dummy};
+use util::{progress_dummy, Retry};
 
 /// A task to download a URL. This would normally be a task with no input
 /// resources.
@@ -92,8 +92,7 @@ impl fmt::Debug for Download {
 
 impl Task for Download {
     fn execute(&self, log: &mut io::Write) -> TaskResult {
-        self.retry
-            .call(|| self.execute_impl(log), progress_dummy)
+        self.retry.call(|| self.execute_impl(log), progress_dummy)
     }
 
     fn known_outputs(&self, resources: &mut res::Set) {

@@ -25,7 +25,7 @@ use std::ops;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::any::Any;
-use super::traits::{TaskResult, Task};
+use super::traits::{Task, TaskResult};
 
 use res;
 

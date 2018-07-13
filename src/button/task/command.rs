@@ -32,11 +32,11 @@ use std::time::Duration;
 
 use tempfile::{NamedTempFile, TempPath};
 
-use super::traits::{TaskResult, Task};
+use super::traits::{Task, TaskResult};
 use util::NeverAlwaysAuto;
 
 use res;
-use util::{Retry, progress_dummy};
+use util::{progress_dummy, Retry};
 
 const DEV_NULL: &str = "/dev/null";
 

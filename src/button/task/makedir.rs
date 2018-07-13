@@ -23,10 +23,10 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 
-use super::traits::{TaskResult, Task};
+use super::traits::{Task, TaskResult};
 
 use res;
-use util::{Retry, progress_dummy};
+use util::{progress_dummy, Retry};
 
 /// A task to create a directory.
 #[derive(
@@ -68,8 +68,7 @@ impl fmt::Debug for MakeDir {
 
 impl Task for MakeDir {
     fn execute(&self, log: &mut io::Write) -> TaskResult {
-        self.retry
-            .call(|| self.execute_impl(log), progress_dummy)
+        self.retry.call(|| self.execute_impl(log), progress_dummy)
     }
 
     fn known_outputs(&self, set: &mut res::Set) {

@@ -34,4 +34,4 @@ pub use self::copy::Copy;
 pub use self::download::Download;
 pub use self::list::List;
 pub use self::makedir::MakeDir;
-pub use self::traits::{TaskError, TaskResult, Task};
+pub use self::traits::{Task, TaskError, TaskResult};

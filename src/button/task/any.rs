@@ -27,7 +27,7 @@ use super::copy::Copy;
 use super::download::Download;
 use super::makedir::MakeDir;
 
-use super::traits::{TaskResult, Task};
+use super::traits::{Task, TaskResult};
 
 use res;
 

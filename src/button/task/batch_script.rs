@@ -27,9 +27,9 @@ use std::process;
 
 use tempfile;
 
-use super::traits::{TaskResult, Task};
+use super::traits::{Task, TaskResult};
 
-use util::{Retry, progress_dummy};
+use util::{progress_dummy, Retry};
 
 /// A task to create a directory.
 #[derive(
