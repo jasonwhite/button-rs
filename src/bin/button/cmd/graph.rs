@@ -17,11 +17,15 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+use std::fs;
+use std::io::{self, Write};
 use std::path::PathBuf;
 
-use opts::Edges;
+use button::build_graph::BuildGraph;
+use button::rules::Rules;
+use opts::{rules_path, Edges};
 
-use failure::Error;
+use failure::{Error, ResultExt};
 
 #[derive(StructOpt, Debug)]
 pub struct Graph {
@@ -29,6 +33,10 @@ pub struct Graph {
     /// in the current directory or parent directories.
     #[structopt(long = "file", short = "f", parse(from_os_str))]
     file: Option<PathBuf>,
+
+    /// Path to the output file. If not specified, writes to standard output.
+    #[structopt(long = "output", short = "o", parse(from_os_str))]
+    output: Option<PathBuf>,
 
     /// Only display the subgraph that will be traversed on an update. This
     /// has to query the file system for changes to resources.
@@ -58,7 +66,26 @@ pub struct Graph {
 impl Graph {
     /// Shows a pretty graph of the build.
     pub fn main(&self) -> Result<(), Error> {
-        println!("{:#?}", self);
+        let file = rules_path(&self.file);
+
+        let rules = Rules::from_path(&file).with_context(|_| {
+            format!("Failed loading rules from file {:?}", file)
+        })?;
+
+        let build_graph = BuildGraph::from_rules(rules)?;
+
+        if let Some(output) = &self.output {
+            let mut stream = io::BufWriter::new(
+                fs::File::create(&output)
+                    .with_context(|_| format!("Failed creating {:?}", output))?,
+            );
+            build_graph.graphviz(&mut stream)?;
+            stream.flush() // Flush to catch write errors
+        } else {
+            let mut stdout = io::stdout();
+            build_graph.graphviz(&mut stdout.lock())?;
+            stdout.flush() // Flush to catch write errors
+        }.context("Failed writing GraphViz DOT file")?;
 
         Ok(())
     }

@@ -22,6 +22,7 @@ use std::cmp;
 use std::collections::HashMap;
 use std::error;
 use std::fmt;
+use std::io;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Condvar, Mutex};
 
@@ -416,6 +417,62 @@ impl BuildGraph {
             Err(errors)
         }
     }
+
+    /// GraphViz formatting of the graph.
+    pub fn graphviz(&self, f: &mut io::Write) -> Result<(), io::Error> {
+        fn escape_label(s: &str) -> String {
+            s.chars().flat_map(|c| c.escape_default()).collect()
+        }
+
+        writeln!(f, "digraph G {{")?;
+
+        // Style and label every resource
+        writeln!(f, "    subgraph {{")?;
+        writeln!(
+            f,
+            "        node [ \
+             shape=ellipse, \
+             fillcolor=lightskyblue2, \
+             style=filled];"
+        )?;
+        for (i, node) in self.graph.nodes().enumerate() {
+            match *node {
+                Node::Resource(ref resource) => {
+                    writeln!(f, "        N{} [label={}];", i, resource)?;
+                }
+                Node::Task(_) => {}
+            };
+        }
+        writeln!(f, "    }}")?;
+
+        // Style and label every task
+        writeln!(f, "    subgraph {{")?;
+        writeln!(
+            f,
+            "        node [shape=box, fillcolor=gray91, style=filled];"
+        )?;
+        for (i, node) in self.graph.nodes().enumerate() {
+            match *node {
+                Node::Resource(_) => {}
+                Node::Task(ref task) => {
+                    writeln!(
+                        f,
+                        "        N{} [label=\"{}\"];",
+                        i,
+                        escape_label(&format!("{}", task))
+                    )?;
+                }
+            };
+        }
+        writeln!(f, "    }}")?;
+
+        // Edges
+        for (from, to, _weight) in self.graph.all_edges() {
+            writeln!(f, "    N{} -> N{};", from, to)?;
+        }
+
+        writeln!(f, "}}")
+    }
 }
 
 /// Checks for race conditions in the graph. That is, if any node has two or
@@ -472,6 +529,7 @@ where
     }
 }
 
+/// Graph traversal worker thread.
 fn traversal_worker<'a, F, E>(
     id: usize,
     queue: &Queue<usize>,

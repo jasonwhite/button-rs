@@ -89,7 +89,7 @@ pub fn find_rules_path(start: &Path) -> Option<PathBuf> {
         // Path was found. Return a path relative to `start`.
         Some(
             path.relative_from(&env::current_dir().unwrap())
-                .unwrap_or(path)
+                .unwrap_or(path),
         )
     } else {
         // Search in the parent directory.
