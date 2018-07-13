@@ -20,6 +20,7 @@
 
 use std::fmt;
 use std::io;
+use std::path::Path;
 
 use super::batch_script::BatchScript;
 use super::command::Command;
@@ -114,13 +115,13 @@ impl From<Copy> for Any {
 }
 
 impl Task for Any {
-    fn execute(&self, log: &mut io::Write) -> TaskResult {
+    fn execute(&self, root: &Path, log: &mut io::Write) -> TaskResult {
         match self {
-            &Any::BatchScript(ref x) => x.execute(log),
-            &Any::Command(ref x) => x.execute(log),
-            &Any::Download(ref x) => x.execute(log),
-            &Any::MakeDir(ref x) => x.execute(log),
-            &Any::Copy(ref x) => x.execute(log),
+            &Any::BatchScript(ref x) => x.execute(root, log),
+            &Any::Command(ref x) => x.execute(root, log),
+            &Any::Download(ref x) => x.execute(root, log),
+            &Any::MakeDir(ref x) => x.execute(root, log),
+            &Any::Copy(ref x) => x.execute(root, log),
         }
     }
 

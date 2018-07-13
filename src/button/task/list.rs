@@ -21,6 +21,7 @@
 use std::fmt;
 use std::io;
 use std::ops;
+use std::path::Path;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -93,9 +94,9 @@ impl fmt::Debug for List {
 }
 
 impl Task for List {
-    fn execute(&self, log: &mut io::Write) -> TaskResult {
+    fn execute(&self, root: &Path, log: &mut io::Write) -> TaskResult {
         for task in &self.list {
-            task.execute(log)?;
+            task.execute(root, log)?;
         }
 
         Ok(())

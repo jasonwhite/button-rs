@@ -22,7 +22,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::io;
 use std::io::Write as IoWrite;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process;
 
 use tempfile;
@@ -59,14 +59,16 @@ pub struct BatchScript {
 }
 
 impl BatchScript {
-    fn execute_impl(&self, log: &mut io::Write) -> TaskResult {
+    fn execute_impl(&self, root: &Path, log: &mut io::Write) -> TaskResult {
         let mut cmd = process::Command::new("cmd.exe");
 
         // Don't allow user input.
         cmd.stdin(process::Stdio::null());
 
         if let Some(ref cwd) = self.cwd {
-            cmd.current_dir(cwd);
+            cmd.current_dir(root.join(cwd));
+        } else {
+            cmd.current_dir(root);
         }
 
         if let Some(ref env) = self.env {
@@ -125,11 +127,11 @@ impl fmt::Debug for BatchScript {
 }
 
 impl Task for BatchScript {
-    fn execute(&self, log: &mut io::Write) -> TaskResult {
+    fn execute(&self, root: &Path, log: &mut io::Write) -> TaskResult {
         if let Some(ref retry) = self.retry {
-            retry.call(|| self.execute_impl(log), progress_dummy)
+            retry.call(|| self.execute_impl(root, log), progress_dummy)
         } else {
-            self.execute_impl(log)
+            self.execute_impl(root, log)
         }
     }
 }

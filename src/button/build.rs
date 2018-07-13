@@ -18,9 +18,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::path::Path;
-
+use std::fmt;
 use std::io::{self, Write};
+use std::path::Path;
 
 use build_graph::{BuildGraph, Node};
 use res;
@@ -28,7 +28,29 @@ use rules::Rules;
 use task::{self, Task};
 
 use failure::Error;
-use failure::ResultExt;
+
+/// A build failure. Contains each of the node indexes that failed and the
+/// associated error.
+#[derive(Fail, Debug)]
+pub struct BuildFailure {
+    errors: Vec<(usize, Error)>,
+}
+
+impl BuildFailure {
+    pub fn new(errors: Vec<(usize, Error)>) -> BuildFailure {
+        BuildFailure { errors: errors }
+    }
+}
+
+impl fmt::Display for BuildFailure {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.errors.len() == 1 {
+            write!(f, "Build failed with {} error", self.errors.len())
+        } else {
+            write!(f, "Build failed with {} errors", self.errors.len())
+        }
+    }
+}
 
 /// Represents a build. This holds the context necessary for all build
 /// operations.
@@ -36,7 +58,6 @@ pub struct Build<'a> {
     /// Root of the build. This is the directory containing the "button.json"
     /// file and is the default path from which all subprocesses are spawned.
     /// The working directories of tasks are relative to this path.
-    #[allow(dead_code)]
     root: &'a Path,
 
     /// Whether or not this is a dry run. This needs to be passed to child
@@ -59,18 +80,8 @@ impl<'a> Build<'a> {
         }
 
         let g = BuildGraph::from_rules(rules)?;
-
-        if let Err(errors) =
-            g.traverse(|id, node| self.visit(id, node), threads)
-        {
-            // TODO: Propagate errors.
-            println!("The following errors occurred during the build:");
-            for err in errors {
-                println!("{:?}", err);
-            }
-        }
-
-        Ok(())
+        Ok(g.traverse(|id, node| self.visit(id, node), threads)
+            .map_err(BuildFailure::new)?)
     }
 
     /// Visitor function for a node.
@@ -106,14 +117,16 @@ impl<'a> Build<'a> {
         for task in node.iter() {
             writeln!(output, "[{}] {}", id, task)?;
 
-            match task.execute(&mut output) {
-                Err(err) => {
-                    writeln!(output, "Error: {}", err)?;
-                    stdout.write(&output)?;
-                    return Err(err);
-                }
-                Ok(()) => {}
-            };
+            if !self.dryrun {
+                match task.execute(self.root, &mut output) {
+                    Err(err) => {
+                        writeln!(output, "Error: {}", err)?;
+                        stdout.write(&output)?;
+                        return Err(err);
+                    }
+                    Ok(()) => {}
+                };
+            }
         }
 
         stdout.write(&output)?;

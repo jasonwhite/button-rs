@@ -21,6 +21,7 @@
 use std::fmt;
 use std::hash::Hash;
 use std::io;
+use std::path::Path;
 
 use serde::Serialize;
 
@@ -48,7 +49,7 @@ pub trait Task:
     /// the resources it output. These are its *implicit* inputs and outputs.
     /// Ideally, the *explicit* inputs and outputs are a subset of the
     /// *implicit* inputs and outputs.
-    fn execute(&self, log: &mut io::Write) -> TaskResult;
+    fn execute(&self, root: &Path, log: &mut io::Write) -> TaskResult;
 
     /// Inputs the task knows about *a priori*. It must calculate these by
     /// *only* looking at the task parameters. It should not do anything fancy

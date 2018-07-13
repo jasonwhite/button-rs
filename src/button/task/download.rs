@@ -20,7 +20,7 @@
 
 use std::fmt;
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time;
 
 use super::traits::{Task, TaskResult};
@@ -65,7 +65,7 @@ impl Download {
         }
     }
 
-    fn execute_impl(&self, log: &mut io::Write) -> TaskResult {
+    fn execute_impl(&self, _root: &Path, log: &mut io::Write) -> TaskResult {
         writeln!(log, "Downloading `{:?}` to {:?}", self.url, self.path)?;
 
         // TODO:
@@ -91,8 +91,9 @@ impl fmt::Debug for Download {
 }
 
 impl Task for Download {
-    fn execute(&self, log: &mut io::Write) -> TaskResult {
-        self.retry.call(|| self.execute_impl(log), progress_dummy)
+    fn execute(&self, root: &Path, log: &mut io::Write) -> TaskResult {
+        self.retry
+            .call(|| self.execute_impl(root, log), progress_dummy)
     }
 
     fn known_outputs(&self, resources: &mut res::Set) {

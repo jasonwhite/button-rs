@@ -339,7 +339,11 @@ impl BuildGraph {
     /// impossible to accurately predict the time it takes to execute a
     /// task without actually executing the task). A predicate function can
     /// be provided to do the sorting.
-    pub fn traverse<F, E>(&self, visit: F, threads: usize) -> Result<(), Vec<E>>
+    pub fn traverse<F, E>(
+        &self,
+        visit: F,
+        threads: usize,
+    ) -> Result<(), Vec<(usize, E)>>
     where
         F: Fn(usize, &Node) -> Result<bool, E> + Send + Sync,
         E: Send,
@@ -476,7 +480,7 @@ fn traversal_worker<'a, F, E>(
     g: &'a Graph<Node, Edge>,
     visited_arc: &Mutex<HashMap<usize, bool>>,
     visit: &F,
-    errors: &Mutex<Vec<E>>,
+    errors: &Mutex<Vec<(usize, E)>>,
 ) where
     F: Fn(usize, &'a Node) -> Result<bool, E> + Sync,
     E: Send,
@@ -506,7 +510,7 @@ fn traversal_worker<'a, F, E>(
             Ok(keep_going) => visited.insert(node, keep_going),
             Err(err) => {
                 let mut errors = errors.lock().unwrap();
-                errors.push(err);
+                errors.push((node, err));
                 visited.insert(node, false);
 
                 // In case of error, do not traverse child nodes. Nothing
@@ -520,9 +524,8 @@ fn traversal_worker<'a, F, E>(
         for neigh in g.outgoing(node) {
             // Only visit a node if that node's incoming nodes have all been
             // visited. There might be more efficient ways to do this.
-            let mut incoming = g.incoming(*neigh);
             if !visited.contains_key(neigh)
-                && incoming.all(|p| visited.contains_key(&p))
+                && g.incoming(*neigh).all(|p| visited.contains_key(&p))
             {
                 active.fetch_add(1, Ordering::SeqCst);
                 queue.push(Some(*neigh));

@@ -155,7 +155,7 @@ impl Command {
         self
     }
 
-    fn execute_impl(&self, log: &mut io::Write) -> TaskResult {
+    fn execute_impl(&self, root: &Path, log: &mut io::Write) -> TaskResult {
         // TODO:
         //  1. Spawn the process
         //  2. Capture stdout/stderr appropriately.
@@ -219,7 +219,9 @@ impl Command {
         };
 
         if let Some(ref cwd) = self.cwd {
-            cmd.current_dir(cwd);
+            cmd.current_dir(root.join(cwd));
+        } else {
+            cmd.current_dir(root);
         }
 
         if let Some(ref env) = self.env {
@@ -282,11 +284,11 @@ impl fmt::Debug for Command {
 }
 
 impl Task for Command {
-    fn execute(&self, log: &mut io::Write) -> TaskResult {
+    fn execute(&self, root: &Path, log: &mut io::Write) -> TaskResult {
         if let Some(ref retry) = self.retry {
-            retry.call(|| self.execute_impl(log), progress_dummy)
+            retry.call(|| self.execute_impl(root, log), progress_dummy)
         } else {
-            self.execute_impl(log)
+            self.execute_impl(root, log)
         }
     }
 

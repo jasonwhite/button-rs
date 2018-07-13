@@ -21,7 +21,7 @@
 use std::fmt;
 use std::fs;
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::traits::{Task, TaskResult};
 
@@ -49,8 +49,8 @@ impl MakeDir {
         }
     }
 
-    fn execute_impl(&self, _log: &mut io::Write) -> TaskResult {
-        Ok(fs::create_dir_all(&self.path)?)
+    fn execute_impl(&self, root: &Path, _log: &mut io::Write) -> TaskResult {
+        Ok(fs::create_dir_all(&root.join(&self.path))?)
     }
 }
 
@@ -67,8 +67,9 @@ impl fmt::Debug for MakeDir {
 }
 
 impl Task for MakeDir {
-    fn execute(&self, log: &mut io::Write) -> TaskResult {
-        self.retry.call(|| self.execute_impl(log), progress_dummy)
+    fn execute(&self, root: &Path, log: &mut io::Write) -> TaskResult {
+        self.retry
+            .call(|| self.execute_impl(root, log), progress_dummy)
     }
 
     fn known_outputs(&self, set: &mut res::Set) {

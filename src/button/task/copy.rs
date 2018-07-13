@@ -21,7 +21,7 @@
 use std::fmt;
 use std::fs;
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::traits::{Task, TaskResult};
 
@@ -45,8 +45,8 @@ pub struct Copy {
 }
 
 impl Copy {
-    fn execute_impl(&self, _log: &mut io::Write) -> TaskResult {
-        fs::copy(&self.from, &self.to)?;
+    fn execute_impl(&self, root: &Path, _log: &mut io::Write) -> TaskResult {
+        fs::copy(&root.join(&self.from), &root.join(&self.to))?;
         Ok(())
     }
 }
@@ -64,8 +64,9 @@ impl fmt::Debug for Copy {
 }
 
 impl Task for Copy {
-    fn execute(&self, log: &mut io::Write) -> TaskResult {
-        self.retry.call(|| self.execute_impl(log), progress_dummy)
+    fn execute(&self, root: &Path, log: &mut io::Write) -> TaskResult {
+        self.retry
+            .call(|| self.execute_impl(root, log), progress_dummy)
     }
 
     fn known_inputs(&self, resources: &mut res::Set) {
