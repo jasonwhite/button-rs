@@ -71,7 +71,7 @@ impl fmt::Debug for Dir {
 
 impl Resource for Dir {
     fn state(&self) -> Result<ResourceState, Error> {
-        match self.path.metadata() {
+        Ok(match self.path.metadata() {
             Ok(metadata) => {
                 if metadata.is_dir() {
                     // Use an empty hash to indicate existence.
@@ -84,14 +84,14 @@ impl Resource for Dir {
                 io::ErrorKind::NotFound => Ok(ResourceState::Missing),
                 _ => Err(err),
             },
-        }
+        }?)
     }
 
     /// Deletes the directory if it is empty. Resources are deleted in reverse
     /// topological order. Thus, if all output resource are accounted for,
     /// directory deletion will always succeed.
     fn delete(&self) -> Result<(), Error> {
-        match fs::remove_dir(&self.path) {
+        Ok(match fs::remove_dir(&self.path) {
             Ok(()) => Ok(()),
             Err(err) => {
                 match err.kind() {
@@ -100,6 +100,6 @@ impl Resource for Dir {
                     _ => Err(err),
                 }
             }
-        }
+        }?)
     }
 }

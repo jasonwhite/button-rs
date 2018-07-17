@@ -32,7 +32,9 @@ pub enum Direction {
     Incoming,
 }
 
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[derive(
+    Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash,
+)]
 struct NodeNeighbors {
     pub incoming: Vec<usize>,
     pub outgoing: Vec<usize>,
@@ -48,7 +50,7 @@ impl NodeNeighbors {
 }
 
 /// Directed graph.
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct Graph<N, E>
 where
     N: NodeTrait,
@@ -114,8 +116,8 @@ where
     }
 
     /// Returns `true` if the node exists in the graph.
-    pub fn contains_node(&self, n: N) -> bool {
-        self.nodes.contains_key(&n)
+    pub fn contains_node(&self, n: &N) -> bool {
+        self.nodes.contains_key(n)
     }
 
     /// Adds an edge to the graph. Returns the old weight of the edge if it
@@ -203,6 +205,19 @@ where
         Roots {
             index: 0,
             iter: self.nodes.values(),
+        }
+    }
+
+    /// Given an index, translate it to an index in the other graph. Returns
+    /// `None` if the index does not exist in the other graph.
+    pub fn translate_index(
+        &self,
+        index: usize,
+        other: &Graph<N, E>,
+    ) -> Option<usize> {
+        match self.node(index) {
+            Some(node) => other.node_index(node),
+            None => None,
         }
     }
 }

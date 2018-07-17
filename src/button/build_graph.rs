@@ -23,6 +23,7 @@ use std::collections::HashMap;
 use std::error;
 use std::fmt;
 use std::io;
+use std::ops;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Condvar, Mutex};
 
@@ -38,7 +39,9 @@ use rules::{Rule, Rules};
 use util::empty_or_any;
 
 /// A node in the graph.
-#[derive(Clone, Ord, Eq, PartialOrd, PartialEq, Hash, Debug)]
+#[derive(
+    Serialize, Deserialize, Clone, Ord, Eq, PartialOrd, PartialEq, Hash, Debug,
+)]
 pub enum Node {
     Resource(res::Any),
     Task(task::List),
@@ -53,7 +56,18 @@ impl fmt::Display for Node {
     }
 }
 
-#[derive(Clone, Copy, Ord, Eq, PartialOrd, PartialEq, Hash, Debug)]
+#[derive(
+    Serialize,
+    Deserialize,
+    Clone,
+    Copy,
+    Ord,
+    Eq,
+    PartialOrd,
+    PartialEq,
+    Hash,
+    Debug,
+)]
 pub enum Edge {
     /// An explicit edge is one that is user-defined in the build description.
     /// That is, it is *explicitly* declared.
@@ -289,6 +303,7 @@ type Queue<T> = MsQueue<Option<T>>;
 /// This is the core data structure of the build system. It is a bi-partite
 /// acyclic graph. We guarantee that the graph is free of cycles and race
 /// conditions when constructing it from a set of rules.
+#[derive(Serialize, Deserialize)]
 pub struct BuildGraph {
     graph: Graph<Node, Edge>,
 }
@@ -472,6 +487,14 @@ impl BuildGraph {
         }
 
         writeln!(f, "}}")
+    }
+}
+
+impl ops::Deref for BuildGraph {
+    type Target = Graph<Node, Edge>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.graph
     }
 }
 

@@ -34,6 +34,7 @@ use serde::{de, Deserialize, Deserializer};
 
 use super::traits::{Error, Resource, ResourceState};
 
+use failure::ResultExt;
 use util::PathExt;
 
 /// A file resource. This can actually be a file *or* directory.
@@ -64,7 +65,9 @@ impl FilePath {
                 }
                 _ => Err(err),
             },
-        }?;
+        }.with_context(|_| {
+            format!("Could not open file {:?}", self.path)
+        })?;
 
         const BUF_SIZE: usize = 16384;
 
@@ -136,7 +139,6 @@ impl fmt::Debug for FilePath {
     }
 }
 
-// Derserialize a `FilePath` from a string.
 impl<'de> Deserialize<'de> for FilePath {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -186,7 +188,7 @@ impl Resource for FilePath {
         } else {
             // Assume its a file even if its not. It'll error out if there are
             // problems deleting it.
-            fs::remove_file(&self.path)
+            Ok(fs::remove_file(&self.path)?)
         }
     }
 }

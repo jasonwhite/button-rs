@@ -60,8 +60,7 @@ pub struct Build<'a> {
     /// The working directories of tasks are relative to this path.
     root: &'a Path,
 
-    /// Whether or not this is a dry run. This needs to be passed to child
-    /// build systems.
+    /// Whether or not this is a dry run.
     dryrun: bool,
 }
 
@@ -79,7 +78,12 @@ impl<'a> Build<'a> {
             println!("Note: This is a dry run. Nothing is affected.");
         }
 
+        // Build the new graph.
         let g = BuildGraph::from_rules(rules)?;
+
+        // Traverse the graph, building everything in topological order.
+        //
+        // TODO: For each node that failed to build, add it back to the queue.
         Ok(g.traverse(|id, node| self.visit(id, node), threads)
             .map_err(BuildFailure::new)?)
     }

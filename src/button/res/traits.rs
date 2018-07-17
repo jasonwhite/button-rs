@@ -20,7 +20,8 @@
 
 use std::fmt;
 use std::hash::Hash;
-use std::io;
+
+use failure;
 
 use serde::Serialize;
 
@@ -30,7 +31,7 @@ pub type Checksum = GenericArray<u8, typenum::U32>;
 
 /// The state associated with a resource. This is stored in the database and
 /// used to determine if a resource has changed.
-#[allow(dead_code)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ResourceState {
     /// The resource does not exist.
     Missing,
@@ -39,8 +40,7 @@ pub enum ResourceState {
     Checksum(Checksum),
 }
 
-/// FIXME: Use a more abstract error type.
-pub type Error = io::Error;
+pub type Error = failure::Error;
 
 /// A resource is an abstract representation of some unit of system state. A
 /// resource can be a file, directory, environment variable. The only thing we
