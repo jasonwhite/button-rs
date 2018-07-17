@@ -220,7 +220,7 @@ impl Command {
 
         if let Some(ref cwd) = self.cwd {
             cmd.current_dir(root.join(cwd));
-        } else {
+        } else if !root.as_os_str().is_empty() {
             cmd.current_dir(root);
         }
 
