@@ -23,7 +23,7 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-use build_graph::{BuildGraph, Node};
+use build_graph::BuildGraph;
 use res::ResourceState;
 
 use bincode;
@@ -119,7 +119,7 @@ impl State {
     ///  1. Replaces the old build graph with the new one.
     ///  2. Maps old indices to new indices.
     ///  3. Returns a list of nodes that have been removed.
-    pub fn update(&self, graph: BuildGraph) -> (State, Vec<Node>) {
+    pub fn update(&self, graph: BuildGraph) -> (State, Vec<usize>) {
         let mut removed = Vec::new();
 
         // Fix the indices in the queue.
@@ -129,10 +129,10 @@ impl State {
             .filter_map(|i| self.graph.translate_index(*i, &graph))
             .collect();
 
-        // Find removed nodes.
-        for node in self.graph.nodes() {
+        // Find removed output nodes.
+        for (index, node) in self.graph.non_roots() {
             if !graph.contains_node(node) {
-                removed.push(node.clone());
+                removed.push(index);
             }
         }
 

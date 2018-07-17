@@ -19,7 +19,6 @@
 // THE SOFTWARE.
 
 use std::cmp;
-use std::collections::HashMap;
 use std::error;
 use std::fmt;
 use std::io;
@@ -129,10 +128,8 @@ where
             // The nodes in a cycle are listed in reverse topological order.
             // Thus, we need to print them out in reverse order so that it makes
             // more sense.
-            let mut it = cycle
-                .iter()
-                .rev()
-                .map(|index| self.graph.node(*index).unwrap());
+            let mut it =
+                cycle.iter().rev().map(|index| self.graph.node(*index));
 
             // Unwrapping because there must always be at least one node in a
             // cycle. If this panics, then the code creating the
@@ -372,7 +369,11 @@ impl BuildGraph {
 
         // Nodes that have been visited. The value in this map indicates
         // whether or not the visitor function was called on it.
-        let visited = Mutex::new(HashMap::new());
+        let mut visited = Vec::with_capacity(self.graph.node_count());
+        for _ in 0..self.graph.node_count() {
+            visited.push(false);
+        }
+        let visited = Mutex::new(visited);
 
         // Start the traversal from all nodes that have no incoming edges.
         let roots = self.graph.roots();
@@ -559,7 +560,7 @@ fn traversal_worker<'a, F, E>(
     cvar: &Condvar,
     active: &AtomicUsize,
     g: &'a Graph<Node, Edge>,
-    visited_arc: &Mutex<HashMap<usize, bool>>,
+    visited_arc: &Mutex<Vec<bool>>,
     visit: &F,
     errors: &Mutex<Vec<(usize, E)>>,
 ) where
@@ -576,11 +577,11 @@ fn traversal_worker<'a, F, E>(
         let do_visit = {
             let mut incoming = g.incoming(node);
             let visited = visited_arc.lock().unwrap();
-            empty_or_any(&mut incoming, |p| visited.get(&p) == Some(&true))
+            empty_or_any(&mut incoming, |p| visited[*p])
         };
 
         let keep_going = if do_visit {
-            visit(id, g.node(node).unwrap())
+            visit(id, g.node(node))
         } else {
             Ok(false)
         };
@@ -588,11 +589,11 @@ fn traversal_worker<'a, F, E>(
         let mut visited = visited_arc.lock().unwrap();
 
         match keep_going {
-            Ok(keep_going) => visited.insert(node, keep_going),
+            Ok(keep_going) => visited[node] = keep_going,
             Err(err) => {
                 let mut errors = errors.lock().unwrap();
                 errors.push((node, err));
-                visited.insert(node, false);
+                visited[node] = false;
 
                 // In case of error, do not traverse child nodes. Nothing
                 // that depends on this node should be visited.
@@ -605,9 +606,7 @@ fn traversal_worker<'a, F, E>(
         for neigh in g.outgoing(node) {
             // Only visit a node if that node's incoming nodes have all been
             // visited. There might be more efficient ways to do this.
-            if !visited.contains_key(neigh)
-                && g.incoming(*neigh).all(|p| visited.contains_key(&p))
-            {
+            if !visited[*neigh] && g.incoming(*neigh).all(|p| visited[*p]) {
                 active.fetch_add(1, Ordering::SeqCst);
                 queue.push(Some(*neigh));
             }

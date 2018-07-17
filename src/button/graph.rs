@@ -91,9 +91,9 @@ where
         self.nodes.get_full(n).map(|x| x.0)
     }
 
-    /// Translates an index to a node.
-    pub fn node(&self, index: usize) -> Option<&N> {
-        self.nodes.get_index(index).map(|x| x.0)
+    /// Translates an index to a node. Panics if the index is not in the graph.
+    pub fn node(&self, index: usize) -> &N {
+        self.nodes.get_index(index).unwrap().0
     }
 
     /// Returns the number of edges in the graph.
@@ -161,25 +161,19 @@ where
         }
     }
 
-    /// Returns an iterator over all the outgoing edges for the given node. If
-    /// the node does not exist, returns an empty iterator.
+    /// Returns an iterator over all the outgoing edges for the given node.
+    /// Panics if the index does not exist.
     pub fn outgoing(&self, index: usize) -> Neighbors {
         Neighbors {
-            iter: match self.nodes.get_index(index) {
-                Some((_, neighbors)) => neighbors.outgoing.iter(),
-                None => [].iter(),
-            },
+            iter: self.nodes.get_index(index).unwrap().1.outgoing.iter(),
         }
     }
 
-    /// Returns an iterator over all the incoming edges for the given node. If
-    /// the node does not exist, returns an empty iterator.
+    /// Returns an iterator over all the incoming edges for the given node.
+    /// Panics if the index does not exist.
     pub fn incoming(&self, index: usize) -> Neighbors {
         Neighbors {
-            iter: match self.nodes.get_index(index) {
-                Some((_, neighbors)) => neighbors.incoming.iter(),
-                None => [].iter(),
-            },
+            iter: self.nodes.get_index(index).unwrap().1.incoming.iter(),
         }
     }
 
@@ -208,6 +202,15 @@ where
         }
     }
 
+    /// Iterator over all nodes with one or more incoming edges. This includes
+    /// all non-root nodes.
+    pub fn non_roots(&self) -> NonRoots<N> {
+        NonRoots {
+            index: 0,
+            iter: self.nodes.iter(),
+        }
+    }
+
     /// Given an index, translate it to an index in the other graph. Returns
     /// `None` if the index does not exist in the other graph.
     pub fn translate_index(
@@ -215,10 +218,7 @@ where
         index: usize,
         other: &Graph<N, E>,
     ) -> Option<usize> {
-        match self.node(index) {
-            Some(node) => other.node_index(node),
-            None => None,
-        }
+        other.node_index(self.node(index))
     }
 }
 
@@ -353,6 +353,38 @@ impl<'a, N> Iterator for Roots<'a, N> {
 
             if neighbors.incoming.len() == 0 {
                 return Some(index);
+            }
+        }
+
+        None
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (_, upper) = self.iter.size_hint();
+        (0, upper)
+    }
+}
+
+/// Iterator over the roots of the graph.
+pub struct NonRoots<'a, N>
+where
+    N: 'a,
+{
+    // Current index in the list.
+    index: usize,
+    iter: map::Iter<'a, N, NodeNeighbors>,
+}
+
+impl<'a, N> Iterator for NonRoots<'a, N> {
+    type Item = (usize, &'a N);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some((node, neighbors)) = self.iter.next() {
+            let index = self.index;
+            self.index += 1;
+
+            if neighbors.incoming.len() > 0 {
+                return Some((index, node));
             }
         }
 
