@@ -17,11 +17,21 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-use std::cmp::min;
+use std::cmp;
 use std::hash::Hash;
 use std::slice;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Condvar, Mutex};
+
+use crossbeam;
+use crossbeam::sync::MsQueue;
 
 use indexmap::map::{self, IndexMap};
+
+use util::empty_or_any;
+
+// Lock-free queue for nodes.
+type Queue<T> = MsQueue<Option<T>>;
 
 pub trait NodeTrait: Ord + Hash {}
 impl<N> NodeTrait for N where N: Ord + Hash {}
@@ -220,6 +230,97 @@ where
     ) -> Option<usize> {
         other.node_index(self.node(index))
     }
+
+    /// Traverses the graph in topological order.
+    ///
+    /// The function `visit` is called for each node that is to be visited. If
+    /// the visitor function returns `true`, then its child nodes may be
+    /// visited. If it returns `false`, then its child nodes will not be
+    /// visited. This is useful if a resource is determined to be
+    /// unchanged, obviating the need to do additional work.
+    pub fn traverse<F, Error>(
+        &self,
+        visit: F,
+        threads: usize,
+    ) -> Result<(), Vec<(usize, Error)>>
+    where
+        N: Sync,
+        E: Sync,
+        F: Fn(usize, &N) -> Result<bool, Error> + Send + Sync,
+        Error: Send,
+    {
+        // Always use at least one thread.
+        let threads = cmp::max(threads, 1);
+
+        // List of errors that occurred during the traversal.
+        let errors = Mutex::new(Vec::new());
+
+        // Nodes that have been visited. The value in this map indicates
+        // whether or not the visitor function was called on it.
+        let mut visited = Vec::with_capacity(self.node_count());
+        for _ in 0..self.node_count() {
+            visited.push(false);
+        }
+        let visited = Mutex::new(visited);
+
+        // Start the traversal from all nodes that have no incoming edges.
+        let roots = self.roots();
+
+        let queue = &Queue::new();
+
+        let (cvar, mutex) = (&Condvar::new(), Mutex::new(()));
+
+        // Keeps a count of the number of nodes being processed (or waiting to
+        // be processed). When this reaches 0, we know there is no more
+        // work to do.
+        let active = &AtomicUsize::new(0);
+
+        crossbeam::scope(|scope| {
+            let visited = &visited;
+            let visit = &visit;
+            let errors = &errors;
+
+            for id in 0..threads {
+                scope.spawn(move || {
+                    traversal_worker(
+                        id,
+                        queue,
+                        cvar,
+                        active,
+                        &self,
+                        visited,
+                        visit,
+                        errors,
+                    )
+                });
+            }
+
+            // Queue the root nodes.
+            for node in roots {
+                active.fetch_add(1, Ordering::SeqCst);
+                queue.push(Some(node));
+            }
+
+            let mut guard = mutex.lock().unwrap();
+            while active.load(Ordering::SeqCst) > 0 {
+                // Wait until all queued items are complete.
+                guard = cvar.wait(guard).unwrap();
+            }
+
+            // Send message to shutdown all threads.
+            for _ in 0..threads {
+                queue.push(None);
+            }
+        });
+
+        let errors = errors.into_inner().unwrap();
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
+    }
 }
 
 /// Creates a new empty `Graph`.
@@ -397,6 +498,73 @@ impl<'a, N> Iterator for NonRoots<'a, N> {
     }
 }
 
+/// Graph traversal worker thread.
+fn traversal_worker<'a, N, E, F, Error>(
+    id: usize,
+    queue: &Queue<usize>,
+    cvar: &Condvar,
+    active: &AtomicUsize,
+    g: &'a Graph<N, E>,
+    visited_arc: &Mutex<Vec<bool>>,
+    visit: &F,
+    errors: &Mutex<Vec<(usize, Error)>>,
+) where
+    N: NodeTrait,
+    F: Fn(usize, &'a N) -> Result<bool, Error> + Sync,
+    Error: Send,
+{
+    while let Some(node) = queue.pop() {
+        // Only call the visitor function if:
+        //  1. This node has no incoming edges, or
+        //  2. Any of its incoming nodes have had its visitor function called.
+        //
+        // Although the entire graph is traversed (unless an error occurs), we
+        // may only call the visitor function on a subset of it.
+        let do_visit = {
+            let mut incoming = g.incoming(node);
+            let visited = visited_arc.lock().unwrap();
+            empty_or_any(&mut incoming, |p| visited[*p])
+        };
+
+        let keep_going = if do_visit {
+            visit(id, g.node(node))
+        } else {
+            Ok(false)
+        };
+
+        let mut visited = visited_arc.lock().unwrap();
+
+        match keep_going {
+            Ok(keep_going) => visited[node] = keep_going,
+            Err(err) => {
+                let mut errors = errors.lock().unwrap();
+                errors.push((node, err));
+                visited[node] = false;
+
+                // In case of error, do not traverse child nodes. Nothing
+                // that depends on this node should be visited.
+                active.fetch_sub(1, Ordering::SeqCst);
+                cvar.notify_one();
+                continue;
+            }
+        };
+
+        for neigh in g.outgoing(node) {
+            // Only visit a node if that node's incoming nodes have all been
+            // visited. There might be more efficient ways to do this.
+            if !visited[*neigh] && g.incoming(*neigh).all(|p| visited[*p]) {
+                active.fetch_add(1, Ordering::SeqCst);
+                queue.push(Some(*neigh));
+            }
+        }
+
+        // Notify that an element was taken off of the queue. When the queue
+        // becomes empty, a message is sent to each worker thread to shutdown.
+        active.fetch_sub(1, Ordering::SeqCst);
+        cvar.notify_one();
+    }
+}
+
 /// Returns the strongly connected components in the graph using Tarjan's
 /// algorithm for strongly connected components.
 pub fn tarjan_scc<N, E>(g: &Graph<N, E>) -> Vec<Vec<usize>>
@@ -450,14 +618,14 @@ where
                 None => {
                     scc_visit(*w, g, data);
                     data.nodes[v].lowlink =
-                        min(data.nodes[v].lowlink, data.nodes[*w].lowlink);
+                        cmp::min(data.nodes[v].lowlink, data.nodes[*w].lowlink);
                 }
                 Some(w_index) => {
                     if data.nodes[*w].on_stack {
                         // Successor w is in stack S and hence in the current
                         // SCC
                         let v_lowlink = &mut data.nodes[v].lowlink;
-                        *v_lowlink = min(*v_lowlink, w_index);
+                        *v_lowlink = cmp::min(*v_lowlink, w_index);
                     }
                 }
             }

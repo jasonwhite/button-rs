@@ -18,16 +18,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::cmp;
 use std::error;
 use std::fmt;
 use std::io;
 use std::ops;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Condvar, Mutex};
-
-use crossbeam;
-use crossbeam::sync::MsQueue;
 
 use graph::{tarjan_scc, Graph, NodeTrait};
 
@@ -35,7 +29,6 @@ use res;
 use task;
 
 use rules::{Rule, Rules};
-use util::empty_or_any;
 
 /// A node in the graph.
 #[derive(
@@ -292,9 +285,6 @@ impl error::Error for Error {
     }
 }
 
-// Lock-free queue for nodes.
-type Queue<T> = MsQueue<Option<T>>;
-
 /// The build graph.
 ///
 /// This is the core data structure of the build system. It is a bi-partite
@@ -335,103 +325,6 @@ impl BuildGraph {
         Ok(BuildGraph {
             graph: check_races(check_cycles(g)?)?,
         })
-    }
-
-    /// Traverses the graph in topological order. This function is the real
-    /// meat of the build system. Everything else is just support code.
-    ///
-    /// The function `visit` is called for each node that is to be visited. If
-    /// the visitor function returns `true`, then its child nodes may be
-    /// visited. If it returns `false`, then its child nodes will not be
-    /// visited. This is useful if a resource is determined to be
-    /// unchanged, obviating the need to do additional work.
-    ///
-    /// TODO: Use a priority queue. Tasks that take the longest to execute
-    /// should be started first to maximize efficiency. The first time the
-    /// graph is traversed, all nodes are considered equal (because it's
-    /// impossible to accurately predict the time it takes to execute a
-    /// task without actually executing the task). A predicate function can
-    /// be provided to do the sorting.
-    pub fn traverse<F, E>(
-        &self,
-        visit: F,
-        threads: usize,
-    ) -> Result<(), Vec<(usize, E)>>
-    where
-        F: Fn(usize, &Node) -> Result<bool, E> + Send + Sync,
-        E: Send,
-    {
-        // Always use at least one thread.
-        let threads = cmp::max(threads, 1);
-
-        // List of errors that occurred during the traversal.
-        let errors = Mutex::new(Vec::new());
-
-        // Nodes that have been visited. The value in this map indicates
-        // whether or not the visitor function was called on it.
-        let mut visited = Vec::with_capacity(self.graph.node_count());
-        for _ in 0..self.graph.node_count() {
-            visited.push(false);
-        }
-        let visited = Mutex::new(visited);
-
-        // Start the traversal from all nodes that have no incoming edges.
-        let roots = self.graph.roots();
-
-        let queue = &Queue::new();
-
-        let (cvar, mutex) = (&Condvar::new(), Mutex::new(()));
-
-        // Keeps a count of the number of nodes being processed (or waiting to
-        // be processed). When this reaches 0, we know there is no more
-        // work to do.
-        let active = &AtomicUsize::new(0);
-
-        crossbeam::scope(|scope| {
-            let visited = &visited;
-            let visit = &visit;
-            let errors = &errors;
-
-            for id in 0..threads {
-                scope.spawn(move || {
-                    traversal_worker(
-                        id,
-                        queue,
-                        cvar,
-                        active,
-                        &self.graph,
-                        visited,
-                        visit,
-                        errors,
-                    )
-                });
-            }
-
-            // Queue the root nodes.
-            for node in roots {
-                active.fetch_add(1, Ordering::SeqCst);
-                queue.push(Some(node));
-            }
-
-            let mut guard = mutex.lock().unwrap();
-            while active.load(Ordering::SeqCst) > 0 {
-                // Wait until all queued items are complete.
-                guard = cvar.wait(guard).unwrap();
-            }
-
-            // Send message to shutdown all threads.
-            for _ in 0..threads {
-                queue.push(None);
-            }
-        });
-
-        let errors = errors.into_inner().unwrap();
-
-        if errors.is_empty() {
-            Ok(())
-        } else {
-            Err(errors)
-        }
     }
 
     /// GraphViz formatting of the graph.
@@ -550,72 +443,6 @@ where
         Ok(graph)
     } else {
         Err(CyclesError::new(graph, cycles))
-    }
-}
-
-/// Graph traversal worker thread.
-fn traversal_worker<'a, F, E>(
-    id: usize,
-    queue: &Queue<usize>,
-    cvar: &Condvar,
-    active: &AtomicUsize,
-    g: &'a Graph<Node, Edge>,
-    visited_arc: &Mutex<Vec<bool>>,
-    visit: &F,
-    errors: &Mutex<Vec<(usize, E)>>,
-) where
-    F: Fn(usize, &'a Node) -> Result<bool, E> + Sync,
-    E: Send,
-{
-    while let Some(node) = queue.pop() {
-        // Only call the visitor function if:
-        //  1. This node has no incoming edges, or
-        //  2. Any of its incoming nodes have had its visitor function called.
-        //
-        // Although the entire graph is traversed (unless an error occurs), we
-        // may only call the visitor function on a subset of it.
-        let do_visit = {
-            let mut incoming = g.incoming(node);
-            let visited = visited_arc.lock().unwrap();
-            empty_or_any(&mut incoming, |p| visited[*p])
-        };
-
-        let keep_going = if do_visit {
-            visit(id, g.node(node))
-        } else {
-            Ok(false)
-        };
-
-        let mut visited = visited_arc.lock().unwrap();
-
-        match keep_going {
-            Ok(keep_going) => visited[node] = keep_going,
-            Err(err) => {
-                let mut errors = errors.lock().unwrap();
-                errors.push((node, err));
-                visited[node] = false;
-
-                // In case of error, do not traverse child nodes. Nothing
-                // that depends on this node should be visited.
-                active.fetch_sub(1, Ordering::SeqCst);
-                cvar.notify_one();
-                continue;
-            }
-        };
-
-        for neigh in g.outgoing(node) {
-            // Only visit a node if that node's incoming nodes have all been
-            // visited. There might be more efficient ways to do this.
-            if !visited[*neigh] && g.incoming(*neigh).all(|p| visited[*p]) {
-                active.fetch_add(1, Ordering::SeqCst);
-                queue.push(Some(*neigh));
-            }
-        }
-
-        // Notify that an element was taken off of the queue. When the queue
-        // becomes empty, a message is sent to each worker thread to shutdown.
-        active.fetch_sub(1, Ordering::SeqCst);
-        cvar.notify_one();
     }
 }
 
