@@ -21,11 +21,13 @@
 mod counter;
 mod iter;
 mod path;
+mod queue;
 mod retry;
 
 pub use self::counter::Counter;
 pub use self::iter::empty_or_any;
 pub use self::path::PathExt;
+pub use self::queue::RandomQueue;
 pub use self::retry::{progress_dummy, progress_print, Retry};
 
 /// A tri-state for checking if we should do things.

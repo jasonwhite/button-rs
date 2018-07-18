@@ -20,18 +20,16 @@
 use std::cmp;
 use std::hash::Hash;
 use std::slice;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Condvar, Mutex};
 
 use crossbeam;
-use crossbeam::sync::MsQueue;
 
 use indexmap::map::{self, IndexMap};
 
-use util::empty_or_any;
+use util::{empty_or_any, RandomQueue};
 
-// Lock-free queue for nodes.
-type Queue<T> = MsQueue<Option<T>>;
+// Use a random queue. On average, this seems to have better CPU utilization.
+type Queue<T> = RandomQueue<Option<T>>;
 
 pub trait NodeTrait: Ord + Hash {}
 impl<N> NodeTrait for N where N: Ord + Hash {}
@@ -268,14 +266,15 @@ where
 
         let queue = &Queue::new();
 
-        let (cvar, mutex) = (&Condvar::new(), Mutex::new(()));
+        let cvar = &Condvar::new();
 
         // Keeps a count of the number of nodes being processed (or waiting to
         // be processed). When this reaches 0, we know there is no more
         // work to do.
-        let active = &AtomicUsize::new(0);
+        let active = Mutex::new(0);
 
         crossbeam::scope(|scope| {
+            let active = &active;
             let visited = &visited;
             let visit = &visit;
             let errors = &errors;
@@ -283,28 +282,21 @@ where
             for id in 0..threads {
                 scope.spawn(move || {
                     traversal_worker(
-                        id,
-                        queue,
-                        cvar,
-                        active,
-                        &self,
-                        visited,
-                        visit,
-                        errors,
+                        id, queue, cvar, active, &self, visited, visit, errors,
                     )
                 });
             }
 
             // Queue the root nodes.
             for node in roots {
-                active.fetch_add(1, Ordering::SeqCst);
+                *active.lock().unwrap() += 1;
                 queue.push(Some(node));
             }
 
-            let mut guard = mutex.lock().unwrap();
-            while active.load(Ordering::SeqCst) > 0 {
-                // Wait until all queued items are complete.
-                guard = cvar.wait(guard).unwrap();
+            // Wait until all queued items are complete.
+            let mut active = active.lock().unwrap();
+            while *active > 0 {
+                active = cvar.wait(active).unwrap();
             }
 
             // Send message to shutdown all threads.
@@ -503,7 +495,7 @@ fn traversal_worker<'a, N, E, F, Error>(
     id: usize,
     queue: &Queue<usize>,
     cvar: &Condvar,
-    active: &AtomicUsize,
+    active: &Mutex<usize>,
     g: &'a Graph<N, E>,
     visited_arc: &Mutex<Vec<bool>>,
     visit: &F,
@@ -543,7 +535,7 @@ fn traversal_worker<'a, N, E, F, Error>(
 
                 // In case of error, do not traverse child nodes. Nothing
                 // that depends on this node should be visited.
-                active.fetch_sub(1, Ordering::SeqCst);
+                *active.lock().unwrap() -= 1;
                 cvar.notify_one();
                 continue;
             }
@@ -553,14 +545,14 @@ fn traversal_worker<'a, N, E, F, Error>(
             // Only visit a node if that node's incoming nodes have all been
             // visited. There might be more efficient ways to do this.
             if !visited[*neigh] && g.incoming(*neigh).all(|p| visited[*p]) {
-                active.fetch_add(1, Ordering::SeqCst);
+                *active.lock().unwrap() += 1;
                 queue.push(Some(*neigh));
             }
         }
 
         // Notify that an element was taken off of the queue. When the queue
         // becomes empty, a message is sent to each worker thread to shutdown.
-        active.fetch_sub(1, Ordering::SeqCst);
+        *active.lock().unwrap() -= 1;
         cvar.notify_one();
     }
 }
