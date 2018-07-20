@@ -21,7 +21,8 @@ use std::cmp;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::slice;
-use std::sync::{Condvar, Mutex};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Mutex;
 
 use crossbeam;
 
@@ -59,6 +60,47 @@ impl NodeNeighbors {
         NodeNeighbors {
             incoming: Vec::new(),
             outgoing: Vec::new(),
+        }
+    }
+}
+
+struct TraversalState<E>
+where
+    E: Send,
+{
+    // List of errors that occurred during the traversal.
+    pub errors: Mutex<Vec<(usize, E)>>,
+
+    // Nodes that have been visited. The value in this map indicates
+    // whether or not the visitor function was called on it.
+    pub visited: Mutex<Visited>,
+
+    // Queue of node indices. All the items in the queue have the property of
+    // not depending on each other.
+    pub queue: Queue<usize>,
+
+    // Keeps a count of the number of nodes being processed (or waiting to
+    // be processed). When this reaches 0, we know there is no more
+    // work to do.
+    pub active: AtomicUsize,
+}
+
+impl<E> TraversalState<E>
+where
+    E: Send,
+{
+    pub fn new<I>(roots: I) -> TraversalState<E>
+    where
+        I: Iterator<Item = Option<usize>>,
+    {
+        let queue = Queue::new();
+        let active = queue.push_many(roots);
+
+        TraversalState {
+            errors: Mutex::new(Vec::new()),
+            visited: Mutex::new(Visited::new()),
+            queue,
+            active: AtomicUsize::new(active),
         }
     }
 }
@@ -282,53 +324,21 @@ where
         // Always use at least one thread.
         let threads = cmp::max(threads, 1);
 
-        // List of errors that occurred during the traversal.
-        let errors = Mutex::new(Vec::new());
-
-        // Nodes that have been visited. The value in this map indicates
-        // whether or not the visitor function was called on it.
-        let visited = Mutex::new(Visited::new());
-
-        let queue = &Queue::new();
-
-        let cvar = &Condvar::new();
-
-        // Keeps a count of the number of nodes being processed (or waiting to
-        // be processed). When this reaches 0, we know there is no more
-        // work to do.
-        let active = Mutex::new(0);
+        let roots = self.root_nodes().map(|x| Some(x.0));
+        let state = TraversalState::new(roots);
 
         crossbeam::scope(|scope| {
-            let active = &active;
-            let visited = &visited;
+            let state = &state;
             let visit = &visit;
-            let errors = &errors;
 
             for id in 0..threads {
                 scope.spawn(move || {
-                    self.traversal_worker(
-                        id, queue, cvar, active, visited, visit, errors,
-                    )
+                    self.traversal_worker(id, threads, state, visit)
                 });
             }
-
-            // Queue the root nodes.
-            for (index, _node) in self.root_nodes() {
-                *active.lock().unwrap() += 1;
-                queue.push(Some(index));
-            }
-
-            // Wait until all queued items are complete.
-            let mut active = active.lock().unwrap();
-            while *active > 0 {
-                active = cvar.wait(active).unwrap();
-            }
-
-            // Send message to shutdown all threads.
-            (0..threads).for_each(|_| queue.push(None));
         });
 
-        let errors = errors.into_inner().unwrap();
+        let errors = state.errors.into_inner().unwrap();
 
         if errors.is_empty() {
             Ok(())
@@ -341,17 +351,16 @@ where
     fn traversal_worker<F, Error>(
         &self,
         id: usize,
-        queue: &Queue<usize>,
-        cvar: &Condvar,
-        active: &Mutex<usize>,
-        visited: &Mutex<Visited>,
+        threads: usize,
+        state: &TraversalState<Error>,
         visit: &F,
-        errors: &Mutex<Vec<(usize, Error)>>,
     ) where
         F: Fn(usize, &N) -> Result<bool, Error> + Sync,
         Error: Send,
     {
-        while let Some(node) = queue.pop() {
+        use std::iter::repeat;
+
+        while let Some(node) = state.queue.pop() {
             // Only call the visitor function if:
             //  1. This node has no incoming edges, or
             // 2. Any of its incoming nodes have had its visitor function
@@ -362,7 +371,7 @@ where
             // it.
             let do_visit = {
                 let mut incoming = self.incoming(node);
-                let visited = visited.lock().unwrap();
+                let visited = state.visited.lock().unwrap();
                 empty_or_any(&mut incoming, |p| visited.get(&p) == Some(&true))
             };
 
@@ -372,19 +381,23 @@ where
                 Ok(false)
             };
 
-            let mut visited = visited.lock().unwrap();
+            let mut visited = state.visited.lock().unwrap();
 
             match keep_going {
                 Ok(keep_going) => visited.insert(node, keep_going),
                 Err(err) => {
-                    let mut errors = errors.lock().unwrap();
+                    let mut errors = state.errors.lock().unwrap();
                     errors.push((node, err));
                     visited.insert(node, false);
 
+                    // If we're the last node to be processed, shutdown all
+                    // threads.
+                    if state.active.fetch_sub(1, Ordering::Relaxed) == 1 {
+                        state.queue.push_many(repeat(None).take(threads));
+                    }
+
                     // In case of error, do not traverse child nodes. Nothing
                     // that depends on this node should be visited.
-                    *active.lock().unwrap() -= 1;
-                    cvar.notify_one();
                     continue;
                 }
             };
@@ -395,16 +408,15 @@ where
                 if !visited.contains_key(neigh)
                     && self.incoming(*neigh).all(|p| visited.contains_key(&p))
                 {
-                    *active.lock().unwrap() += 1;
-                    queue.push(Some(*neigh));
+                    state.active.fetch_add(1, Ordering::Relaxed);
+                    state.queue.push(Some(*neigh));
                 }
             }
 
-            // Notify that an element was taken off of the queue. When the queue
-            // becomes empty, a message is sent to each worker thread to
-            // shutdown.
-            *active.lock().unwrap() -= 1;
-            cvar.notify_one();
+            // If we're the last node to be processed, shutdown all threads.
+            if state.active.fetch_sub(1, Ordering::Relaxed) == 1 {
+                state.queue.push_many(repeat(None).take(threads));
+            }
         }
     }
 
@@ -668,7 +680,7 @@ where
             let index = self.index;
             self.index += 1;
 
-            if (self.predicate)(&neighbors) {
+            if (self.predicate)(neighbors) {
                 return Some((index, node));
             }
         }
@@ -679,6 +691,15 @@ where
     fn size_hint(&self) -> (usize, Option<usize>) {
         let (_, upper) = self.iter.size_hint();
         (0, upper)
+    }
+
+    // Make counting fast.
+    fn count(mut self) -> usize {
+        let mut count = 0;
+        for x in &mut self.iter {
+            count += (self.predicate)(x.1) as usize;
+        }
+        count
     }
 }
 

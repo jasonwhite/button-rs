@@ -49,6 +49,28 @@ where
         self.cvar.notify_one();
     }
 
+    /// Push many values at once while only acquiring the queue lock once.
+    ///
+    /// Returns the number of items that were pushed.
+    pub fn push_many<I>(&self, values: I) -> usize
+    where
+        I: Iterator<Item = T>,
+    {
+        let mut queue = self.queue.lock().unwrap();
+        let mut count = 0;
+
+        for v in values {
+            queue.push(v);
+            count += 1;
+        }
+
+        // Since we're potentially pushing multiple values, we can wake up
+        // multiple threads to pop items off the queue.
+        self.cvar.notify_all();
+
+        count
+    }
+
     /// Pops a random element. If the queue is empty, waits for an element to
     /// become available.
     pub fn pop(&self) -> T {
