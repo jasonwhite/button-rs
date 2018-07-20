@@ -95,7 +95,7 @@ impl<'a> Build<'a> {
         // }
 
         // Traverse the graph, building everything in topological order.
-        match graph.traverse(|id, node| self.visit(id, node), threads) {
+        match graph.traverse(|id, node| self.visit(id, node), threads, false) {
             Ok(()) => Ok(()),
             Err(errors) => {
                 // For each node that failed to build, add it back to the

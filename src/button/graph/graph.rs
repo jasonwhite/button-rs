@@ -64,6 +64,7 @@ impl NodeNeighbors {
     }
 }
 
+/// The state passed to worker threads when traversing the graph.
 struct TraversalState<E>
 where
     E: Send,
@@ -233,6 +234,15 @@ where
         }
     }
 
+    /// Get the neighbors.
+    pub fn neighbors(&self, index: usize, reverse: bool) -> Neighbors {
+        if reverse {
+            self.incoming(index)
+        } else {
+            self.outgoing(index)
+        }
+    }
+
     /// Returns the number of outgoing edges for the given node.
     ///
     /// Returns `None` if the node does not exist.
@@ -314,6 +324,7 @@ where
         &self,
         visit: F,
         threads: usize,
+        reverse: bool,
     ) -> Result<(), Vec<(usize, Error)>>
     where
         N: Sync,
@@ -324,8 +335,11 @@ where
         // Always use at least one thread.
         let threads = cmp::max(threads, 1);
 
-        let roots = self.root_nodes().map(|x| Some(x.0));
-        let state = TraversalState::new(roots);
+        let state = if reverse {
+            TraversalState::new(self.terminal_nodes().map(|x| Some(x.0)))
+        } else {
+            TraversalState::new(self.root_nodes().map(|x| Some(x.0)))
+        };
 
         crossbeam::scope(|scope| {
             let state = &state;
@@ -333,7 +347,7 @@ where
 
             for id in 0..threads {
                 scope.spawn(move || {
-                    self.traversal_worker(id, threads, state, visit)
+                    self.traversal_worker(id, threads, state, visit, reverse)
                 });
             }
         });
@@ -354,6 +368,7 @@ where
         threads: usize,
         state: &TraversalState<Error>,
         visit: &F,
+        reverse: bool,
     ) where
         F: Fn(usize, &N) -> Result<bool, Error> + Sync,
         Error: Send,
@@ -363,14 +378,14 @@ where
         while let Some(node) = state.queue.pop() {
             // Only call the visitor function if:
             //  1. This node has no incoming edges, or
-            // 2. Any of its incoming nodes have had its visitor function
-            // called.
+            //  2. Any of its incoming nodes have had its visitor function
+            //     called.
             //
             // Although the entire graph is traversed (unless an error occurs),
             // we may only call the visitor function on a subset of
             // it.
             let do_visit = {
-                let mut incoming = self.incoming(node);
+                let mut incoming = self.neighbors(node, !reverse);
                 let visited = state.visited.lock().unwrap();
                 empty_or_any(&mut incoming, |p| visited.get(&p) == Some(&true))
             };
@@ -402,11 +417,13 @@ where
                 }
             };
 
-            for neigh in self.outgoing(node) {
-                // Only visit a node if that node's incoming nodes have all been
-                // visited. There might be more efficient ways to do this.
+            // Only visit a node if that node's incoming nodes have all been
+            // visited. There might be more efficient ways to do this.
+            for neigh in self.neighbors(node, reverse) {
                 if !visited.contains_key(neigh)
-                    && self.incoming(*neigh).all(|p| visited.contains_key(&p))
+                    && self
+                        .neighbors(*neigh, !reverse)
+                        .all(|p| visited.contains_key(&p))
                 {
                     state.active.fetch_add(1, Ordering::Relaxed);
                     state.queue.push(Some(*neigh));
