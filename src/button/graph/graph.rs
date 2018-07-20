@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Jason White
+// Copyright (c) 2018 Jason White
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 use std::cmp;
+use std::collections::HashMap;
 use std::hash::Hash;
 use std::slice;
 use std::sync::{Condvar, Mutex};
@@ -34,16 +35,12 @@ type Queue<T> = RandomQueue<Option<T>>;
 pub trait NodeTrait: Ord + Hash {}
 impl<N> NodeTrait for N where N: Ord + Hash {}
 
-#[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub enum Direction {
-    Outgoing,
-    Incoming,
-}
+type Visited = HashMap<usize, bool>;
 
 #[derive(
     Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash,
 )]
-struct NodeNeighbors {
+pub struct NodeNeighbors {
     pub incoming: Vec<usize>,
     pub outgoing: Vec<usize>,
 }
@@ -163,8 +160,8 @@ where
     }
 
     /// Returns an iterator over all edges in the graph.
-    pub fn all_edges(&self) -> AllEdges<E> {
-        AllEdges {
+    pub fn edges(&self) -> Edges<E> {
+        Edges {
             iter: self.edges.iter(),
         }
     }
@@ -203,20 +200,46 @@ where
     /// that have no incoming edges.
     ///
     /// This is an O(n) operation.
-    pub fn roots(&self) -> Roots<N> {
-        Roots {
-            index: 0,
-            iter: self.nodes.values(),
-        }
+    pub fn root_nodes<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = (usize, &'a N)> + 'a {
+        NodeFilter::new(self.nodes.iter(), |neighbors| {
+            neighbors.incoming.len() == 0
+        })
     }
 
     /// Iterator over all nodes with one or more incoming edges. This includes
     /// all non-root nodes.
-    pub fn non_roots(&self) -> NonRoots<N> {
-        NonRoots {
-            index: 0,
-            iter: self.nodes.iter(),
-        }
+    pub fn non_root_nodes<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = (usize, &'a N)> + 'a {
+        NodeFilter::new(self.nodes.iter(), |neighbors| {
+            neighbors.incoming.len() > 0
+        })
+    }
+
+    /// Iterator over all terminal nodes of the graph. That is, all node indices
+    /// that have no *outgoing* edges.
+    ///
+    /// This is an O(n) operation.
+    pub fn terminal_nodes<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = (usize, &'a N)> + 'a {
+        NodeFilter::new(self.nodes.iter(), |neighbors| {
+            neighbors.outgoing.len() == 0
+        })
+    }
+
+    /// Iterator over all terminal nodes of the graph. That is, all node indices
+    /// that have no *outgoing* edges.
+    ///
+    /// This is an O(n) operation.
+    pub fn non_terminal_nodes<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = (usize, &'a N)> + 'a {
+        NodeFilter::new(self.nodes.iter(), |neighbors| {
+            neighbors.outgoing.len() > 0
+        })
     }
 
     /// Given an index, translate it to an index in the other graph. Returns
@@ -255,14 +278,7 @@ where
 
         // Nodes that have been visited. The value in this map indicates
         // whether or not the visitor function was called on it.
-        let mut visited = Vec::with_capacity(self.node_count());
-        for _ in 0..self.node_count() {
-            visited.push(false);
-        }
-        let visited = Mutex::new(visited);
-
-        // Start the traversal from all nodes that have no incoming edges.
-        let roots = self.roots();
+        let visited = Mutex::new(Visited::new());
 
         let queue = &Queue::new();
 
@@ -281,16 +297,16 @@ where
 
             for id in 0..threads {
                 scope.spawn(move || {
-                    traversal_worker(
-                        id, queue, cvar, active, &self, visited, visit, errors,
+                    self.traversal_worker(
+                        id, queue, cvar, active, visited, visit, errors,
                     )
                 });
             }
 
             // Queue the root nodes.
-            for node in roots {
+            for (index, _node) in self.root_nodes() {
                 *active.lock().unwrap() += 1;
-                queue.push(Some(node));
+                queue.push(Some(index));
             }
 
             // Wait until all queued items are complete.
@@ -313,6 +329,186 @@ where
             Err(errors)
         }
     }
+
+    /// Graph traversal worker thread.
+    fn traversal_worker<F, Error>(
+        &self,
+        id: usize,
+        queue: &Queue<usize>,
+        cvar: &Condvar,
+        active: &Mutex<usize>,
+        visited: &Mutex<Visited>,
+        visit: &F,
+        errors: &Mutex<Vec<(usize, Error)>>,
+    ) where
+        F: Fn(usize, &N) -> Result<bool, Error> + Sync,
+        Error: Send,
+    {
+        while let Some(node) = queue.pop() {
+            // Only call the visitor function if:
+            //  1. This node has no incoming edges, or
+            // 2. Any of its incoming nodes have had its visitor function
+            // called.
+            //
+            // Although the entire graph is traversed (unless an error occurs),
+            // we may only call the visitor function on a subset of
+            // it.
+            let do_visit = {
+                let mut incoming = self.incoming(node);
+                let visited = visited.lock().unwrap();
+                empty_or_any(&mut incoming, |p| visited.get(&p) == Some(&true))
+            };
+
+            let keep_going = if do_visit {
+                visit(id, self.node(node))
+            } else {
+                Ok(false)
+            };
+
+            let mut visited = visited.lock().unwrap();
+
+            match keep_going {
+                Ok(keep_going) => visited.insert(node, keep_going),
+                Err(err) => {
+                    let mut errors = errors.lock().unwrap();
+                    errors.push((node, err));
+                    visited.insert(node, false);
+
+                    // In case of error, do not traverse child nodes. Nothing
+                    // that depends on this node should be visited.
+                    *active.lock().unwrap() -= 1;
+                    cvar.notify_one();
+                    continue;
+                }
+            };
+
+            for neigh in self.outgoing(node) {
+                // Only visit a node if that node's incoming nodes have all been
+                // visited. There might be more efficient ways to do this.
+                if !visited.contains_key(neigh)
+                    && self.incoming(*neigh).all(|p| visited.contains_key(&p))
+                {
+                    *active.lock().unwrap() += 1;
+                    queue.push(Some(*neigh));
+                }
+            }
+
+            // Notify that an element was taken off of the queue. When the queue
+            // becomes empty, a message is sent to each worker thread to
+            // shutdown.
+            *active.lock().unwrap() -= 1;
+            cvar.notify_one();
+        }
+    }
+
+    /// Returns the strongly connected components in the graph using Tarjan's
+    /// algorithm for strongly connected components.
+    pub fn tarjan_scc(&self) -> Vec<Vec<usize>> {
+        // TODO: Don't do this recursively and use an iterative version of this
+        // algorithm instead. There may be cases where the graph is too deep and
+        // overflows the stack.
+
+        /// Bookkeeping data for each node.
+        #[derive(Copy, Clone, Debug)]
+        struct NodeData {
+            index: Option<usize>,
+
+            /// The smallest index of any node known to be reachable from this
+            /// node. If this value is equal to the index of this node,
+            /// then it is the root of the strongly connected component.
+            lowlink: usize,
+
+            /// `true` if this vertex is currently on the depth-first search
+            /// stack.
+            on_stack: bool,
+        }
+
+        #[derive(Debug)]
+        struct Data<'a> {
+            index: usize,
+            nodes: Vec<NodeData>,
+            stack: Vec<usize>,
+            sccs: &'a mut Vec<Vec<usize>>,
+        }
+
+        fn scc_visit<N, E>(v: usize, g: &Graph<N, E>, data: &mut Data)
+        where
+            N: NodeTrait,
+        {
+            if data.nodes[v].index.is_some() {
+                // already visited
+                return;
+            }
+
+            let v_index = data.index;
+            data.nodes[v].index = Some(v_index);
+            data.nodes[v].lowlink = v_index;
+            data.nodes[v].on_stack = true;
+            data.stack.push(v);
+            data.index += 1;
+
+            for w in g.outgoing(v) {
+                match data.nodes[*w].index {
+                    None => {
+                        scc_visit(*w, g, data);
+                        data.nodes[v].lowlink = cmp::min(
+                            data.nodes[v].lowlink,
+                            data.nodes[*w].lowlink,
+                        );
+                    }
+                    Some(w_index) => {
+                        if data.nodes[*w].on_stack {
+                            // Successor w is in stack S and hence in the
+                            // current SCC
+                            let v_lowlink = &mut data.nodes[v].lowlink;
+                            *v_lowlink = cmp::min(*v_lowlink, w_index);
+                        }
+                    }
+                }
+            }
+
+            // If v is a root node, pop the stack and generate an SCC
+            if let Some(v_index) = data.nodes[v].index {
+                if data.nodes[v].lowlink == v_index {
+                    let mut cur_scc = Vec::new();
+                    loop {
+                        let w = data.stack.pop().unwrap();
+                        data.nodes[w].on_stack = false;
+                        cur_scc.push(w);
+                        if w == v {
+                            break;
+                        }
+                    }
+                    data.sccs.push(cur_scc);
+                }
+            }
+        }
+
+        let mut sccs = Vec::new();
+        {
+            let map = vec![
+                NodeData {
+                    index: None,
+                    lowlink: !0,
+                    on_stack: false
+                };
+                self.node_count()
+            ];
+
+            let mut data = Data {
+                index: 0,
+                nodes: map,
+                stack: Vec::new(),
+                sccs: &mut sccs,
+            };
+
+            for i in 0..self.node_count() {
+                scc_visit(i, self, &mut data);
+            }
+        }
+
+        sccs
+    }
 }
 
 /// Creates a new empty `Graph`.
@@ -328,7 +524,7 @@ where
 /// Iterator over the nodes in the graph.
 pub struct Nodes<'a, N>
 where
-    N: 'a + NodeTrait,
+    N: 'a,
 {
     iter: map::Keys<'a, N, NodeNeighbors>,
 }
@@ -361,14 +557,14 @@ where
 }
 
 /// Iterator over all of the edges in the graph.
-pub struct AllEdges<'a, E>
+pub struct Edges<'a, E>
 where
     E: 'a,
 {
     iter: map::Iter<'a, (usize, usize), E>,
 }
 
-impl<'a, E> Iterator for AllEdges<'a, E>
+impl<'a, E> Iterator for Edges<'a, E>
 where
     E: 'a,
 {
@@ -426,57 +622,46 @@ impl<'a> Iterator for Neighbors<'a> {
     }
 }
 
-/// Iterator over the roots of the graph.
-pub struct Roots<'a, N>
-where
-    N: 'a,
-{
-    // Current index in the list.
-    index: usize,
-    iter: map::Values<'a, N, NodeNeighbors>,
-}
-
-impl<'a, N> Iterator for Roots<'a, N> {
-    type Item = usize;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some(neighbors) = self.iter.next() {
-            let index = self.index;
-            self.index += 1;
-
-            if neighbors.incoming.len() == 0 {
-                return Some(index);
-            }
-        }
-
-        None
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let (_, upper) = self.iter.size_hint();
-        (0, upper)
-    }
-}
-
-/// Iterator over the roots of the graph.
-pub struct NonRoots<'a, N>
+/// A filter for nodes in the graph.
+pub struct NodeFilter<'a, N, P>
 where
     N: 'a,
 {
     // Current index in the list.
     index: usize,
     iter: map::Iter<'a, N, NodeNeighbors>,
+    predicate: P,
 }
 
-impl<'a, N> Iterator for NonRoots<'a, N> {
+impl<'a, N, P> NodeFilter<'a, N, P>
+where
+    N: 'a,
+    P: FnMut(&'a NodeNeighbors) -> bool,
+{
+    pub fn new(
+        iter: map::Iter<'a, N, NodeNeighbors>,
+        predicate: P,
+    ) -> NodeFilter<N, P> {
+        NodeFilter {
+            index: 0,
+            iter: iter,
+            predicate: predicate,
+        }
+    }
+}
+
+impl<'a, N, P> Iterator for NodeFilter<'a, N, P>
+where
+    P: FnMut(&'a NodeNeighbors) -> bool,
+{
     type Item = (usize, &'a N);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some((node, neighbors)) = self.iter.next() {
+        for (node, neighbors) in &mut self.iter {
             let index = self.index;
             self.index += 1;
 
-            if neighbors.incoming.len() > 0 {
+            if (self.predicate)(&neighbors) {
                 return Some((index, node));
             }
         }
@@ -488,182 +673,6 @@ impl<'a, N> Iterator for NonRoots<'a, N> {
         let (_, upper) = self.iter.size_hint();
         (0, upper)
     }
-}
-
-/// Graph traversal worker thread.
-fn traversal_worker<'a, N, E, F, Error>(
-    id: usize,
-    queue: &Queue<usize>,
-    cvar: &Condvar,
-    active: &Mutex<usize>,
-    g: &'a Graph<N, E>,
-    visited_arc: &Mutex<Vec<bool>>,
-    visit: &F,
-    errors: &Mutex<Vec<(usize, Error)>>,
-) where
-    N: NodeTrait,
-    F: Fn(usize, &'a N) -> Result<bool, Error> + Sync,
-    Error: Send,
-{
-    while let Some(node) = queue.pop() {
-        // Only call the visitor function if:
-        //  1. This node has no incoming edges, or
-        //  2. Any of its incoming nodes have had its visitor function called.
-        //
-        // Although the entire graph is traversed (unless an error occurs), we
-        // may only call the visitor function on a subset of it.
-        let do_visit = {
-            let mut incoming = g.incoming(node);
-            let visited = visited_arc.lock().unwrap();
-            empty_or_any(&mut incoming, |p| visited[*p])
-        };
-
-        let keep_going = if do_visit {
-            visit(id, g.node(node))
-        } else {
-            Ok(false)
-        };
-
-        let mut visited = visited_arc.lock().unwrap();
-
-        match keep_going {
-            Ok(keep_going) => visited[node] = keep_going,
-            Err(err) => {
-                let mut errors = errors.lock().unwrap();
-                errors.push((node, err));
-                visited[node] = false;
-
-                // In case of error, do not traverse child nodes. Nothing
-                // that depends on this node should be visited.
-                *active.lock().unwrap() -= 1;
-                cvar.notify_one();
-                continue;
-            }
-        };
-
-        for neigh in g.outgoing(node) {
-            // Only visit a node if that node's incoming nodes have all been
-            // visited. There might be more efficient ways to do this.
-            if !visited[*neigh] && g.incoming(*neigh).all(|p| visited[*p]) {
-                *active.lock().unwrap() += 1;
-                queue.push(Some(*neigh));
-            }
-        }
-
-        // Notify that an element was taken off of the queue. When the queue
-        // becomes empty, a message is sent to each worker thread to shutdown.
-        *active.lock().unwrap() -= 1;
-        cvar.notify_one();
-    }
-}
-
-/// Returns the strongly connected components in the graph using Tarjan's
-/// algorithm for strongly connected components.
-pub fn tarjan_scc<N, E>(g: &Graph<N, E>) -> Vec<Vec<usize>>
-where
-    N: NodeTrait,
-{
-    // TODO: Don't do this recursively and use an iterative version of this
-    // algorithm instead. There may be cases where the graph is too deep and
-    // overflows the stack.
-
-    /// Bookkeeping data for each node.
-    #[derive(Copy, Clone, Debug)]
-    struct NodeData {
-        index: Option<usize>,
-
-        /// The smallest index of any node known to be reachable from this
-        /// node. If this value is equal to the index of this node,
-        /// then it is the root of the strongly conected component.
-        lowlink: usize,
-
-        /// `true` if this vertex is curently on the depth-first search stack.
-        on_stack: bool,
-    }
-
-    #[derive(Debug)]
-    struct Data<'a> {
-        index: usize,
-        nodes: Vec<NodeData>,
-        stack: Vec<usize>,
-        sccs: &'a mut Vec<Vec<usize>>,
-    }
-
-    fn scc_visit<N, E>(v: usize, g: &Graph<N, E>, data: &mut Data)
-    where
-        N: NodeTrait,
-    {
-        if data.nodes[v].index.is_some() {
-            // already visited
-            return;
-        }
-
-        let v_index = data.index;
-        data.nodes[v].index = Some(v_index);
-        data.nodes[v].lowlink = v_index;
-        data.nodes[v].on_stack = true;
-        data.stack.push(v);
-        data.index += 1;
-
-        for w in g.outgoing(v) {
-            match data.nodes[*w].index {
-                None => {
-                    scc_visit(*w, g, data);
-                    data.nodes[v].lowlink =
-                        cmp::min(data.nodes[v].lowlink, data.nodes[*w].lowlink);
-                }
-                Some(w_index) => {
-                    if data.nodes[*w].on_stack {
-                        // Successor w is in stack S and hence in the current
-                        // SCC
-                        let v_lowlink = &mut data.nodes[v].lowlink;
-                        *v_lowlink = cmp::min(*v_lowlink, w_index);
-                    }
-                }
-            }
-        }
-
-        // If v is a root node, pop the stack and generate an SCC
-        if let Some(v_index) = data.nodes[v].index {
-            if data.nodes[v].lowlink == v_index {
-                let mut cur_scc = Vec::new();
-                loop {
-                    let w = data.stack.pop().unwrap();
-                    data.nodes[w].on_stack = false;
-                    cur_scc.push(w);
-                    if w == v {
-                        break;
-                    }
-                }
-                data.sccs.push(cur_scc);
-            }
-        }
-    }
-
-    let mut sccs = Vec::new();
-    {
-        let map = vec![
-            NodeData {
-                index: None,
-                lowlink: !0,
-                on_stack: false
-            };
-            g.node_count()
-        ];
-
-        let mut data = Data {
-            index: 0,
-            nodes: map,
-            stack: Vec::new(),
-            sccs: &mut sccs,
-        };
-
-        for i in 0..g.node_count() {
-            scc_visit(i, g, &mut data);
-        }
-    }
-
-    sccs
 }
 
 #[cfg(test)]

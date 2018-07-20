@@ -78,14 +78,40 @@ impl<'a> Build<'a> {
             println!("Note: This is a dry run. Nothing is affected.");
         }
 
-        // Build the new graph.
-        let g = BuildGraph::from_rules(rules)?;
+        let graph = BuildGraph::from_rules(rules)?;
+
+        // {
+        // Update the build state and delete removed resources from disk.
+        // TODO: Do this in reverse topological order.
+        // let (state, removed) =
+        // self.state.update(BuildGraph::from_rules(rules)?); for index
+        // in removed { match state.graph.node(index) {
+        // Node::Resource(ref r) => {
+        // if !self.dryrun {
+        // TODO: Collect errors into a vector.
+        // r.delete()?;
+        // }
+        // }
+        // _ => {}
+        // }
+        // }
+        // }
 
         // Traverse the graph, building everything in topological order.
-        //
-        // TODO: For each node that failed to build, add it back to the queue.
-        Ok(g.traverse(|id, node| self.visit(id, node), threads)
-            .map_err(BuildFailure::new)?)
+        Ok(
+            match graph.traverse(|id, node| self.visit(id, node), threads) {
+                Ok(()) => Ok(()),
+                Err(errors) => {
+                    // For each node that failed to build, add it back to the
+                    // queue so it gets executed again next
+                    // time the build is run. for (node, _)
+                    // in &errors { self.queue.push(node);
+                    // }
+
+                    Err(BuildFailure::new(errors))
+                }
+            }?,
+        )
     }
 
     /// Visitor function for a node.

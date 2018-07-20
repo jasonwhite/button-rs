@@ -21,6 +21,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::io;
+use std::mem;
 use std::path::Path;
 
 use build_graph::BuildGraph;
@@ -42,30 +43,30 @@ use tempfile::NamedTempFile;
 ///     we guarantee no race conditions in the graph construction, there will be
 ///     no double-deletions.
 #[derive(Serialize, Deserialize)]
-pub struct State {
+pub struct BuildState {
     /// The build graph.
-    graph: BuildGraph,
+    pub graph: BuildGraph,
 
-    /// Queue of node indices that should be visited. Duplicate nodes don't
-    /// matter here since nodes are only ever visited once when traversing the
-    /// graph.
-    queue: Vec<usize>,
+    /// A persistent queue of node indices that should be visited. Duplicate
+    /// nodes don't matter here since nodes are only ever visited once when
+    /// traversing the graph.
+    pub queue: Vec<usize>,
 
     /// Resource state. This is used to detect changes to resources. If `None`,
     /// then we don't yet know anything about this resource and it should not
     /// be considered "owned" by the build system. That is, the build
     /// system should never delete it if it doesn't "own" it.
-    checksums: HashMap<usize, ResourceState>,
+    pub checksums: HashMap<usize, ResourceState>,
 }
 
-impl State {
+impl BuildState {
     /// Constructs a state from a new build graph. Used when an existing state
     /// does not exist on disk.
-    pub fn from_graph(graph: BuildGraph) -> State {
+    pub fn from_graph(graph: BuildGraph) -> BuildState {
         // Everything needs to get built, so add all root nodes to the queue.
-        let queue = graph.roots().collect();
+        let queue = graph.root_nodes().map(|x| x.0).collect();
 
-        State {
+        BuildState {
             graph: graph,
             queue: queue,
             checksums: HashMap::new(),
@@ -73,7 +74,9 @@ impl State {
     }
 
     /// Reads the state from a file.
-    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<State, failure::Error> {
+    pub fn from_path<P: AsRef<Path>>(
+        path: P,
+    ) -> Result<BuildState, failure::Error> {
         let f = fs::File::open(path)?;
         Ok(Self::from_reader(io::BufReader::new(f))?)
     }
@@ -81,7 +84,7 @@ impl State {
     /// Reads the state from a stream.
     pub fn from_reader<R: io::Read>(
         reader: R,
-    ) -> Result<State, bincode::Error> {
+    ) -> Result<BuildState, bincode::Error> {
         bincode::deserialize_from(reader)
     }
 
@@ -114,12 +117,10 @@ impl State {
 
     /// Updates the build state with the given build graph.
     ///
-    /// This does a few important things:
-    ///
-    ///  1. Replaces the old build graph with the new one.
-    ///  2. Maps old indices to new indices.
-    ///  3. Returns a list of nodes that have been removed.
-    pub fn update(&self, graph: BuildGraph) -> (State, Vec<usize>) {
+    /// Returns the old build state and the list of non-root nodes that have
+    /// been removed from the graph. This information can be used to delete
+    /// resources in reverse topological order.
+    pub fn update(&mut self, graph: BuildGraph) -> (BuildState, Vec<usize>) {
         let mut removed = Vec::new();
 
         // Fix the indices in the queue.
@@ -130,7 +131,7 @@ impl State {
             .collect();
 
         // Find removed output nodes.
-        for (index, node) in self.graph.non_roots() {
+        for (index, node) in self.graph.non_root_nodes() {
             if !graph.contains_node(node) {
                 removed.push(index);
             }
@@ -154,11 +155,14 @@ impl State {
         }
 
         (
-            State {
-                graph: graph,
-                queue: queue,
-                checksums: checksums,
-            },
+            mem::replace(
+                self,
+                BuildState {
+                    graph: graph,
+                    queue: queue,
+                    checksums: checksums,
+                },
+            ),
             removed,
         )
     }

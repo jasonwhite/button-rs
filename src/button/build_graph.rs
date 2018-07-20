@@ -23,7 +23,7 @@ use std::fmt;
 use std::io;
 use std::ops;
 
-use graph::{tarjan_scc, Graph, NodeTrait};
+use graph::{Graph, NodeTrait};
 
 use res;
 use task;
@@ -376,7 +376,7 @@ impl BuildGraph {
         writeln!(f, "    }}")?;
 
         // Edges
-        for (from, to, _weight) in self.graph.all_edges() {
+        for (from, to, _weight) in self.graph.edges() {
             writeln!(f, "    N{} -> N{};", from, to)?;
         }
 
@@ -389,6 +389,12 @@ impl ops::Deref for BuildGraph {
 
     fn deref(&self) -> &Self::Target {
         &self.graph
+    }
+}
+
+impl ops::DerefMut for BuildGraph {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.graph
     }
 }
 
@@ -431,7 +437,7 @@ where
 {
     let mut cycles = Vec::new();
 
-    for scc in tarjan_scc(&graph) {
+    for scc in graph.tarjan_scc() {
         if scc.len() > 1 {
             // Only strongly connected components (SCCs) with more than 1 node
             // have a cycle.
