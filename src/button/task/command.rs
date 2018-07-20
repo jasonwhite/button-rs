@@ -231,22 +231,22 @@ impl Command {
         let output = cmd.output()?;
 
         // TODO: Interleave stdout and stderr.
-        log.write(&output.stdout)?;
-        log.write(&output.stderr)?;
+        log.write_all(&output.stdout)?;
+        log.write_all(&output.stderr)?;
 
         if output.status.success() {
             Ok(())
         } else {
-            Ok(match output.status.code() {
+            match output.status.code() {
                 Some(code) => Err(io::Error::new(
                     io::ErrorKind::Other,
                     format!("Process exited with error code {}", code),
-                )),
+                ).into()),
                 None => Err(io::Error::new(
                     io::ErrorKind::Other,
                     "Process terminated by signal",
-                )),
-            }?)
+                ).into()),
+            }
         }
     }
 }
@@ -258,7 +258,7 @@ impl fmt::Display for Command {
         } else {
             write!(f, "{}", Arg::new(self.program.to_string_lossy().as_ref()))?;
 
-            for arg in self.args.iter() {
+            for arg in &self.args {
                 write!(f, " {}", Arg::new(arg))?;
             }
 
@@ -273,7 +273,7 @@ impl fmt::Debug for Command {
 
         write!(f, "{}", Arg::new(self.program.to_string_lossy().as_ref()))?;
 
-        for arg in self.args.iter() {
+        for arg in &self.args {
             write!(f, " {}", Arg::new(arg))?;
         }
 
@@ -347,7 +347,7 @@ struct Arg<'a> {
 
 impl<'a> Arg<'a> {
     pub fn new(arg: &'a str) -> Arg<'a> {
-        Arg { arg: arg }
+        Arg { arg }
     }
 
     /// Quotes the argument such that it is safe to pass to the shell.
@@ -436,7 +436,7 @@ where
 
     // Write UTF-8 BOM. Some tools require this to properly decode it as UTF-8
     // instead of ASCII.
-    writer.write(b"\xEF\xBB\xBF")?;
+    writer.write_all(b"\xEF\xBB\xBF")?;
 
     if let Some(arg) = iter.next() {
         write!(writer, "{}", Arg::new(arg.as_ref())).unwrap();
@@ -447,7 +447,7 @@ where
     }
 
     // Some programs require a trailing new line (notably LIB.exe and LINK.exe).
-    writer.write(b"\n")?;
+    writer.write_all(b"\n")?;
 
     Ok(())
 }
@@ -509,7 +509,7 @@ where
 {
     let mut size: usize = 0;
 
-    for arg in args.into_iter() {
+    for arg in args {
         // +1 for the NULL terminator.
         size += arg.as_ref().len() + 1;
     }

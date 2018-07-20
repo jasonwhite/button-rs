@@ -25,7 +25,7 @@ use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io;
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use sha2::{Digest, Sha256};
@@ -47,7 +47,7 @@ pub struct FilePath {
 }
 
 impl FilePath {
-    pub fn new(path: PathBuf) -> FilePath {
+    pub fn new(path: &Path) -> FilePath {
         FilePath {
             path: path.normalize(),
         }
@@ -115,7 +115,7 @@ impl FilePath {
 
 impl<'a, T: ?Sized + AsRef<OsStr>> From<&'a T> for FilePath {
     fn from(s: &'a T) -> FilePath {
-        FilePath::new(PathBuf::from(s.as_ref()))
+        FilePath::new(&Path::new(s.as_ref()))
     }
 }
 
@@ -123,7 +123,7 @@ impl FromStr for FilePath {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(FilePath::new(PathBuf::from(s)))
+        Ok(FilePath::new(&Path::new(s)))
     }
 }
 
@@ -188,7 +188,8 @@ impl Resource for FilePath {
         } else {
             // Assume its a file even if its not. It'll error out if there are
             // problems deleting it.
-            Ok(fs::remove_file(&self.path)?)
+            fs::remove_file(&self.path)?;
+            Ok(())
         }
     }
 }

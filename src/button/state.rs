@@ -67,8 +67,8 @@ impl BuildState {
         let queue = graph.root_nodes().map(|x| x.0).collect();
 
         BuildState {
-            graph: graph,
-            queue: queue,
+            graph,
+            queue,
             checksums: HashMap::new(),
         }
     }
@@ -104,7 +104,7 @@ impl BuildState {
     ) -> Result<(), failure::Error> {
         let path = path.as_ref();
 
-        let dir = path.parent().unwrap_or(Path::new("."));
+        let dir = path.parent().unwrap_or_else(|| Path::new("."));
 
         let mut tempfile = NamedTempFile::new_in(dir)?;
 
@@ -158,9 +158,9 @@ impl BuildState {
             mem::replace(
                 self,
                 BuildState {
-                    graph: graph,
-                    queue: queue,
-                    checksums: checksums,
+                    graph,
+                    queue,
+                    checksums,
                 },
             ),
             removed,

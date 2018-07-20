@@ -38,7 +38,7 @@ pub struct BuildFailure {
 
 impl BuildFailure {
     pub fn new(errors: Vec<(usize, Error)>) -> BuildFailure {
-        BuildFailure { errors: errors }
+        BuildFailure { errors }
     }
 }
 
@@ -66,10 +66,7 @@ pub struct Build<'a> {
 
 impl<'a> Build<'a> {
     pub fn new(root: &'a Path, dryrun: bool) -> Build<'a> {
-        Build {
-            root: root,
-            dryrun: dryrun,
-        }
+        Build { root, dryrun }
     }
 
     /// Runs a build.
@@ -98,20 +95,18 @@ impl<'a> Build<'a> {
         // }
 
         // Traverse the graph, building everything in topological order.
-        Ok(
-            match graph.traverse(|id, node| self.visit(id, node), threads) {
-                Ok(()) => Ok(()),
-                Err(errors) => {
-                    // For each node that failed to build, add it back to the
-                    // queue so it gets executed again next
-                    // time the build is run. for (node, _)
-                    // in &errors { self.queue.push(node);
-                    // }
+        match graph.traverse(|id, node| self.visit(id, node), threads) {
+            Ok(()) => Ok(()),
+            Err(errors) => {
+                // For each node that failed to build, add it back to the
+                // queue so it gets executed again next
+                // time the build is run. for (node, _)
+                // in &errors { self.queue.push(node);
+                // }
 
-                    Err(BuildFailure::new(errors))
-                }
-            }?,
-        )
+                Err(BuildFailure::new(errors).into())
+            }
+        }
     }
 
     /// Visitor function for a node.
@@ -151,7 +146,7 @@ impl<'a> Build<'a> {
                 match task.execute(self.root, &mut output) {
                     Err(err) => {
                         writeln!(output, "Error: {}", err)?;
-                        stdout.write(&output)?;
+                        stdout.write_all(&output)?;
                         return Err(err);
                     }
                     Ok(()) => {}
@@ -159,7 +154,7 @@ impl<'a> Build<'a> {
             }
         }
 
-        stdout.write(&output)?;
+        stdout.write_all(&output)?;
 
         Ok(true)
     }

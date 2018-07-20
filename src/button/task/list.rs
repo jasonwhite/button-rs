@@ -38,7 +38,7 @@ pub struct List {
 
 impl List {
     pub fn new(list: Vec<Any>) -> List {
-        List { list: list }
+        List { list }
     }
 }
 
@@ -56,7 +56,7 @@ impl<'de> Deserialize<'de> for List {
     where
         D: Deserializer<'de>,
     {
-        Deserialize::deserialize(deserializer).map(|v: Vec<Any>| List::new(v))
+        Deserialize::deserialize(deserializer).map(List::new)
     }
 }
 

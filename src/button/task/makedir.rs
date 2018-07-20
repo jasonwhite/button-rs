@@ -44,13 +44,14 @@ pub struct MakeDir {
 impl MakeDir {
     pub fn new(path: PathBuf) -> MakeDir {
         MakeDir {
-            path: path,
+            path,
             retry: Retry::default(),
         }
     }
 
     fn execute_impl(&self, root: &Path, _log: &mut io::Write) -> TaskResult {
-        Ok(fs::create_dir_all(&root.join(&self.path))?)
+        fs::create_dir_all(&root.join(&self.path))?;
+        Ok(())
     }
 }
 

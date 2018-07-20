@@ -56,24 +56,24 @@ pub enum Any {
 
 impl fmt::Display for Any {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &Any::BatchScript(ref x) => x.fmt(f),
-            &Any::Command(ref x) => x.fmt(f),
-            &Any::Download(ref x) => x.fmt(f),
-            &Any::MakeDir(ref x) => x.fmt(f),
-            &Any::Copy(ref x) => x.fmt(f),
+        match *self {
+            Any::BatchScript(ref x) => x.fmt(f),
+            Any::Command(ref x) => x.fmt(f),
+            Any::Download(ref x) => x.fmt(f),
+            Any::MakeDir(ref x) => x.fmt(f),
+            Any::Copy(ref x) => x.fmt(f),
         }
     }
 }
 
 impl fmt::Debug for Any {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &Any::BatchScript(ref x) => x.fmt(f),
-            &Any::Command(ref x) => x.fmt(f),
-            &Any::Download(ref x) => x.fmt(f),
-            &Any::MakeDir(ref x) => x.fmt(f),
-            &Any::Copy(ref x) => x.fmt(f),
+        match *self {
+            Any::BatchScript(ref x) => x.fmt(f),
+            Any::Command(ref x) => x.fmt(f),
+            Any::Download(ref x) => x.fmt(f),
+            Any::MakeDir(ref x) => x.fmt(f),
+            Any::Copy(ref x) => x.fmt(f),
         }
     }
 }
@@ -116,32 +116,32 @@ impl From<Copy> for Any {
 
 impl Task for Any {
     fn execute(&self, root: &Path, log: &mut io::Write) -> TaskResult {
-        match self {
-            &Any::BatchScript(ref x) => x.execute(root, log),
-            &Any::Command(ref x) => x.execute(root, log),
-            &Any::Download(ref x) => x.execute(root, log),
-            &Any::MakeDir(ref x) => x.execute(root, log),
-            &Any::Copy(ref x) => x.execute(root, log),
+        match *self {
+            Any::BatchScript(ref x) => x.execute(root, log),
+            Any::Command(ref x) => x.execute(root, log),
+            Any::Download(ref x) => x.execute(root, log),
+            Any::MakeDir(ref x) => x.execute(root, log),
+            Any::Copy(ref x) => x.execute(root, log),
         }
     }
 
     fn known_inputs(&self, set: &mut res::Set) {
-        match self {
-            &Any::BatchScript(ref x) => x.known_inputs(set),
-            &Any::Command(ref x) => x.known_inputs(set),
-            &Any::Download(ref x) => x.known_inputs(set),
-            &Any::MakeDir(ref x) => x.known_inputs(set),
-            &Any::Copy(ref x) => x.known_inputs(set),
+        match *self {
+            Any::BatchScript(ref x) => x.known_inputs(set),
+            Any::Command(ref x) => x.known_inputs(set),
+            Any::Download(ref x) => x.known_inputs(set),
+            Any::MakeDir(ref x) => x.known_inputs(set),
+            Any::Copy(ref x) => x.known_inputs(set),
         }
     }
 
     fn known_outputs(&self, set: &mut res::Set) {
-        match self {
-            &Any::BatchScript(ref x) => x.known_outputs(set),
-            &Any::Command(ref x) => x.known_outputs(set),
-            &Any::Download(ref x) => x.known_outputs(set),
-            &Any::MakeDir(ref x) => x.known_outputs(set),
-            &Any::Copy(ref x) => x.known_outputs(set),
+        match *self {
+            Any::BatchScript(ref x) => x.known_outputs(set),
+            Any::Command(ref x) => x.known_outputs(set),
+            Any::Download(ref x) => x.known_outputs(set),
+            Any::MakeDir(ref x) => x.known_outputs(set),
+            Any::Copy(ref x) => x.known_outputs(set),
         }
     }
 }

@@ -71,12 +71,12 @@ pub struct Rules {
 impl Rules {
     pub fn new(mut rules: Vec<Rule>) -> Rules {
         // Add known inputs and outputs so the user doesn't have to.
-        for r in rules.iter_mut() {
+        for r in &mut rules {
             r.tasks.known_inputs(&mut r.inputs);
             r.tasks.known_outputs(&mut r.outputs);
         }
 
-        Rules { rules: rules }
+        Rules { rules }
     }
 
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Rules, RulesError> {

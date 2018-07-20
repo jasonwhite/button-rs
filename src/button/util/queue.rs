@@ -27,17 +27,18 @@ use std::sync::{Condvar, Mutex};
 /// In the literal sense, this is not a queue. It's really more like a hat where
 /// items are pulled out in random order. It just has the same interface as a
 /// queue.
+#[derive(Default)]
 pub struct RandomQueue<T> {
     cvar: Condvar,
     queue: Mutex<Vec<T>>,
 }
 
-impl<T> RandomQueue<T> {
+impl<T> RandomQueue<T>
+where
+    T: Default,
+{
     pub fn new() -> RandomQueue<T> {
-        RandomQueue {
-            cvar: Condvar::new(),
-            queue: Mutex::new(Vec::new()),
-        }
+        RandomQueue::default()
     }
 
     /// Adds an element to the queue.

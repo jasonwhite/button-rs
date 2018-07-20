@@ -78,7 +78,7 @@ impl BatchScript {
         // Write the script contents to a temporary file for execution.
         let temppath = {
             let mut tmp = tempfile::Builder::new().suffix(".bat").tempfile()?;
-            tmp.as_file_mut().write(self.contents.as_bytes())?;
+            tmp.as_file_mut().write_all(self.contents.as_bytes())?;
             tmp.into_temp_path()
         };
 
@@ -91,22 +91,22 @@ impl BatchScript {
         let output = cmd.output()?;
 
         // TODO: Interleave stdout and stderr.
-        log.write(&output.stdout)?;
-        log.write(&output.stderr)?;
+        log.write_all(&output.stdout)?;
+        log.write_all(&output.stderr)?;
 
         if output.status.success() {
             Ok(())
         } else {
-            Ok(match output.status.code() {
+            match output.status.code() {
                 Some(code) => Err(io::Error::new(
                     io::ErrorKind::Other,
                     format!("Process exited with error code {}", code),
-                )),
+                ).into()),
                 None => Err(io::Error::new(
                     io::ErrorKind::Other,
                     "Process terminated by signal",
-                )),
-            }?)
+                ).into()),
+            }
         }
     }
 }

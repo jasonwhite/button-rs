@@ -41,9 +41,9 @@ pub enum Node {
 
 impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &Node::Resource(ref x) => write!(f, "({})", x),
-            &Node::Task(ref x) => write!(f, "[{}]", x),
+        match *self {
+            Node::Resource(ref x) => write!(f, "({})", x),
+            Node::Task(ref x) => write!(f, "[{}]", x),
         }
     }
 }
@@ -93,14 +93,11 @@ where
         graph: Graph<N, E>,
         cycles: Vec<Vec<usize>>,
     ) -> CyclesError<N, E> {
-        CyclesError {
-            graph: graph,
-            cycles: cycles,
-        }
+        CyclesError { graph, cycles }
     }
 }
 
-const CYCLE_EXPLANATION: &'static str = "\
+const CYCLE_EXPLANATION: &str = "\
 Cycles in the build graph cause incorrect builds and are strictly forbidden.
 Please edit the build description to remove the cycle(s) listed above.";
 
@@ -177,10 +174,7 @@ pub struct Race<N> {
 
 impl<N> Race<N> {
     fn new(node: N, count: usize) -> Race<N> {
-        Race {
-            node: node,
-            count: count,
-        }
+        Race { node, count }
     }
 }
 
@@ -205,11 +199,11 @@ impl RaceError {
         // easier.
         races.sort();
 
-        RaceError { races: races }
+        RaceError { races }
     }
 }
 
-const RACE_EXPLANATION: &'static str = "\
+const RACE_EXPLANATION: &str = "\
 Race conditions in the build graph cause incorrect incremental builds and are
 strictly forbidden. The resources listed above are the output of more than one
 task. Depending on the order in which the task is executed, one task will
@@ -218,14 +212,14 @@ race condition(s).";
 
 impl fmt::Display for RaceError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
+        writeln!(
             f,
-            "{} race condition(s) detected in the build graph:\n\n",
+            "{} race condition(s) detected in the build graph:\n",
             self.races.len()
         )?;
 
         for race in &self.races {
-            write!(f, " - {}\n", race)?;
+            writeln!(f, " - {}", race)?;
         }
 
         write!(f, "\n{}", RACE_EXPLANATION)
@@ -302,7 +296,7 @@ impl BuildGraph {
     pub fn from_rules(rules: Rules) -> Result<BuildGraph, Error> {
         let mut g = Graph::new();
 
-        for rule in rules.into_iter() {
+        for rule in rules {
             let Rule {
                 inputs,
                 outputs,
@@ -408,15 +402,15 @@ fn check_races(
     let mut races = Vec::new();
 
     for (i, node) in graph.nodes().enumerate() {
-        match node {
-            &Node::Resource(ref r) => {
+        match *node {
+            Node::Resource(ref r) => {
                 let incoming = graph.incoming(i).count();
 
                 if incoming > 1 {
                     races.push(Race::new(r.clone(), incoming));
                 }
             }
-            &Node::Task(_) => {}
+            Node::Task(_) => {}
         };
     }
 

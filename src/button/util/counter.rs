@@ -23,6 +23,7 @@ use std::ops;
 
 /// A fake writer to count the number of items going into it.
 #[allow(dead_code)]
+#[derive(Default)]
 pub struct Counter {
     count: usize,
 }

@@ -39,7 +39,7 @@ pub struct Dir {
 
 impl Dir {
     pub fn new(path: PathBuf) -> Dir {
-        Dir { path: path }
+        Dir { path }
     }
 }
 
@@ -91,15 +91,15 @@ impl Resource for Dir {
     /// topological order. Thus, if all output resource are accounted for,
     /// directory deletion will always succeed.
     fn delete(&self) -> Result<(), Error> {
-        Ok(match fs::remove_dir(&self.path) {
+        match fs::remove_dir(&self.path) {
             Ok(()) => Ok(()),
             Err(err) => {
                 match err.kind() {
                     // Don't care if it doesn't exist.
                     io::ErrorKind::NotFound => Ok(()),
-                    _ => Err(err),
+                    _ => Err(err.into()),
                 }
             }
-        }?)
+        }
     }
 }

@@ -38,7 +38,16 @@ impl<N> NodeTrait for N where N: Ord + Hash {}
 type Visited = HashMap<usize, bool>;
 
 #[derive(
-    Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash,
+    Serialize,
+    Deserialize,
+    Default,
+    Debug,
+    Clone,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+    Hash,
 )]
 pub struct NodeNeighbors {
     pub incoming: Vec<usize>,
@@ -204,7 +213,7 @@ where
         &'a self,
     ) -> impl Iterator<Item = (usize, &'a N)> + 'a {
         NodeFilter::new(self.nodes.iter(), |neighbors| {
-            neighbors.incoming.len() == 0
+            neighbors.incoming.is_empty()
         })
     }
 
@@ -214,7 +223,7 @@ where
         &'a self,
     ) -> impl Iterator<Item = (usize, &'a N)> + 'a {
         NodeFilter::new(self.nodes.iter(), |neighbors| {
-            neighbors.incoming.len() > 0
+            !neighbors.incoming.is_empty()
         })
     }
 
@@ -226,7 +235,7 @@ where
         &'a self,
     ) -> impl Iterator<Item = (usize, &'a N)> + 'a {
         NodeFilter::new(self.nodes.iter(), |neighbors| {
-            neighbors.outgoing.len() == 0
+            neighbors.outgoing.is_empty()
         })
     }
 
@@ -238,7 +247,7 @@ where
         &'a self,
     ) -> impl Iterator<Item = (usize, &'a N)> + 'a {
         NodeFilter::new(self.nodes.iter(), |neighbors| {
-            neighbors.outgoing.len() > 0
+            !neighbors.outgoing.is_empty()
         })
     }
 
@@ -316,9 +325,7 @@ where
             }
 
             // Send message to shutdown all threads.
-            for _ in 0..threads {
-                queue.push(None);
-            }
+            (0..threads).for_each(|_| queue.push(None));
         });
 
         let errors = errors.into_inner().unwrap();
@@ -644,8 +651,8 @@ where
     ) -> NodeFilter<N, P> {
         NodeFilter {
             index: 0,
-            iter: iter,
-            predicate: predicate,
+            iter,
+            predicate,
         }
     }
 }
