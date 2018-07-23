@@ -41,7 +41,7 @@ pub enum Node {
 
 impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
+        match self {
             Node::Resource(ref x) => write!(f, "({})", x),
             Node::Task(ref x) => write!(f, "[{}]", x),
         }
@@ -256,7 +256,7 @@ impl From<CyclesError<Node, Edge>> for Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
+        match self {
             Error::Races(ref err) => write!(f, "{}", err),
             Error::Cycles(ref err) => write!(f, "{}", err),
         }
@@ -265,14 +265,14 @@ impl fmt::Display for Error {
 
 impl error::Error for Error {
     fn description(&self) -> &str {
-        match *self {
+        match self {
             Error::Races(ref err) => err.description(),
             Error::Cycles(ref err) => err.description(),
         }
     }
 
     fn cause(&self) -> Option<&error::Error> {
-        match *self {
+        match self {
             Error::Races(ref err) => Some(err),
             Error::Cycles(ref err) => Some(err),
         }
@@ -339,7 +339,7 @@ impl BuildGraph {
              style=filled];"
         )?;
         for (i, node) in self.graph.nodes().enumerate() {
-            match *node {
+            match node {
                 Node::Resource(ref resource) => {
                     writeln!(f, "        N{} [label={}];", i, resource)?;
                 }
@@ -355,7 +355,7 @@ impl BuildGraph {
             "        node [shape=box, fillcolor=gray91, style=filled];"
         )?;
         for (i, node) in self.graph.nodes().enumerate() {
-            match *node {
+            match node {
                 Node::Resource(_) => {}
                 Node::Task(ref task) => {
                     writeln!(
@@ -402,7 +402,7 @@ fn check_races(
     let mut races = Vec::new();
 
     for (i, node) in graph.nodes().enumerate() {
-        match *node {
+        match node {
             Node::Resource(ref r) => {
                 let incoming = graph.incoming(i).count();
 

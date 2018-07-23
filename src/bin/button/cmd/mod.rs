@@ -45,7 +45,7 @@ pub enum Command {
 
 impl Command {
     pub fn main(&self) -> Result<(), Error> {
-        match *self {
+        match self {
             Command::Build(ref x) => x.main(),
             Command::Clean(ref x) => x.main(),
             Command::Graph(ref x) => x.main(),

@@ -56,7 +56,7 @@ pub enum Any {
 
 impl fmt::Display for Any {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
+        match self {
             Any::BatchScript(ref x) => x.fmt(f),
             Any::Command(ref x) => x.fmt(f),
             Any::Download(ref x) => x.fmt(f),
@@ -68,7 +68,7 @@ impl fmt::Display for Any {
 
 impl fmt::Debug for Any {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
+        match self {
             Any::BatchScript(ref x) => x.fmt(f),
             Any::Command(ref x) => x.fmt(f),
             Any::Download(ref x) => x.fmt(f),
@@ -116,7 +116,7 @@ impl From<Copy> for Any {
 
 impl Task for Any {
     fn execute(&self, root: &Path, log: &mut io::Write) -> TaskResult {
-        match *self {
+        match self {
             Any::BatchScript(ref x) => x.execute(root, log),
             Any::Command(ref x) => x.execute(root, log),
             Any::Download(ref x) => x.execute(root, log),
@@ -126,7 +126,7 @@ impl Task for Any {
     }
 
     fn known_inputs(&self, set: &mut res::Set) {
-        match *self {
+        match self {
             Any::BatchScript(ref x) => x.known_inputs(set),
             Any::Command(ref x) => x.known_inputs(set),
             Any::Download(ref x) => x.known_inputs(set),
@@ -136,7 +136,7 @@ impl Task for Any {
     }
 
     fn known_outputs(&self, set: &mut res::Set) {
-        match *self {
+        match self {
             Any::BatchScript(ref x) => x.known_outputs(set),
             Any::Command(ref x) => x.known_outputs(set),
             Any::Download(ref x) => x.known_outputs(set),

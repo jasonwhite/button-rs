@@ -42,7 +42,7 @@ pub enum Any {
 
 impl fmt::Display for Any {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
+        match self {
             Any::FilePath(ref x) => x.fmt(f),
             Any::Dir(ref x) => x.fmt(f),
         }
@@ -51,7 +51,7 @@ impl fmt::Display for Any {
 
 impl fmt::Debug for Any {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
+        match self {
             Any::FilePath(ref x) => x.fmt(f),
             Any::Dir(ref x) => x.fmt(f),
         }
@@ -78,14 +78,14 @@ impl From<Dir> for Any {
 
 impl Resource for Any {
     fn state(&self) -> Result<ResourceState, Error> {
-        match *self {
+        match self {
             Any::FilePath(ref x) => x.state(),
             Any::Dir(ref x) => x.state(),
         }
     }
 
     fn delete(&self) -> Result<(), Error> {
-        match *self {
+        match self {
             Any::FilePath(ref x) => x.delete(),
             Any::Dir(ref x) => x.delete(),
         }

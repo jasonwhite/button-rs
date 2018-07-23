@@ -102,7 +102,7 @@ pub fn find_rules_path(start: &Path) -> Option<PathBuf> {
 
 /// Returns a path to the rules.
 pub fn rules_path(path: &Option<PathBuf>) -> PathBuf {
-    match *path {
+    match path {
         Some(ref path) => path.to_path_buf(),
         None => {
             let cwd = env::current_dir().unwrap();
