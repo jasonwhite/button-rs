@@ -23,7 +23,7 @@ use std::fmt;
 use std::io;
 use std::ops;
 
-use graph::{Graph, NodeTrait};
+use graph::{Algo, Graph, Neighbors, NodeIndexable, NodeTrait, Nodes};
 
 use res;
 use task;
@@ -106,6 +106,8 @@ where
     N: NodeTrait + fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use graph::NodeIndexable;
+
         writeln!(
             f,
             "{} cycle(s) detected in the build graph...\n",
@@ -118,8 +120,10 @@ where
             // The nodes in a cycle are listed in reverse topological order.
             // Thus, we need to print them out in reverse order so that it makes
             // more sense.
-            let mut it =
-                cycle.iter().rev().map(|index| self.graph.node(*index));
+            let mut it = cycle
+                .iter()
+                .rev()
+                .map(|index| self.graph.from_index(*index));
 
             // Unwrapping because there must always be at least one node in a
             // cycle. If this panics, then the code creating the
@@ -323,6 +327,8 @@ impl BuildGraph {
 
     /// GraphViz formatting of the graph.
     pub fn graphviz(&self, f: &mut io::Write) -> Result<(), io::Error> {
+        use graph::Edges;
+
         fn escape_label(s: &str) -> String {
             s.chars().flat_map(|c| c.escape_default()).collect()
         }
@@ -338,7 +344,8 @@ impl BuildGraph {
              fillcolor=lightskyblue2, \
              style=filled];"
         )?;
-        for (i, node) in self.graph.nodes().enumerate() {
+        for i in self.graph.nodes() {
+            let node = self.graph.from_index(i);
             match node {
                 Node::Resource(ref resource) => {
                     writeln!(f, "        N{} [label={}];", i, resource)?;
@@ -354,7 +361,8 @@ impl BuildGraph {
             f,
             "        node [shape=box, fillcolor=gray91, style=filled];"
         )?;
-        for (i, node) in self.graph.nodes().enumerate() {
+        for i in self.graph.nodes() {
+            let node = self.graph.from_index(i);
             match node {
                 Node::Resource(_) => {}
                 Node::Task(ref task) => {
@@ -401,7 +409,8 @@ fn check_races(
 ) -> Result<Graph<Node, Edge>, RaceError> {
     let mut races = Vec::new();
 
-    for (i, node) in graph.nodes().enumerate() {
+    for i in graph.nodes() {
+        let node = graph.from_index(i);
         match node {
             Node::Resource(ref r) => {
                 let incoming = graph.incoming(i).count();

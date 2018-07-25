@@ -27,21 +27,14 @@ use std::path::Path;
 use build_graph::BuildGraph;
 use res::ResourceState;
 
+use graph::{Algo, NodeIndexable, Nodes};
+
 use bincode;
 use failure;
 
 use tempfile::NamedTempFile;
 
 /// The state of the build.
-///
-/// To update the build graph:
-///  1. Diff with the stored build graph.
-///  2. Map old indices to new indices in the queue.
-///  2. For each node that is new, add it to the queue.
-///  3. For each outgoing edge that is deleted, remove the associated node from
-///     the queue and delete the associated resource from disk. Note that since
-///     we guarantee no race conditions in the graph construction, there will be
-///     no double-deletions.
 #[derive(Serialize, Deserialize)]
 pub struct BuildState {
     /// The build graph.
@@ -64,7 +57,7 @@ impl BuildState {
     /// does not exist on disk.
     pub fn from_graph(graph: BuildGraph) -> BuildState {
         // Everything needs to get built, so add all root nodes to the queue.
-        let queue = graph.root_nodes().map(|x| x.0).collect();
+        let queue = graph.root_nodes().collect();
 
         BuildState {
             graph,
@@ -131,16 +124,17 @@ impl BuildState {
             .collect();
 
         // Find removed output nodes.
-        for (index, node) in self.graph.non_root_nodes() {
-            if !graph.contains_node(node) {
+        for index in self.graph.non_root_nodes() {
+            if !graph.contains_node(self.graph.from_index(index)) {
                 removed.push(index);
             }
         }
 
         // Add new nodes to the queue.
-        for node in graph.nodes() {
+        for i in graph.nodes() {
+            let node = graph.from_index(i);
             if !self.graph.contains_node(node) {
-                if let Some(index) = graph.node_index(node) {
+                if let Some(index) = graph.to_index(node) {
                     queue.push(index);
                 }
             }

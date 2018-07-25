@@ -23,7 +23,7 @@ use std::io::{self, Write};
 use std::path::Path;
 
 use build_graph::{BuildGraph, Node};
-use res;
+use res::{self, Resource};
 use rules::Rules;
 use task::{self, Task};
 
@@ -71,38 +71,37 @@ impl<'a> Build<'a> {
 
     /// Runs a build.
     pub fn build(&self, rules: Rules, threads: usize) -> Result<(), Error> {
+        use graph::Algo;
+
         if self.dryrun {
             println!("Note: This is a dry run. Nothing is affected.");
         }
 
         let graph = BuildGraph::from_rules(rules)?;
 
-        // {
-        // Update the build state and delete removed resources from disk.
-        // TODO: Do this in reverse topological order.
-        // let (state, removed) =
-        // self.state.update(BuildGraph::from_rules(rules)?); for index
-        // in removed { match state.graph.node(index) {
-        // Node::Resource(ref r) => {
-        // if !self.dryrun {
-        // TODO: Collect errors into a vector.
-        // r.delete()?;
-        // }
-        // }
-        // _ => {}
-        // }
-        // }
-        // }
+        #[cfg(target_os = "TODO")]
+        {
+            let (state, removed) =
+                self.state.update(BuildGraph::from_rules(rules)?);
+            if !removed.is_empty() {
+                // Delete removed nodes in reverse topological order.
+                //
+                // TODO: Construct a subgraph that only includes the removed
+                // nodes!
+                state.graph.traverse(
+                    |id, node| self.visit_delete(id, node),
+                    threads,
+                    true,
+                )?;
+            }
+        }
 
         // Traverse the graph, building everything in topological order.
         match graph.traverse(|id, node| self.visit(id, node), threads, false) {
             Ok(()) => Ok(()),
             Err(errors) => {
-                // For each node that failed to build, add it back to the
-                // queue so it gets executed again next
-                // time the build is run. for (node, _)
-                // in &errors { self.queue.push(node);
-                // }
+                // TODO: For each node that failed to build, add it back to the
+                // queue so it gets executed again next time the build is run.
 
                 Err(BuildFailure::new(errors).into())
             }
@@ -155,6 +154,23 @@ impl<'a> Build<'a> {
         }
 
         stdout.write_all(&output)?;
+
+        Ok(true)
+    }
+
+    /// Called when a node is deleted from the graph.
+    #[allow(dead_code)]
+    fn visit_delete(&self, _id: usize, node: &Node) -> Result<bool, Error> {
+        match node {
+            Node::Resource(r) => {
+                if !self.dryrun {
+                    r.delete()?;
+                }
+            }
+            Node::Task(_) => {
+                // It doesn't make sense for tasks to be deleted.
+            }
+        }
 
         Ok(true)
     }

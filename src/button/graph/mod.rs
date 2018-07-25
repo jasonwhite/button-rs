@@ -19,5 +19,12 @@
 // THE SOFTWARE.
 
 pub mod graph;
+pub mod subgraph;
+mod visit;
 
 pub use self::graph::{Graph, NodeTrait};
+pub use self::subgraph::Subgraph;
+pub use self::visit::{
+    Algo, Edges, GraphBase, Neighbors, NodeIndexable, Nodes, VisitMap,
+    Visitable,
+};
