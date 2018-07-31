@@ -412,7 +412,7 @@ mod tests {
         graph.add_edge(h, g, ());
         graph.add_edge(h, h, ());
 
-        let sccs = tarjan_scc(&graph);
+        let sccs = graph.tarjan_scc();
         assert_eq!(sccs.len(), 4);
 
         assert_eq!(sccs[0], vec![1, 4, 0]);

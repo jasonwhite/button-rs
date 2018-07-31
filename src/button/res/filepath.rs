@@ -270,8 +270,8 @@ mod tests {
     #[test]
     fn test_normalized() {
         assert_eq!(
-            FilePath::new(PathBuf::from("./foo/..//bar/")),
-            FilePath::new(PathBuf::from("bar"))
+            FilePath::new(&Path::new("./foo/..//bar/")),
+            FilePath::new(&Path::new("bar"))
         );
     }
 
