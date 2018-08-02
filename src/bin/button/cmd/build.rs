@@ -21,8 +21,7 @@ use std::path::{Path, PathBuf};
 
 use num_cpus;
 
-use button::build;
-use button::rules::Rules;
+use button::{build, Rules};
 
 use opts::{rules_path, Coloring};
 
@@ -126,9 +125,6 @@ impl Build {
             format!("Failed loading rules from file {:?}", file)
         })?;
 
-        let build = build::Build::new(root, self.dryrun);
-        build.build(rules, threads)?;
-
-        Ok(())
+        build(root, rules, self.dryrun, threads)
     }
 }

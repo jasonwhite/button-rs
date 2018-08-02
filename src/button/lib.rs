@@ -32,7 +32,7 @@ extern crate serde_json;
 extern crate sha2;
 extern crate tempfile;
 
-pub mod build;
+mod build;
 pub mod build_graph;
 pub mod error;
 pub mod graph;
@@ -41,3 +41,6 @@ pub mod rules;
 pub mod state;
 pub mod task;
 pub mod util;
+
+pub use build::{build, BuildFailure};
+pub use rules::Rules;

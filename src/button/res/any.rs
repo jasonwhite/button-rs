@@ -34,16 +34,16 @@ pub type Set = BTreeSet<Any>;
 #[derive(
     Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone,
 )]
-#[serde(untagged)]
+#[serde(rename_all = "lowercase")]
 pub enum Any {
-    FilePath(FilePath),
+    File(FilePath),
     Dir(Dir),
 }
 
 impl fmt::Display for Any {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Any::FilePath(ref x) => x.fmt(f),
+            Any::File(ref x) => x.fmt(f),
             Any::Dir(ref x) => x.fmt(f),
         }
     }
@@ -52,7 +52,7 @@ impl fmt::Display for Any {
 impl fmt::Debug for Any {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Any::FilePath(ref x) => x.fmt(f),
+            Any::File(ref x) => x.fmt(f),
             Any::Dir(ref x) => x.fmt(f),
         }
     }
@@ -60,13 +60,13 @@ impl fmt::Debug for Any {
 
 impl From<PathBuf> for Any {
     fn from(res: PathBuf) -> Self {
-        Any::FilePath(FilePath::new(&res))
+        Any::File(FilePath::new(&res))
     }
 }
 
 impl From<FilePath> for Any {
     fn from(res: FilePath) -> Self {
-        Any::FilePath(res)
+        Any::File(res)
     }
 }
 
@@ -79,14 +79,14 @@ impl From<Dir> for Any {
 impl Resource for Any {
     fn state(&self) -> Result<ResourceState, Error> {
         match self {
-            Any::FilePath(ref x) => x.state(),
+            Any::File(ref x) => x.state(),
             Any::Dir(ref x) => x.state(),
         }
     }
 
     fn delete(&self) -> Result<(), Error> {
         match self {
-            Any::FilePath(ref x) => x.delete(),
+            Any::File(ref x) => x.delete(),
             Any::Dir(ref x) => x.delete(),
         }
     }

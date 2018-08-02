@@ -36,7 +36,7 @@ use res;
 #[derive(
     Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone,
 )]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(rename_all = "lowercase")]
 pub enum Any {
     /// A batch script.
     BatchScript(BatchScript),

@@ -21,7 +21,8 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-use button::build_graph::BuildGraph;
+use button::build_graph::{BuildGraph, FromRules};
+use button::graph::Graphviz;
 use button::rules::Rules;
 use opts::{rules_path, Edges};
 
@@ -83,7 +84,7 @@ impl Graph {
             stream.flush() // Flush to catch write errors
         } else {
             let mut stdout = io::stdout();
-            build_graph.graphviz(&mut stdout.lock())?;
+            // build_graph.graphviz(&mut stdout.lock())?;
             stdout.flush() // Flush to catch write errors
         }.context("Failed writing GraphViz DOT file")?;
 

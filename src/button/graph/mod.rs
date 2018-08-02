@@ -25,6 +25,6 @@ mod visit;
 pub use self::graph::{Graph, NodeTrait};
 pub use self::subgraph::Subgraph;
 pub use self::visit::{
-    Algo, Edges, GraphBase, Neighbors, NodeIndexable, Nodes, VisitMap,
-    Visitable,
+    Algo, Edges, GraphBase, Graphviz, Neighbors, NodeIndexable, Nodes,
+    VisitMap, Visitable,
 };

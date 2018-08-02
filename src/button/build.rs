@@ -18,16 +18,22 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+use std::collections::{HashMap, HashSet};
 use std::fmt;
+use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
+use std::sync::Mutex;
 
-use build_graph::{BuildGraph, Node};
-use res::{self, Resource};
+use build_graph::{BuildGraph, FromRules, Node};
+use res::{self, Resource, ResourceState};
 use rules::Rules;
+use state::BuildState;
 use task::{self, Task};
 
-use failure::Error;
+use graph::{Algo, Neighbors, NodeIndexable, Nodes, Subgraph};
+
+use failure::{Error, ResultExt};
 
 /// A build failure. Contains each of the node indexes that failed and the
 /// associated error.
@@ -52,126 +58,318 @@ impl fmt::Display for BuildFailure {
     }
 }
 
-/// Represents a build. This holds the context necessary for all build
-/// operations.
-pub struct Build<'a> {
-    /// Root of the build. This is the directory containing the "button.json"
-    /// file and is the default path from which all subprocesses are spawned.
-    /// The working directories of tasks are relative to this path.
+struct BuildContext<'a> {
     root: &'a Path,
-
-    /// Whether or not this is a dry run.
     dryrun: bool,
+    checksums: Mutex<HashMap<usize, ResourceState>>,
 }
 
-impl<'a> Build<'a> {
-    pub fn new(root: &'a Path, dryrun: bool) -> Build<'a> {
-        Build { root, dryrun }
-    }
+/// For a list of nodes, delete them in reverse topological order.
+fn delete_nodes<I>(
+    state: &BuildState,
+    nodes: I,
+    threads: usize,
+) -> Result<(), Error>
+where
+    I: Iterator<Item = usize>,
+{
+    let removed: HashSet<_> = nodes.collect();
 
-    /// Runs a build.
-    pub fn build(&self, rules: Rules, threads: usize) -> Result<(), Error> {
-        use graph::Algo;
-
-        if self.dryrun {
-            println!("Note: This is a dry run. Nothing is affected.");
-        }
-
-        let graph = BuildGraph::from_rules(rules)?;
-
-        #[cfg(target_os = "TODO")]
-        {
-            let (state, removed) =
-                self.state.update(BuildGraph::from_rules(rules)?);
-            if !removed.is_empty() {
-                // Delete removed nodes in reverse topological order.
-                //
-                // TODO: Construct a subgraph that only includes the removed
-                // nodes!
-                state.graph.traverse(
-                    |id, node| self.visit_delete(id, node),
-                    threads,
-                    true,
-                )?;
-            }
-        }
-
-        // Traverse the graph, building everything in topological order.
-        match graph.traverse(|id, node| self.visit(id, node), threads, false) {
-            Ok(()) => Ok(()),
-            Err(errors) => {
-                // TODO: For each node that failed to build, add it back to the
-                // queue so it gets executed again next time the build is run.
-
-                Err(BuildFailure::new(errors).into())
-            }
-        }
-    }
-
-    /// Visitor function for a node.
-    fn visit(&self, id: usize, node: &Node) -> Result<bool, Error> {
-        match node {
-            Node::Resource(r) => self.visit_resource(id, r),
-            Node::Task(t) => self.visit_task(id, t),
-        }
-    }
-
-    /// Called when visiting a resource type node in the build graph.
-    fn visit_resource(
-        &self,
-        _id: usize,
-        _node: &res::Any,
-    ) -> Result<bool, Error> {
-        // println!("thread {} :: {}", id, node);
-
-        // TODO: Determine if this resource has changed.
-
-        // Only visit child nodes if this node's state has changed. For example,
-        // when compiling an object file, if the generated object file has not
-        // changed, there is no need to perform linking.
-        Ok(true)
-    }
-
-    /// Called when visiting a task type node in the build graph.
-    fn visit_task(&self, id: usize, node: &task::List) -> Result<bool, Error> {
-        let mut stdout = io::stdout();
-
-        let mut output = Vec::new();
-
-        for task in node.iter() {
-            writeln!(output, "[{}] {}", id, task)?;
-
-            if !self.dryrun {
-                match task.execute(self.root, &mut output) {
-                    Err(err) => {
-                        writeln!(output, "Error: {}", err)?;
-                        stdout.write_all(&output)?;
-                        return Err(err);
+    state
+        .graph
+        .traverse(
+            |_, index, node| {
+                match node {
+                    Node::Resource(r) => {
+                        // Only delete the resource if its in our set of removed
+                        // resources and if the state has been computed. A
+                        // computed state indicates
+                        // that the build system "owns" the resource.
+                        if removed.contains(&index)
+                            && state.checksums.contains_key(&index)
+                        {
+                            r.delete()?;
+                        }
                     }
-                    Ok(()) => {}
-                };
-            }
+                    _ => {}
+                }
+
+                // Let the traversal proceed to the next node.
+                Ok(true)
+            },
+            threads,
+            true,
+        )
+        .map_err(BuildFailure::new)?; // TODO: Return a ResourceDeletion error.
+
+    Ok(())
+}
+
+/// Iterator over nodes that should be traversed during the build.
+///
+/// Yields nodes that should be queued. Root resources are queued if they have
+/// changed. The parent task of non-root resources are queued if they have
+/// changed.
+///
+/// This does not modify the stored checksums. The checksums will be updated as
+/// the graph is traversed so that it represents the most recent state at the
+/// time of the build. There may be some time delay between this step and
+/// actually starting the build.
+///
+/// Unfortunately, this also means that we are hashing every file *twice*. Once
+/// before the build and once during the build.
+///
+/// In the future, there will be a daemon process continuously monitoring file
+/// changes and maintaining a queue in the background alleviating this build
+/// latency.
+struct DirtyNodes<'a> {
+    graph: &'a BuildGraph,
+    nodes: <BuildGraph as Nodes<'a>>::Iter,
+    checksums: &'a HashMap<usize, ResourceState>,
+}
+
+impl<'a> DirtyNodes<'a> {
+    pub fn new(
+        graph: &'a BuildGraph,
+        checksums: &'a HashMap<usize, ResourceState>,
+    ) -> DirtyNodes<'a> {
+        DirtyNodes {
+            graph,
+            nodes: graph.nodes(),
+            checksums,
         }
-
-        stdout.write_all(&output)?;
-
-        Ok(true)
     }
+}
 
-    /// Called when a node is deleted from the graph.
-    #[allow(dead_code)]
-    fn visit_delete(&self, _id: usize, node: &Node) -> Result<bool, Error> {
-        match node {
-            Node::Resource(r) => {
-                if !self.dryrun {
-                    r.delete()?;
+impl<'a> Iterator for DirtyNodes<'a> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(index) = self.nodes.next() {
+            match self.graph.from_index(index) {
+                Node::Resource(r) => {
+                    match self.checksums.get(&index) {
+                        Some(stored_state) => {
+                            // Compute the current state and see if they differ.
+                            if let Ok(current_state) = r.state() {
+                                if stored_state != &current_state {
+                                    if let Some(parent) =
+                                        self.graph.incoming(index).next()
+                                    {
+                                        // If this is a non-root node, return
+                                        // the task that produces this resource
+                                        // instead.
+                                        return Some(parent);
+                                    } else {
+                                        return Some(index);
+                                    }
+                                }
+                            } else {
+                                // If there is an error computing the current
+                                // state, queue the node unconditionally. If the
+                                // error still persists when the graph is
+                                // traversed, it will be reported to the user.
+                                // If the error disappears and the resource
+                                // hasn't changed, no further graph traversal
+                                // from that node will occur.
+                                if let Some(parent) =
+                                    self.graph.incoming(index).next()
+                                {
+                                    // If this is a non-root node, return
+                                    // the task that produces this resource
+                                    // instead.
+                                    return Some(parent);
+                                } else {
+                                    return Some(index);
+                                }
+                            }
+                        }
+                        None => {
+                            // Only queue if this is a root node and if the
+                            // checksum has never been computed.
+                            if self.graph.is_root_node(index) {
+                                return Some(index);
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    // Don't care about tasks because they are stateless.
                 }
             }
-            Node::Task(_) => {
-                // It doesn't make sense for tasks to be deleted.
-            }
         }
 
-        Ok(true)
+        None
     }
+}
+
+/// Runs a build.
+pub fn build(
+    root: &Path,
+    rules: Rules,
+    dryrun: bool,
+    threads: usize,
+) -> Result<(), Error> {
+    let state_path = root.join(".button-state");
+    let graph = BuildGraph::from_rules(rules)
+        .context("Failed to create build graph from rules")?;
+
+    // Load/create the build state.
+    let BuildState {
+        graph,
+        mut queue,
+        checksums,
+    } = {
+        match fs::File::open(&state_path) {
+            Ok(f) => {
+                let mut state = BuildState::from_reader(io::BufReader::new(f))
+                    .with_context(|_| {
+                        format!(
+                            "Failed loading build state from file {:?}. \
+                             Consider doing a clean build.",
+                            state_path
+                        )
+                    })?;
+                let (old_state, removed) = state.update(graph);
+                if !removed.is_empty() && !dryrun {
+                    // TODO: For a dryrun, print out the resources that would be
+                    // deleted.
+                    delete_nodes(&old_state, removed.into_iter(), threads)
+                        .context("Failed deleting resources")?;
+                }
+
+                state
+            }
+            Err(err) => {
+                if err.kind() == io::ErrorKind::NotFound {
+                    // If it doesn't exist, create it.
+                    BuildState::from_graph(graph)
+                } else {
+                    // Some other fatal IO error occurred.
+                    return Err(err.into());
+                }
+            }
+        }
+    };
+
+    for node in DirtyNodes::new(&graph, &checksums) {
+        queue.push(node);
+    }
+
+    if queue.is_empty() {
+        // Don't bother traversing the graph if the queue is empty.
+        println!("Nothing to do!");
+        return Ok(());
+    }
+
+    let context = BuildContext {
+        root,
+        dryrun,
+        checksums: Mutex::new(checksums),
+    };
+
+    let result = {
+        // Create the subgraph from the queued nodes.
+        let subgraph = Subgraph::new(&graph, graph.dfs(queue.into_iter()));
+
+        // Build the subgraph.
+        subgraph.traverse(
+            |tid, index, node| build_node(&context, tid, index, node),
+            threads,
+            false,
+        )
+    };
+
+    let queue = {
+        if let Err(errors) = &result {
+            // Queue all failed nodes so that they get visited again next time.
+            errors.iter().map(|x| x.0.clone()).collect()
+        } else {
+            Vec::new()
+        }
+    };
+
+    // Serialize the state. This must be the last thing that we do. If anything
+    // fails above (e.g., failing to delete a resource), the state will remain
+    // untouched and the error should be reproducible. Note that task failures
+    // should not prevent the state from being saved. Instead, those are added
+    // to the queue to be executed again.
+    BuildState {
+        graph,
+        queue,
+        checksums: context.checksums.into_inner().unwrap(),
+    }.write_to_path(&state_path)
+        .with_context(|_| {
+            format!("Failed writing build state to {:?}", state_path)
+        })?;
+
+    result.map_err(BuildFailure::new)?;
+
+    Ok(())
+}
+
+fn build_node(
+    context: &BuildContext,
+    tid: usize,
+    index: usize,
+    node: &Node,
+) -> Result<bool, Error> {
+    match node {
+        Node::Resource(r) => build_resource(context, tid, index, r),
+        Node::Task(t) => build_task(context, tid, index, t),
+    }
+}
+
+fn build_resource(
+    context: &BuildContext,
+    _tid: usize,
+    index: usize,
+    node: &res::Any,
+) -> Result<bool, Error> {
+    let state = node.state()?;
+
+    let mut checksums = context.checksums.lock().unwrap();
+
+    let ret = if let Some(prev_state) = checksums.get(&index) {
+        // Only need to proceed down the graph if this resource changed.
+        Ok(&state != prev_state)
+    } else {
+        // Previous state wasn't computed. Unconditionally proceed down the
+        // graph.
+        Ok(true)
+    };
+
+    checksums.insert(index, state);
+
+    ret
+}
+
+fn build_task(
+    context: &BuildContext,
+    tid: usize,
+    _index: usize,
+    node: &task::List,
+) -> Result<bool, Error> {
+    let mut stdout = io::stdout();
+
+    let mut output = Vec::new();
+
+    for task in node.iter() {
+        writeln!(output, "[{}] {}", tid, task)?;
+
+        if !context.dryrun {
+            match task.execute(context.root, &mut output) {
+                Err(err) => {
+                    writeln!(output, "Error: {}", err)?;
+                    stdout.write_all(&output)?;
+                    return Err(err);
+                }
+                Ok(()) => {}
+            };
+        }
+    }
+
+    stdout.write_all(&output)?;
+
+    Ok(true)
 }

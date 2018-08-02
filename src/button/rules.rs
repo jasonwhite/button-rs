@@ -96,6 +96,11 @@ impl Rules {
         Ok(Self::new(json::from_str(s)?))
     }
 
+    #[cfg(test)]
+    pub fn to_string(&self) -> Result<String, json::error::Error> {
+        Ok(json::to_string(&self.rules)?)
+    }
+
     pub fn iter(&self) -> Iter<Rule> {
         self.rules.iter()
     }
@@ -122,15 +127,29 @@ mod tests {
     use task::Command;
 
     #[test]
+    fn test_serialize() {
+        let rules = Rules::new(vec![Rule {
+            inputs: vec![FilePath::new("foo.c").into()].into_iter().collect(),
+            tasks: vec![].into(),
+            outputs: vec![FilePath::new("foo.o").into()].into_iter().collect(),
+        }]);
+
+        println!("{:?}", rules.to_string().unwrap());
+
+        assert!(false);
+    }
+
+    #[test]
     fn test_loading() {
         let data = r#"[{
-            "inputs": ["foo.c", "foo.h"],
-            "outputs": ["foo.o"],
+            "inputs": [{"file": "foo.c"}, {"file": "foo.h"}],
+            "outputs": [{"file": "foo.o"}],
             "tasks": [
                 {
-                    "type": "command",
-                    "program": "gcc",
-                    "args": ["foo.c"]
+                    "command": {
+                        "program": "gcc",
+                        "args": ["foo.c"]
+                    }
                 }
             ]
         }]"#;

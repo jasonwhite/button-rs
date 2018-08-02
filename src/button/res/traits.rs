@@ -29,15 +29,26 @@ use generic_array::{typenum, GenericArray};
 
 pub type Checksum = GenericArray<u8, typenum::U32>;
 
-/// The state associated with a resource. This is stored in the database and
+/// The state associated with a resource. This is stored in the build state and
 /// used to determine if a resource has changed.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ResourceState {
     /// The resource does not exist.
     Missing,
 
     /// The resource exists and we have the checksum of its contents.
     Checksum(Checksum),
+}
+
+impl fmt::Display for ResourceState {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ResourceState::Missing => write!(f, "missing"),
+            ResourceState::Checksum(c) => {
+                write!(f, "{:x}", c)
+            }
+        }
+    }
 }
 
 pub type Error = failure::Error;

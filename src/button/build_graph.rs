@@ -21,9 +21,10 @@
 use std::error;
 use std::fmt;
 use std::io;
-use std::ops;
 
-use graph::{Algo, Graph, Neighbors, NodeIndexable, NodeTrait, Nodes};
+use graph::{
+    Algo, Edges, Graph, Graphviz, Neighbors, NodeIndexable, NodeTrait, Nodes,
+};
 
 use res;
 use task;
@@ -71,7 +72,6 @@ pub enum Edge {
     /// associated with these resources are then implicit. It is usually the
     /// case that, for every implicit edge, there is an equivalent explicit
     /// edge.
-    #[allow(dead_code)]
     Implicit,
 }
 
@@ -167,7 +167,7 @@ where
 }
 
 /// A race condition in the build graph.
-#[derive(Fail, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct Race<N> {
     /// The node with two or more incoming edges.
     pub node: N,
@@ -283,21 +283,22 @@ impl error::Error for Error {
     }
 }
 
+pub type BuildGraph = Graph<Node, Edge>;
+
 /// The build graph.
 ///
 /// This is the core data structure of the build system. It is a bi-partite
 /// acyclic graph. We guarantee that the graph is free of cycles and race
 /// conditions when constructing it from a set of rules.
-#[derive(Serialize, Deserialize)]
-pub struct BuildGraph {
-    graph: Graph<Node, Edge>,
+pub trait FromRules: Sized {
+    fn from_rules(rules: Rules) -> Result<Self, Error>;
 }
 
-impl BuildGraph {
+impl FromRules for BuildGraph {
     /// Creates a build graph from the given rules. If the graph would contain
     /// race conditions or cycles, an error is returned. Thus, the returned
     /// graph is guaranteed to be bipartite and acyclic.
-    pub fn from_rules(rules: Rules) -> Result<BuildGraph, Error> {
+    fn from_rules(rules: Rules) -> Result<BuildGraph, Error> {
         let mut g = Graph::new();
 
         for rule in rules {
@@ -320,15 +321,12 @@ impl BuildGraph {
             }
         }
 
-        Ok(BuildGraph {
-            graph: check_races(check_cycles(g)?)?,
-        })
+        Ok(check_races(check_cycles(g)?)?)
     }
+}
 
-    /// GraphViz formatting of the graph.
-    pub fn graphviz(&self, f: &mut io::Write) -> Result<(), io::Error> {
-        use graph::Edges;
-
+impl Graphviz for BuildGraph {
+    fn graphviz(&self, f: &mut io::Write) -> Result<(), io::Error> {
         fn escape_label(s: &str) -> String {
             s.chars().flat_map(|c| c.escape_default()).collect()
         }
@@ -344,8 +342,8 @@ impl BuildGraph {
              fillcolor=lightskyblue2, \
              style=filled];"
         )?;
-        for i in self.graph.nodes() {
-            let node = self.graph.from_index(i);
+        for i in self.nodes() {
+            let node = self.from_index(i);
             match node {
                 Node::Resource(ref resource) => {
                     writeln!(f, "        N{} [label={}];", i, resource)?;
@@ -361,8 +359,8 @@ impl BuildGraph {
             f,
             "        node [shape=box, fillcolor=gray91, style=filled];"
         )?;
-        for i in self.graph.nodes() {
-            let node = self.graph.from_index(i);
+        for i in self.nodes() {
+            let node = self.from_index(i);
             match node {
                 Node::Resource(_) => {}
                 Node::Task(ref task) => {
@@ -378,25 +376,11 @@ impl BuildGraph {
         writeln!(f, "    }}")?;
 
         // Edges
-        for (from, to, _weight) in self.graph.edges() {
+        for (from, to, _weight) in self.edges() {
             writeln!(f, "    N{} -> N{};", from, to)?;
         }
 
         writeln!(f, "}}")
-    }
-}
-
-impl ops::Deref for BuildGraph {
-    type Target = Graph<Node, Edge>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.graph
-    }
-}
-
-impl ops::DerefMut for BuildGraph {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.graph
     }
 }
 

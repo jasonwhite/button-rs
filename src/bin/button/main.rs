@@ -32,7 +32,7 @@ fn main() {
     // Parse arguments and delegate to a subcommand. If any errors occur, print
     // out the error and its chain of causes.
     if let Err(error) = cmd::Command::from_args().main() {
-        let mut causes = error.causes();
+        let mut causes = error.iter_chain();
 
         if let Some(cause) = causes.next() {
             println!("    Error: {}", cause);

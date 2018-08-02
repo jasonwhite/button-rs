@@ -30,7 +30,7 @@ use std::str::FromStr;
 
 use sha2::{Digest, Sha256};
 
-use serde::{de, Deserialize, Deserializer};
+use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 
 use super::traits::{Error, Resource, ResourceState};
 
@@ -41,15 +41,15 @@ use util::PathExt;
 ///
 /// TODO: Split the directory portion out into a "glob" resource whose state
 /// changes when the list of matched files changes.
-#[derive(Serialize, Eq, Clone)]
+#[derive(Eq, Clone)]
 pub struct FilePath {
     path: PathBuf,
 }
 
 impl FilePath {
-    pub fn new(path: &Path) -> FilePath {
+    pub fn new<P: AsRef<Path>>(path: P) -> FilePath {
         FilePath {
-            path: path.normalize(),
+            path: path.as_ref().normalize(),
         }
     }
 
@@ -76,7 +76,7 @@ impl FilePath {
         loop {
             let n = f.read(&mut buf)?;
 
-            if n == 0 || n < BUF_SIZE {
+            if n == 0 {
                 break;
             }
 
@@ -136,6 +136,20 @@ impl fmt::Display for FilePath {
 impl fmt::Debug for FilePath {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.path)
+    }
+}
+
+impl Serialize for FilePath {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self.path.to_str() {
+            Some(s) => serializer.serialize_str(s),
+            None => Err(ser::Error::custom(
+                "path contains invalid UTF-8 characters",
+            )),
+        }
     }
 }
 

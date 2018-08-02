@@ -67,7 +67,7 @@ where
 
 impl<'a, G> Nodes<'a> for Subgraph<'a, G>
 where
-    G: GraphBase + NodeIndexable<'a> + 'a,
+    G: GraphBase + 'a,
 {
     type Iter = iter::Cloned<hash_set::Iter<'a, usize>>;
 
@@ -124,9 +124,7 @@ where
 }
 
 /// Be able to use algorithms with this graph.
-impl<'a, G> Algo<'a> for Subgraph<'a, G> where
-    G: NodeIndexable<'a> + Neighbors<'a> + 'a
-{}
+impl<'a, G> Algo<'a> for Subgraph<'a, G> where G: Neighbors<'a> + 'a {}
 
 impl<'a, G, T> Visitable<T> for Subgraph<'a, G>
 where

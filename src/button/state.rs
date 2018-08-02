@@ -45,10 +45,11 @@ pub struct BuildState {
     /// traversing the graph.
     pub queue: Vec<usize>,
 
-    /// Resource state. This is used to detect changes to resources. If `None`,
-    /// then we don't yet know anything about this resource and it should not
-    /// be considered "owned" by the build system. That is, the build
-    /// system should never delete it if it doesn't "own" it.
+    /// Resource state. This is used to detect changes to resources. If the
+    /// resource does not exist in this map, then we don't yet know anything
+    /// about this resource and it should not be considered "owned" by the
+    /// build system. That is, the build system should never delete it if
+    /// it doesn't "own" it.
     pub checksums: HashMap<usize, ResourceState>,
 }
 

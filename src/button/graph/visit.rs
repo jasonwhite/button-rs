@@ -21,6 +21,7 @@
 use std::cmp;
 use std::collections::HashMap;
 use std::hash::{BuildHasher, Hash};
+use std::io;
 use std::mem;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
@@ -69,7 +70,7 @@ where
 }
 
 /// Trait for iterating over the neighbors of nodes.
-pub trait Neighbors<'a> {
+pub trait Neighbors<'a>: GraphBase {
     type Neighbors: Iterator<Item = usize>;
 
     /// Returns an iterator over all the incoming edges for the given node.
@@ -88,6 +89,18 @@ pub trait Neighbors<'a> {
         } else {
             self.outgoing(node)
         }
+    }
+
+    /// Returns true if the given node is a root node (i.e., it has no incoming
+    /// edges).
+    fn is_root_node(&'a self, node: usize) -> bool {
+        self.incoming(node).next().is_none()
+    }
+
+    /// Returns true if the given node is a terminal node (i.e., it has no
+    /// outgoing edges).
+    fn is_terminal_node(&'a self, node: usize) -> bool {
+        self.outgoing(node).next().is_none()
     }
 }
 
@@ -373,7 +386,7 @@ where
         Self::Node: Sync,
         Self::Edge: Sync,
         Self::Map: Send + Sync,
-        F: Fn(usize, &Self::Node) -> Result<bool, Error> + Send + Sync,
+        F: Fn(usize, usize, &Self::Node) -> Result<bool, Error> + Send + Sync,
         Error: Send,
     {
         let threads = cmp::max(threads, 1);
@@ -384,9 +397,9 @@ where
             let state = &state;
             let visit = &visit;
 
-            for id in 0..threads {
+            for tid in 0..threads {
                 scope.spawn(move || {
-                    traversal_worker(self, id, threads, state, visit, reverse)
+                    traversal_worker(self, tid, threads, state, visit, reverse)
                 });
             }
         });
@@ -413,19 +426,19 @@ where
 /// Graph traversal worker thread.
 fn traversal_worker<'a, G, F, Error>(
     g: &'a G,
-    id: usize,
+    tid: usize,
     threads: usize,
     state: &TraversalState<G, Error>,
     visit: &F,
     reverse: bool,
 ) where
     G: Neighbors<'a> + NodeIndexable<'a> + Visitable<bool> + Algo<'a>,
-    F: Fn(usize, &G::Node) -> Result<bool, Error> + Sync,
+    F: Fn(usize, usize, &G::Node) -> Result<bool, Error> + Sync,
     Error: Send,
 {
     use std::iter::repeat;
 
-    while let Some(node) = state.queue.pop() {
+    while let Some(index) = state.queue.pop() {
         // Only call the visitor function if:
         //  1. This node has no incoming edges, or
         //  2. Any of its incoming nodes have had its visitor function
@@ -435,7 +448,7 @@ fn traversal_worker<'a, G, F, Error>(
         // we may only call the visitor function on a subset of
         // it.
         let do_visit = {
-            let mut incoming = g.neighbors(node, !reverse);
+            let mut incoming = g.neighbors(index, !reverse);
             let visited = state.visited.lock().unwrap();
             util::empty_or_any(&mut incoming, |p| {
                 visited.is_visited(&p) == Some(&true)
@@ -443,7 +456,7 @@ fn traversal_worker<'a, G, F, Error>(
         };
 
         let keep_going = if do_visit {
-            visit(id, g.from_index(node))
+            visit(tid, index, g.from_index(index))
         } else {
             Ok(false)
         };
@@ -451,11 +464,11 @@ fn traversal_worker<'a, G, F, Error>(
         let mut visited = state.visited.lock().unwrap();
 
         match keep_going {
-            Ok(keep_going) => visited.visit(node, keep_going),
+            Ok(keep_going) => visited.visit(index, keep_going),
             Err(err) => {
                 let mut errors = state.errors.lock().unwrap();
-                errors.push((node, err));
-                visited.visit(node, false);
+                errors.push((index, err));
+                visited.visit(index, false);
 
                 // If we're the last node to be processed, shutdown all
                 // threads.
@@ -471,7 +484,7 @@ fn traversal_worker<'a, G, F, Error>(
 
         // Only visit a node if that node's incoming nodes have all been
         // visited. There might be more efficient ways to do this.
-        for neigh in g.neighbors(node, reverse) {
+        for neigh in g.neighbors(index, reverse) {
             if visited.is_visited(&neigh).is_none()
                 && g.neighbors(neigh, !reverse)
                     .all(|p| visited.is_visited(&p).is_some())
@@ -680,4 +693,9 @@ where
 
         None
     }
+}
+
+pub trait Graphviz {
+    /// GraphViz formatting of the graph.
+    fn graphviz(&self, f: &mut io::Write) -> Result<(), io::Error>;
 }

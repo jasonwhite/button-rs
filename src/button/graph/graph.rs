@@ -23,6 +23,8 @@ use std::slice;
 
 use indexmap::map::{self, IndexMap};
 
+// use serde::ser::{Serialize, Serializer, SerializeSeq, SerializeMap};
+
 use super::visit::{
     Algo, Edges, GraphBase, Neighbors, NodeIndexable, Nodes, Visitable,
 };
@@ -357,6 +359,35 @@ where
         count
     }
 }
+
+// struct SerNodes
+//
+//// Custom serialize for the graph so that redundant information isn't
+//// serialized.
+// impl<N, E> Serialize for Graph<N, E>
+// where
+//    N: NodeTrait + Serialize,
+//    E: Serialize,
+//{
+//    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//        where S: Serializer,
+//    {
+//        // Serialize the nodes. Note that we don't need to serialize the node
+//        // neighbors. This is information is in the list of edges.
+//        let mut seq = serializer.serialize_seq(Some(self.nodes.len()))?;
+//        for node in self.nodes.keys() {
+//            seq.serialize_element(node)?;
+//        }
+//        seq.end()?;
+//
+//        // Serialize the edges
+//        let mut map = serializer.serialize_map(Some(self.edges.len()))?;
+//        for (k, v) in self.edges.iter() {
+//            map.serialize_entry(k, v)?;
+//        }
+//        map.end()
+//    }
+//}
 
 #[cfg(test)]
 mod tests {
