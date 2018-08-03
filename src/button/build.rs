@@ -79,19 +79,16 @@ where
         .graph
         .traverse(
             |_, index, node| {
-                match node {
-                    Node::Resource(r) => {
-                        // Only delete the resource if its in our set of removed
-                        // resources and if the state has been computed. A
-                        // computed state indicates
-                        // that the build system "owns" the resource.
-                        if removed.contains(&index)
-                            && state.checksums.contains_key(&index)
-                        {
-                            r.delete()?;
-                        }
+                if let Node::Resource(r) = node {
+                    // Only delete the resource if its in our set of removed
+                    // resources and if the state has been computed. A computed
+                    // state indicates that the build system "owns" the
+                    // resource.
+                    if removed.contains(&index)
+                        && state.checksums.contains_key(&index)
+                    {
+                        r.delete()?;
                     }
-                    _ => {}
                 }
 
                 // Let the traversal proceed to the next node.
@@ -146,32 +143,12 @@ impl<'a> Iterator for DirtyNodes<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(index) = self.nodes.next() {
-            match self.graph.from_index(index) {
-                Node::Resource(r) => {
-                    match self.checksums.get(&index) {
-                        Some(stored_state) => {
-                            // Compute the current state and see if they differ.
-                            if let Ok(current_state) = r.state() {
-                                if stored_state != &current_state {
-                                    if let Some(parent) =
-                                        self.graph.incoming(index).next()
-                                    {
-                                        // If this is a non-root node, return
-                                        // the task that produces this resource
-                                        // instead.
-                                        return Some(parent);
-                                    } else {
-                                        return Some(index);
-                                    }
-                                }
-                            } else {
-                                // If there is an error computing the current
-                                // state, queue the node unconditionally. If the
-                                // error still persists when the graph is
-                                // traversed, it will be reported to the user.
-                                // If the error disappears and the resource
-                                // hasn't changed, no further graph traversal
-                                // from that node will occur.
+            if let Node::Resource(r) = self.graph.from_index(index) {
+                match self.checksums.get(&index) {
+                    Some(stored_state) => {
+                        // Compute the current state and see if they differ.
+                        if let Ok(current_state) = r.state() {
+                            if stored_state != &current_state {
                                 if let Some(parent) =
                                     self.graph.incoming(index).next()
                                 {
@@ -183,18 +160,23 @@ impl<'a> Iterator for DirtyNodes<'a> {
                                     return Some(index);
                                 }
                             }
-                        }
-                        None => {
-                            // Only queue if this is a root node and if the
-                            // checksum has never been computed.
-                            if self.graph.is_root_node(index) {
-                                return Some(index);
-                            }
+                        } else if let Some(parent) =
+                            self.graph.incoming(index).next() {
+                            // If this is a non-root node, return
+                            // the task that produces this resource
+                            // instead.
+                            return Some(parent);
+                        } else {
+                            return Some(index);
                         }
                     }
-                }
-                _ => {
-                    // Don't care about tasks because they are stateless.
+                    None => {
+                        // Only queue if this is a root node and if the
+                        // checksum has never been computed.
+                        if self.graph.is_root_node(index) {
+                            return Some(index);
+                        }
+                    }
                 }
             }
         }
@@ -283,7 +265,7 @@ pub fn build(
     let queue = {
         if let Err(errors) = &result {
             // Queue all failed nodes so that they get visited again next time.
-            errors.iter().map(|x| x.0.clone()).collect()
+            errors.iter().map(|x| x.0).collect()
         } else {
             Vec::new()
         }

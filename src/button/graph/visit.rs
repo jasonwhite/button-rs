@@ -220,9 +220,9 @@ where
         let queue = Queue::new();
 
         let active = if reverse {
-            queue.push_many(graph.terminal_nodes().map(|x| Some(x)))
+            queue.push_many(graph.terminal_nodes().map(Some))
         } else {
-            queue.push_many(graph.root_nodes().map(|x| Some(x)))
+            queue.push_many(graph.root_nodes().map(Some))
         };
 
         TraversalState {
@@ -681,17 +681,15 @@ where
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(node) = self.stack.pop() {
-            for succ in self.graph.outgoing(node) {
-                if self.visited.visit(succ, ()).is_none() {
-                    self.stack.push(succ);
-                }
-            }
+        let node = self.stack.pop()?;
 
-            return Some(node);
+        for succ in self.graph.outgoing(node) {
+            if self.visited.visit(succ, ()).is_none() {
+                self.stack.push(succ);
+            }
         }
 
-        None
+        Some(node)
     }
 }
 

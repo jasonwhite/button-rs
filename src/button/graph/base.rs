@@ -23,8 +23,6 @@ use std::slice;
 
 use indexmap::map::{self, IndexMap};
 
-// use serde::ser::{Serialize, Serializer, SerializeSeq, SerializeMap};
-
 use super::visit::{
     Algo, Edges, GraphBase, Neighbors, NodeIndexable, Nodes, Visitable,
 };
@@ -297,97 +295,6 @@ impl<'a> Iterator for NeighborsIter<'a> {
         self.iter.last().cloned()
     }
 }
-
-/// A filter for nodes in the graph.
-pub struct NodeFilter<'a, N, P>
-where
-    N: 'a,
-{
-    // Current index in the list.
-    index: usize,
-    iter: map::Iter<'a, N, NodeNeighbors>,
-    predicate: P,
-}
-
-impl<'a, N, P> NodeFilter<'a, N, P>
-where
-    N: 'a,
-    P: FnMut(&'a NodeNeighbors) -> bool,
-{
-    pub fn new(
-        iter: map::Iter<'a, N, NodeNeighbors>,
-        predicate: P,
-    ) -> NodeFilter<N, P> {
-        NodeFilter {
-            index: 0,
-            iter,
-            predicate,
-        }
-    }
-}
-
-impl<'a, N, P> Iterator for NodeFilter<'a, N, P>
-where
-    P: FnMut(&'a NodeNeighbors) -> bool,
-{
-    type Item = (usize, &'a N);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        for (node, neighbors) in &mut self.iter {
-            let index = self.index;
-            self.index += 1;
-
-            if (self.predicate)(neighbors) {
-                return Some((index, node));
-            }
-        }
-
-        None
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let (_, upper) = self.iter.size_hint();
-        (0, upper)
-    }
-
-    // Make counting fast.
-    fn count(mut self) -> usize {
-        let mut count = 0;
-        for x in &mut self.iter {
-            count += (self.predicate)(x.1) as usize;
-        }
-        count
-    }
-}
-
-// struct SerNodes
-//
-//// Custom serialize for the graph so that redundant information isn't
-//// serialized.
-// impl<N, E> Serialize for Graph<N, E>
-// where
-//    N: NodeTrait + Serialize,
-//    E: Serialize,
-//{
-//    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//        where S: Serializer,
-//    {
-//        // Serialize the nodes. Note that we don't need to serialize the node
-//        // neighbors. This is information is in the list of edges.
-//        let mut seq = serializer.serialize_seq(Some(self.nodes.len()))?;
-//        for node in self.nodes.keys() {
-//            seq.serialize_element(node)?;
-//        }
-//        seq.end()?;
-//
-//        // Serialize the edges
-//        let mut map = serializer.serialize_map(Some(self.edges.len()))?;
-//        for (k, v) in self.edges.iter() {
-//            map.serialize_entry(k, v)?;
-//        }
-//        map.end()
-//    }
-//}
 
 #[cfg(test)]
 mod tests {

@@ -18,11 +18,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-pub mod graph;
-pub mod subgraph;
+mod subgraph;
+mod base;
 mod visit;
 
-pub use self::graph::{Graph, NodeTrait};
+pub use self::base::{Graph, NodeTrait};
 pub use self::subgraph::Subgraph;
 pub use self::visit::{
     Algo, Edges, GraphBase, Graphviz, Neighbors, NodeIndexable, Nodes,
