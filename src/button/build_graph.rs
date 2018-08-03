@@ -448,37 +448,40 @@ mod tests {
     fn test_good_graph() {
         let data = r#"[
         {
-            "inputs": ["foo.c", "foo.h"],
+            "inputs": [{"file": "foo.c"}, {"file": "foo.h"}],
             "tasks": [
                 {
-                    "type": "command",
-                    "program": "gcc",
-                    "args": ["-c", "foo.c", "-o", "foo.o"]
+                    "command": {
+                        "program": "gcc",
+                        "args": ["-c", "foo.c", "-o", "foo.o"]
+                    }
                 }
             ],
-            "outputs": ["foo.o"]
+            "outputs": [{"file": "foo.o"}]
         },
         {
-            "inputs": ["bar.c", "foo.h"],
+            "inputs": [{"file": "bar.c"}, {"file": "foo.h"}],
             "tasks": [
                 {
-                    "type": "command",
-                    "program": "gcc",
-                    "args": ["-c", "bar.c", "-o", "bar.o"]
+                    "command": {
+                        "program": "gcc",
+                        "args": ["-c", "bar.c", "-o", "bar.o"]
+                    }
                 }
             ],
-            "outputs": ["bar.o"]
+            "outputs": [{"file": "bar.o"}]
         },
         {
-            "inputs": ["foo.o", "bar.o"],
+            "inputs": [{"file": "foo.o"}, {"file": "bar.o"}],
             "tasks": [
                 {
-                    "type": "command",
-                    "program": "gcc",
-                    "args": ["foo.o", "bar.o", "-o", "foobar"]
+                    "command": {
+                        "program": "gcc",
+                        "args": ["foo.o", "bar.o", "-o", "foobar"]
+                    }
                 }
             ],
-            "outputs": ["foobar"]
+            "outputs": [{"file": "foobar"}]
         }
         ]"#;
 
@@ -491,37 +494,40 @@ mod tests {
     fn test_races() {
         let data = r#"[
         {
-            "inputs": ["foo.c", "foo.h"],
+            "inputs": [{"file": "foo.c"}, {"file": "foo.h"}],
             "tasks": [
                 {
-                    "type": "command",
-                    "program": "gcc",
-                    "args": ["-c", "foo.c", "-o", "foo.o"]
+                    "command": {
+                        "program": "gcc",
+                        "args": ["-c", "foo.c", "-o", "foo.o"]
+                    }
                 }
             ],
-            "outputs": ["foo.o", "bar.o"]
+            "outputs": [{"file": "foo.o"}, {"file": "bar.o"}]
         },
         {
-            "inputs": ["bar.c", "foo.h"],
+            "inputs": [{"file": "bar.c"}, {"file": "foo.h"}],
             "tasks": [
                 {
-                    "type": "command",
-                    "program": "gcc",
-                    "args": ["-c", "bar.c", "-o", "bar.o"]
+                    "command": {
+                        "program": "gcc",
+                        "args": ["-c", "bar.c", "-o", "bar.o"]
+                    }
                 }
             ],
-            "outputs": ["bar.o", "foo.o"]
+            "outputs": [{"file": "bar.o"}, {"file": "foo.o"}]
         },
         {
-            "inputs": ["foo.o", "bar.o"],
+            "inputs": [{"file": "foo.o"}, {"file": "bar.o"}],
             "tasks": [
                 {
-                    "type": "command",
-                    "program": "gcc",
-                    "args": ["foo.o", "bar.o", "-o", "foobar"]
+                    "command": {
+                        "program": "gcc",
+                        "args": ["foo.o", "bar.o", "-o", "foobar"]
+                    }
                 }
             ],
-            "outputs": ["foobar"]
+            "outputs": [{"file": "foobar"}]
         }
         ]"#;
 
@@ -541,37 +547,40 @@ mod tests {
     fn test_cycles() {
         let data = r#"[
         {
-            "inputs": ["foo.c", "foo.h"],
+            "inputs": [{"file": "foo.c"}, {"file": "foo.h"}],
             "tasks": [
                 {
-                    "type": "command",
-                    "program": "gcc",
-                    "args": ["foo.c"]
+                    "command": {
+                        "program": "gcc",
+                        "args": ["foo.c"]
+                    }
                 }
             ],
-            "outputs": ["foo.o", "foo.c"]
+            "outputs": [{"file": "foo.o"}, {"file": "foo.c"}]
         },
         {
-            "inputs": ["bar.c", "foo.h"],
+            "inputs": [{"file": "bar.c"}, {"file": "foo.h"}],
             "tasks": [
                 {
-                    "type": "command",
-                    "program": "gcc",
-                    "args": ["bar.c"]
+                    "command": {
+                        "program": "gcc",
+                        "args": ["bar.c"]
+                    }
                 }
             ],
-            "outputs": ["bar.o"]
+            "outputs": [{"file": "bar.o"}]
         },
         {
-            "inputs": ["foo.o", "bar.o"],
+            "inputs": [{"file": "foo.o"}, {"file": "bar.o"}],
             "tasks": [
                 {
-                    "type": "command",
-                    "program": "gcc",
-                    "args": ["foo.o", "bar.o", "-o", "foobar"]
+                    "command": {
+                        "program": "gcc",
+                        "args": ["foo.o", "bar.o", "-o", "foobar"]
+                    }
                 }
             ],
-            "outputs": ["foobar"]
+            "outputs": [{"file": "foobar"}]
         }
         ]"#;
 

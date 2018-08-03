@@ -127,19 +127,6 @@ mod tests {
     use task::Command;
 
     #[test]
-    fn test_serialize() {
-        let rules = Rules::new(vec![Rule {
-            inputs: vec![FilePath::new("foo.c").into()].into_iter().collect(),
-            tasks: vec![].into(),
-            outputs: vec![FilePath::new("foo.o").into()].into_iter().collect(),
-        }]);
-
-        println!("{:?}", rules.to_string().unwrap());
-
-        assert!(false);
-    }
-
-    #[test]
     fn test_loading() {
         let data = r#"[{
             "inputs": [{"file": "foo.c"}, {"file": "foo.h"}],
