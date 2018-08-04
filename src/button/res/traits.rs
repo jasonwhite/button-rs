@@ -44,9 +44,7 @@ impl fmt::Display for ResourceState {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             ResourceState::Missing => write!(f, "missing"),
-            ResourceState::Checksum(c) => {
-                write!(f, "{:x}", c)
-            }
+            ResourceState::Checksum(c) => write!(f, "{:x}", c),
         }
     }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Jason White
+// Copyright (c) 2018 Jason White
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -17,31 +17,9 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-extern crate bincode;
-#[macro_use]
-extern crate serde_derive;
-extern crate crossbeam;
-extern crate failure;
-#[macro_use]
-extern crate failure_derive;
-extern crate generic_array;
-extern crate indexmap;
-extern crate rand;
-extern crate serde;
-extern crate serde_json;
-extern crate sha2;
-extern crate tempfile;
 
-mod build;
-pub mod build_graph;
-pub mod error;
-pub mod graph;
-pub mod logger;
-pub mod res;
-pub mod rules;
-pub mod state;
-pub mod task;
-pub mod util;
+mod console;
+mod traits;
 
-pub use build::{build, BuildFailure};
-pub use rules::Rules;
+pub use self::console::Console;
+pub use self::traits::{Error, EventLogger, TaskLogger};

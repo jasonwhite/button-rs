@@ -34,5 +34,17 @@
             }
         ],
         "outputs": [{"file": "foobar"}]
+    },
+    {
+        "inputs": [],
+        "tasks": [
+            {
+                "command": {
+                    "program": "./foobar",
+                    "args": []
+                }
+            }
+        ],
+        "outputs": []
     }
 ]

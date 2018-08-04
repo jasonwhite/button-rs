@@ -18,13 +18,42 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-mod base;
-mod subgraph;
-mod visit;
+use std::io;
 
-pub use self::base::{Graph, NodeTrait};
-pub use self::subgraph::Subgraph;
-pub use self::visit::{
-    Algo, Edges, GraphBase, Graphviz, Neighbors, NodeIndexable, Nodes,
-    VisitMap, Visitable,
-};
+pub use failure::Error;
+
+use task;
+
+/// A log result represents the result of the logging operation itself. For
+/// example, events should use this to propagate errors relating to IO.
+pub type LogResult = Result<(), Error>;
+
+pub trait TaskLogger: io::Write {
+    /// Finishes the task.
+    fn finish(self, result: &Result<(), Error>) -> LogResult;
+}
+
+/// An event logger.
+///
+/// Build events get sent to the logger and the logger decides how to display
+/// them.
+pub trait EventLogger: Send + Sync {
+    type TaskLogger: TaskLogger;
+
+    /// Called when the build has started.
+    ///
+    /// This will always be the first event to be sent.
+    fn begin(&mut self, threads: usize) -> LogResult;
+
+    /// Called when the build has finished.
+    ///
+    /// This will always be the last event to be sent.
+    fn end(&mut self, result: &Result<(), Error>) -> LogResult;
+
+    /// Called when a task is about to be executed.
+    fn start_task(
+        &self,
+        thread: usize,
+        task: &task::Any,
+    ) -> Result<Self::TaskLogger, Error>;
+}

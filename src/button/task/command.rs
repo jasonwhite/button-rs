@@ -30,6 +30,7 @@ use std::path::{Path, PathBuf};
 use std::process;
 use std::time::Duration;
 
+use failure::ResultExt;
 use tempfile::{NamedTempFile, TempPath};
 
 use super::traits::{Task, TaskResult};
@@ -205,7 +206,8 @@ impl Command {
         // The temporary response file needs to outlive the spawned process, so
         // it needs to be bound to a variable even if it is never used.
         let _rsp = if generate_response_file {
-            let temp = response_file(&self.args)?;
+            let temp =
+                response_file(&self.args).context("Failed writing response file")?;
 
             let mut arg = OsString::new();
             arg.push("@");
@@ -228,11 +230,14 @@ impl Command {
             cmd.envs(env);
         }
 
-        let output = cmd.output()?;
+        let output = cmd
+            .output()
+            .with_context(|_| format!("Failed to spawn process {:?}", self.program))?;
 
         // TODO: Interleave stdout and stderr.
-        log.write_all(&output.stdout)?;
-        log.write_all(&output.stderr)?;
+        // TODO: Don't buffer stdout/stderr.
+        log.write_all(&output.stdout).context("writing stdout")?;
+        log.write_all(&output.stderr).context("writing stderr")?;
 
         if output.status.success() {
             Ok(())

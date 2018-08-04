@@ -65,9 +65,7 @@ impl FilePath {
                 }
                 _ => Err(err),
             },
-        }.with_context(|_| {
-            format!("Could not open file {:?}", self.path)
-        })?;
+        }.with_context(|_| format!("Could not open file {:?}", self.path))?;
 
         const BUF_SIZE: usize = 16384;
 

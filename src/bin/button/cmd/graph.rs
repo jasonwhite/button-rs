@@ -76,10 +76,10 @@ impl Graph {
         let build_graph = BuildGraph::from_rules(rules)?;
 
         if let Some(output) = &self.output {
-            let mut stream = io::BufWriter::new(
-                fs::File::create(&output)
-                    .with_context(|_| format!("Failed creating {:?}", output))?,
-            );
+            let mut stream =
+                io::BufWriter::new(fs::File::create(&output).with_context(
+                    |_| format!("Failed creating {:?}", output),
+                )?);
             build_graph.graphviz(&mut stream)?;
             stream.flush() // Flush to catch write errors
         } else {

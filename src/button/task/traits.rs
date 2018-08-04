@@ -23,11 +23,10 @@ use std::hash::Hash;
 use std::io;
 use std::path::Path;
 
+use failure;
 use serde::Serialize;
 
 use res;
-
-use failure;
 
 pub type TaskError = failure::Error;
 pub type TaskResult = Result<(), TaskError>;

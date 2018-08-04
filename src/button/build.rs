@@ -21,11 +21,12 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs;
-use std::io::{self, Write};
+use std::io;
 use std::path::Path;
 use std::sync::Mutex;
 
 use build_graph::{BuildGraph, FromRules, Node};
+use logger::{EventLogger, TaskLogger};
 use res::{self, Resource, ResourceState};
 use rules::Rules;
 use state::BuildState;
@@ -96,8 +97,7 @@ where
             },
             threads,
             true,
-        )
-        .map_err(BuildFailure::new)?; // TODO: Return a ResourceDeletion error.
+        ).map_err(BuildFailure::new)?; // TODO: Return a ResourceDeletion error.
 
     Ok(())
 }
@@ -161,7 +161,8 @@ impl<'a> Iterator for DirtyNodes<'a> {
                                 }
                             }
                         } else if let Some(parent) =
-                            self.graph.incoming(index).next() {
+                            self.graph.incoming(index).next()
+                        {
                             // If this is a non-root node, return
                             // the task that produces this resource
                             // instead.
@@ -185,13 +186,35 @@ impl<'a> Iterator for DirtyNodes<'a> {
     }
 }
 
-/// Runs a build.
-pub fn build(
+pub fn build<L>(
     root: &Path,
     rules: Rules,
     dryrun: bool,
     threads: usize,
-) -> Result<(), Error> {
+    mut logger: L,
+) -> Result<(), Error>
+where
+    L: EventLogger,
+{
+    logger.begin(threads)?;
+
+    let result = build_impl(root, rules, dryrun, threads, &logger);
+
+    logger.end(&result)?;
+    result
+}
+
+/// Runs a build.
+fn build_impl<L>(
+    root: &Path,
+    rules: Rules,
+    dryrun: bool,
+    threads: usize,
+    logger: &L,
+) -> Result<(), Error>
+where
+    L: EventLogger,
+{
     let state_path = root.join(".button-state");
     let graph = BuildGraph::from_rules(rules)
         .context("Failed to create build graph from rules")?;
@@ -256,7 +279,7 @@ pub fn build(
 
         // Build the subgraph.
         subgraph.traverse(
-            |tid, index, node| build_node(&context, tid, index, node),
+            |tid, index, node| build_node(&context, tid, index, node, logger),
             threads,
             false,
         )
@@ -281,24 +304,28 @@ pub fn build(
         queue,
         checksums: context.checksums.into_inner().unwrap(),
     }.write_to_path(&state_path)
-        .with_context(|_| {
-            format!("Failed writing build state to {:?}", state_path)
-        })?;
+    .with_context(|_| {
+        format!("Failed writing build state to {:?}", state_path)
+    })?;
 
     result.map_err(BuildFailure::new)?;
 
     Ok(())
 }
 
-fn build_node(
+fn build_node<L>(
     context: &BuildContext,
     tid: usize,
     index: usize,
     node: &Node,
-) -> Result<bool, Error> {
+    logger: &L,
+) -> Result<bool, Error>
+where
+    L: EventLogger,
+{
     match node {
         Node::Resource(r) => build_resource(context, tid, index, r),
-        Node::Task(t) => build_task(context, tid, index, t),
+        Node::Task(t) => build_task(context, tid, index, t, logger),
     }
 }
 
@@ -326,32 +353,29 @@ fn build_resource(
     ret
 }
 
-fn build_task(
+fn build_task<L>(
     context: &BuildContext,
     tid: usize,
     _index: usize,
     node: &task::List,
-) -> Result<bool, Error> {
-    let mut stdout = io::stdout();
-
-    let mut output = Vec::new();
-
+    logger: &L,
+) -> Result<bool, Error>
+where
+    L: EventLogger,
+{
     for task in node.iter() {
-        writeln!(output, "[{}] {}", tid, task)?;
+        let mut task_logger = logger.start_task(tid, &task)?;
 
-        if !context.dryrun {
-            match task.execute(context.root, &mut output) {
-                Err(err) => {
-                    writeln!(output, "Error: {}", err)?;
-                    stdout.write_all(&output)?;
-                    return Err(err);
-                }
-                Ok(()) => {}
-            };
+        if context.dryrun {
+            task_logger.finish(&Ok(()))?;
+        } else {
+            let result = task.execute(context.root, &mut task_logger);
+
+            task_logger.finish(&result)?;
+
+            result?;
         }
     }
-
-    stdout.write_all(&output)?;
 
     Ok(true)
 }

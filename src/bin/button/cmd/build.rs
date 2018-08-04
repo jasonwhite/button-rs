@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 
 use num_cpus;
 
-use button::{build, Rules};
+use button::{build, logger, Rules};
 
 use opts::{rules_path, Coloring};
 
@@ -125,6 +125,9 @@ impl Build {
             format!("Failed loading rules from file {:?}", file)
         })?;
 
-        build(root, rules, self.dryrun, threads)
+        // TODO: Pass the verbosity setting to the logger.
+        let logger = logger::Console::new();
+
+        build(root, rules, self.dryrun, threads, logger)
     }
 }
