@@ -1,39 +1,67 @@
 [
     {
-        "inputs": [{"file": "foo.c"}, {"file": "foo.h"}],
+        "inputs": [],
         "tasks": [
             {
-                "command": {
-                    "program": "gcc",
-                    "args": ["-c", "foo.c", "-o", "foo.o"]
+                "makedir": {
+                    "path": "obj"
                 }
             }
         ],
-        "outputs": [{"file": "foo.o"}]
+        "outputs": []
     },
     {
-        "inputs": [{"file": "bar.c"}, {"file": "foo.h"}],
+        "inputs": [
+            {"dir": "obj"},
+            {"file": "foo.c"},
+            {"file": "foo.h"}
+        ],
         "tasks": [
             {
                 "command": {
                     "program": "gcc",
-                    "args": ["-c", "bar.c", "-o", "bar.o"]
+                    "args": ["-c", "foo.c", "-o", "obj/foo.o"]
                 }
             }
         ],
-        "outputs": [{"file": "bar.o"}]
+        "outputs": [
+            {"file": "obj/foo.o"}
+        ]
     },
     {
-        "inputs": [{"file": "foo.o"}, {"file": "bar.o"}],
+        "inputs": [
+            {"dir": "obj"},
+            {"file": "bar.c"},
+            {"file": "foo.h"}
+        ],
         "tasks": [
             {
                 "command": {
                     "program": "gcc",
-                    "args": ["foo.o", "bar.o", "-o", "foobar"]
+                    "args": ["-c", "bar.c", "-o", "obj/bar.o"]
                 }
             }
         ],
-        "outputs": [{"file": "foobar"}]
+        "outputs": [
+            {"file": "obj/bar.o"}
+        ]
+    },
+    {
+        "inputs": [
+            {"file": "obj/foo.o"},
+            {"file": "obj/bar.o"}
+        ],
+        "tasks": [
+            {
+                "command": {
+                    "program": "gcc",
+                    "args": ["obj/foo.o", "obj/bar.o", "-o", "foobar"]
+                }
+            }
+        ],
+        "outputs": [
+            {"file": "foobar"}
+        ]
     },
     {
         "inputs": [],

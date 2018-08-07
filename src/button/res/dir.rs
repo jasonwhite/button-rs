@@ -27,11 +27,13 @@ use std::str::FromStr;
 
 use sha2::{Digest, Sha256};
 
+use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
+
 use super::traits::{Error, Resource, ResourceState};
 
 /// A directory resource. We don't care about the contents of this resource.
 #[derive(
-    Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone,
+    Ord, PartialOrd, Eq, PartialEq, Hash, Clone,
 )]
 pub struct Dir {
     path: PathBuf,
@@ -66,6 +68,30 @@ impl fmt::Display for Dir {
 impl fmt::Debug for Dir {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.path)
+    }
+}
+
+impl Serialize for Dir {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self.path.to_str() {
+            Some(s) => serializer.serialize_str(s),
+            None => Err(ser::Error::custom(
+                "path contains invalid UTF-8 characters",
+            )),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Dir {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        FromStr::from_str(&s).map_err(de::Error::custom)
     }
 }
 
