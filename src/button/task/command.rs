@@ -206,8 +206,8 @@ impl Command {
         // The temporary response file needs to outlive the spawned process, so
         // it needs to be bound to a variable even if it is never used.
         let _rsp = if generate_response_file {
-            let temp =
-                response_file(&self.args).context("Failed writing response file")?;
+            let temp = response_file(&self.args)
+                .context("Failed writing response file")?;
 
             let mut arg = OsString::new();
             arg.push("@");
@@ -230,9 +230,9 @@ impl Command {
             cmd.envs(env);
         }
 
-        let output = cmd
-            .output()
-            .with_context(|_| format!("Failed to spawn process {:?}", self.program))?;
+        let output = cmd.output().with_context(|_| {
+            format!("Failed to spawn process {:?}", self.program)
+        })?;
 
         // TODO: Interleave stdout and stderr.
         // TODO: Don't buffer stdout/stderr.

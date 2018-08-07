@@ -17,10 +17,15 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+use num_cpus;
 
 use failure::Error;
-use opts::Coloring;
+
+use opts::{rules_path, Coloring};
+
+use button::clean;
 
 #[derive(StructOpt, Debug)]
 pub struct Clean {
@@ -38,18 +43,32 @@ pub struct Clean {
     verbose: bool,
 
     /// When to colorize the output.
-    #[structopt(long = "color")]
+    #[structopt(
+        long = "color",
+        default_value = "auto",
+        raw(
+            possible_values = "&Coloring::variants()",
+            case_insensitive = "true"
+        )
+    )]
     color: Coloring,
 
-    /// Deletes the build state too.
-    #[structopt(long = "purge")]
-    purge: bool,
+    /// The number of threads to use. Defaults to the number of logical cores.
+    #[structopt(short = "t", long = "threads", default_value = "0")]
+    threads: usize,
 }
 
 impl Clean {
     pub fn main(&self) -> Result<(), Error> {
-        println!("{:#?}", self);
+        let file = rules_path(&self.file);
+        let threads = if self.threads == 0 {
+            num_cpus::get()
+        } else {
+            self.threads
+        };
 
-        Ok(())
+        let root = file.parent().unwrap_or_else(|| Path::new("."));
+
+        clean(root, self.dryrun, threads)
     }
 }

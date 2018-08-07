@@ -43,5 +43,5 @@ pub mod state;
 pub mod task;
 pub mod util;
 
-pub use build::{build, BuildFailure};
+pub use build::{build, clean, BuildFailure};
 pub use rules::Rules;
