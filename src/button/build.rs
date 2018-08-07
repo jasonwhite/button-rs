@@ -66,20 +66,22 @@ struct BuildContext<'a> {
 }
 
 /// For a list of nodes, delete them in reverse topological order.
-fn delete_nodes<I>(
+fn delete_nodes<I, L>(
     state: &BuildState,
     nodes: I,
     threads: usize,
+    logger: &L,
 ) -> Result<(), Error>
 where
     I: Iterator<Item = usize>,
+    L: EventLogger,
 {
     let removed: HashSet<_> = nodes.collect();
 
     state
         .graph
         .traverse(
-            |_, index, node| {
+            |tid, index, node| {
                 if let Node::Resource(r) = node {
                     // Only delete the resource if its in our set of removed
                     // resources and if the state has been computed. A computed
@@ -88,6 +90,7 @@ where
                     if removed.contains(&index)
                         && state.checksums.contains_key(&index)
                     {
+                        logger.delete(tid, r)?;
                         r.delete()?;
                     }
                 }
@@ -192,7 +195,15 @@ impl<'a> Iterator for DirtyNodes<'a> {
 ///
 ///  1. Load the build state. If the build state does not exist, abort without
 ///     error because there is nothing to clean.
-pub fn clean(root: &Path, dryrun: bool, threads: usize) -> Result<(), Error> {
+pub fn clean<L>(
+    root: &Path,
+    dryrun: bool,
+    threads: usize,
+    logger: &L,
+) -> Result<(), Error>
+where
+    L: EventLogger,
+{
     let state_path = root.join(".button-state");
 
     let state = match fs::File::open(&state_path) {
@@ -211,7 +222,7 @@ pub fn clean(root: &Path, dryrun: bool, threads: usize) -> Result<(), Error> {
                 // Nothing to do if it doesn't exist.
                 return Ok(());
             } else {
-                // Some other fatal IO error occured.
+                // Some other fatal IO error occurred.
                 return Err(err.into());
             }
         }
@@ -221,16 +232,16 @@ pub fn clean(root: &Path, dryrun: bool, threads: usize) -> Result<(), Error> {
     state
         .graph
         .traverse(
-            |_, index, node| {
+            |tid, index, node| {
                 if let Node::Resource(r) = node {
-                    // Only delete the resource if its in our set of removed
-                    // resources and if the state has been computed. A computed
-                    // state indicates that the build system "owns" the
-                    // resource.
+                    // Only delete the resource if the state has been computed.
+                    // A computed state indicates that the build system "owns"
+                    // the resource.
                     if !dryrun
                         && !state.graph.is_root_node(index)
                         && state.checksums.contains_key(&index)
                     {
+                        logger.delete(tid, r)?;
                         r.delete()?;
                     }
                 }
@@ -289,16 +300,16 @@ pub fn build<L>(
     rules: Rules,
     dryrun: bool,
     threads: usize,
-    mut logger: L,
+    logger: &mut L,
 ) -> Result<(), Error>
 where
     L: EventLogger,
 {
-    logger.begin(threads)?;
+    logger.begin_build(threads)?;
 
-    let result = build_impl(root, rules, dryrun, threads, &logger);
+    let result = build_impl(root, rules, dryrun, threads, logger);
 
-    logger.end(&result)?;
+    logger.end_build(&result)?;
     result
 }
 
@@ -337,8 +348,12 @@ where
                 if !removed.is_empty() && !dryrun {
                     // TODO: For a dryrun, print out the resources that would be
                     // deleted.
-                    delete_nodes(&old_state, removed.into_iter(), threads)
-                        .context("Failed deleting resources")?;
+                    delete_nodes(
+                        &old_state,
+                        removed.into_iter(),
+                        threads,
+                        logger,
+                    ).context("Failed deleting resources")?;
                 }
 
                 state

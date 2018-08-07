@@ -32,9 +32,7 @@ use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 use super::traits::{Error, Resource, ResourceState};
 
 /// A directory resource. We don't care about the contents of this resource.
-#[derive(
-    Ord, PartialOrd, Eq, PartialEq, Hash, Clone,
-)]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
 pub struct Dir {
     path: PathBuf,
 }

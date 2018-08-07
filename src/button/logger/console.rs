@@ -21,6 +21,7 @@
 use std::io::{self, Write};
 use std::time::Instant;
 
+use res;
 use task;
 
 use super::traits::{Error, EventLogger, LogResult, TaskLogger};
@@ -117,13 +118,13 @@ impl Console {
 impl EventLogger for Console {
     type TaskLogger = ConsoleTask;
 
-    fn begin(&mut self, _threads: usize) -> LogResult {
+    fn begin_build(&mut self, _threads: usize) -> LogResult {
         self.start_time = Instant::now();
 
         Ok(())
     }
 
-    fn end(&mut self, _result: &Result<(), Error>) -> LogResult {
+    fn end_build(&mut self, _result: &Result<(), Error>) -> LogResult {
         println!("Build duration: {:.4?}", self.start_time.elapsed());
 
         Ok(())
@@ -135,5 +136,11 @@ impl EventLogger for Console {
         task: &task::Any,
     ) -> Result<ConsoleTask, Error> {
         ConsoleTask::new(thread, task)
+    }
+
+    fn delete(&self, thread: usize, resource: &res::Any) -> LogResult {
+        println!("[{}] Deleting {}", thread, resource);
+
+        Ok(())
     }
 }

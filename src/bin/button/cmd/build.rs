@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 
 use num_cpus;
 
-use button::{clean, build, logger, Rules};
+use button::{build, clean, logger, Rules};
 
 use opts::{rules_path, Coloring};
 
@@ -91,17 +91,17 @@ impl Build {
 
         let root = file.parent().unwrap_or_else(|| Path::new("."));
 
+        // TODO: Pass the verbosity setting to the logger.
+        let mut logger = logger::Console::new();
+
         if self.clean {
-            clean(root, self.dryrun, threads)?;
+            clean(root, self.dryrun, threads, &logger)?;
         }
 
         let rules = Rules::from_path(&file).with_context(|_err| {
             format!("Failed loading rules from file {:?}", file)
         })?;
 
-        // TODO: Pass the verbosity setting to the logger.
-        let logger = logger::Console::new();
-
-        build(root, rules, self.dryrun, threads, logger)
+        build(root, rules, self.dryrun, threads, &mut logger)
     }
 }

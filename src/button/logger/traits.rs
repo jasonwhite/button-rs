@@ -22,6 +22,7 @@ use std::io;
 
 pub use failure::Error;
 
+use res;
 use task;
 
 /// A log result represents the result of the logging operation itself. For
@@ -41,14 +42,10 @@ pub trait EventLogger: Send + Sync {
     type TaskLogger: TaskLogger;
 
     /// Called when the build has started.
-    ///
-    /// This will always be the first event to be sent.
-    fn begin(&mut self, threads: usize) -> LogResult;
+    fn begin_build(&mut self, threads: usize) -> LogResult;
 
     /// Called when the build has finished.
-    ///
-    /// This will always be the last event to be sent.
-    fn end(&mut self, result: &Result<(), Error>) -> LogResult;
+    fn end_build(&mut self, result: &Result<(), Error>) -> LogResult;
 
     /// Called when a task is about to be executed.
     fn start_task(
@@ -56,4 +53,7 @@ pub trait EventLogger: Send + Sync {
         thread: usize,
         task: &task::Any,
     ) -> Result<Self::TaskLogger, Error>;
+
+    /// Called when a resource is deleted.
+    fn delete(&self, thread: usize, resource: &res::Any) -> LogResult;
 }

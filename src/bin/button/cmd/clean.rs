@@ -25,7 +25,7 @@ use failure::Error;
 
 use opts::{rules_path, Coloring};
 
-use button::clean;
+use button::{clean, logger};
 
 #[derive(StructOpt, Debug)]
 pub struct Clean {
@@ -69,6 +69,8 @@ impl Clean {
 
         let root = file.parent().unwrap_or_else(|| Path::new("."));
 
-        clean(root, self.dryrun, threads)
+        let logger = logger::Console::new();
+
+        clean(root, self.dryrun, threads, &logger)
     }
 }
