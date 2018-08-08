@@ -41,6 +41,19 @@ impl Dir {
     pub fn new(path: PathBuf) -> Dir {
         Dir { path }
     }
+
+    fn delete_impl(&self) -> Result<(), Error> {
+        match fs::remove_dir(&self.path) {
+            Ok(()) => Ok(()),
+            Err(err) => {
+                match err.kind() {
+                    // Don't care if it doesn't exist.
+                    io::ErrorKind::NotFound => Ok(()),
+                    _ => Err(err.into()),
+                }
+            }
+        }
+    }
 }
 
 impl<'a, T: ?Sized + AsRef<OsStr>> From<&'a T> for Dir {
@@ -115,15 +128,15 @@ impl Resource for Dir {
     /// topological order. Thus, if all output resource are accounted for,
     /// directory deletion will always succeed.
     fn delete(&self) -> Result<(), Error> {
-        match fs::remove_dir(&self.path) {
-            Ok(()) => Ok(()),
-            Err(err) => {
-                match err.kind() {
-                    // Don't care if it doesn't exist.
-                    io::ErrorKind::NotFound => Ok(()),
-                    _ => Err(err.into()),
-                }
-            }
-        }
+        use util::{Retry, progress_dummy};
+        use std::time::Duration;
+
+        // Retry directory deletions. On Windows, directory deletions can fail
+        // spuriously.
+        let retry = Retry::new()
+            .with_retries(10)
+            .with_delay(Duration::from_millis(50));
+
+        retry.call(|| self.delete_impl(), progress_dummy)
     }
 }

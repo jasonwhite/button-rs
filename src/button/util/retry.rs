@@ -23,12 +23,10 @@
 //! # Examples
 //!
 //! ```no_run
-//! use std::error::Error;
-//! use std::io;
-//! use std::io::Write;
+//! use std::io::{self, Write};
 //! use std::time::Duration;
 //!
-//! use button::util::Retry;
+//! use button::util::{progress_print, Retry};
 //!
 //! fn find_answer(answer: &str) -> io::Result<()> {
 //!     print!("Please enter the correct answer: ");
@@ -47,27 +45,12 @@
 //!     };
 //! }
 //!
-//! fn retry_progress(
-//!     retry: &Retry,
-//!     err: &io::Error,
-//!     remaining: u32,
-//!     delay: Duration,
-//! ) -> bool {
-//!     println!(
-//!         "Error: {} ({} attempt(s) remaining. Retrying in ~{} seconds...)",
-//!         err.description(),
-//!         remaining,
-//!         delay.as_secs()
-//!     );
-//!     true
-//! }
-//!
 //! fn main() {
 //!     let result = Retry::new()
 //!         .with_retries(4)
 //!         .with_delay(Duration::from_secs(1))
 //!         .with_max_delay(Duration::from_secs(4))
-//!         .call(|| find_answer("42"), retry_progress);
+//!         .call(|| find_answer("42"), progress_print);
 //!
 //!     match result {
 //!         Ok(()) => println!("Correct!"),
@@ -83,9 +66,9 @@
 // effectively no jittering.
 
 use std::cmp::min;
-use std::error::Error;
 use std::thread::sleep;
 use std::time::Duration;
+use std::fmt::Display;
 
 #[derive(
     Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Copy, Clone,
@@ -120,34 +103,29 @@ impl Default for Retry {
 
 impl Retry {
     /// Initializes a default `Retry`.
-    #[allow(unused)]
     pub fn new() -> Retry {
         Retry::default()
     }
 
     /// Sets the number of retries.
-    #[allow(unused)]
     pub fn with_retries(mut self, retries: u32) -> Retry {
         self.retries = retries;
         self
     }
 
     /// Sets the initial delay.
-    #[allow(unused)]
     pub fn with_delay(mut self, delay: Duration) -> Retry {
         self.delay = delay;
         self
     }
 
     /// Sets the backoff.
-    #[allow(unused)]
     pub fn with_backoff(mut self, backoff: u32) -> Retry {
         self.backoff = backoff;
         self
     }
 
     /// Sets the maximum possible delay.
-    #[allow(unused)]
     pub fn with_max_delay(mut self, max_delay: Duration) -> Retry {
         self.max_delay = Some(max_delay);
         self
@@ -161,16 +139,14 @@ impl Retry {
         F: FnMut() -> Result<T, E>,
         P: FnMut(&Retry, &E, u32, Duration) -> bool,
     {
-        let mut attempt = self.retries + 1;
+        let mut attempt = 0;
         let mut delay = self.delay;
 
         loop {
             match f() {
                 Ok(value) => return Ok(value),
                 Err(err) => {
-                    attempt -= 1;
-
-                    if attempt > 0 {
+                    if attempt < self.retries {
                         if !progress(&self, &err, attempt, delay) {
                             return Err(err);
                         }
@@ -188,6 +164,8 @@ impl Retry {
                         // No more remaining attempts.
                         return Err(err);
                     }
+
+                    attempt += 1;
                 }
             }
         }
@@ -196,34 +174,32 @@ impl Retry {
 
 /// Dummy progress callback function. If you don't want to report progress on
 /// for each retry, use this function.
-#[allow(unused_variables)]
 pub fn progress_dummy<E>(
-    retry: &Retry,
-    err: &E,
-    remaining: u32,
-    delay: Duration,
+    _retry: &Retry,
+    _err: &E,
+    _attempt: u32,
+    _delay: Duration,
 ) -> bool {
     // Keep going.
     true
 }
 
 /// Progress callback function for simply printing the progress of each retry.
-#[allow(unused)]
 pub fn progress_print<E>(
     retry: &Retry,
     err: &E,
-    remaining: u32,
+    attempt: u32,
     delay: Duration,
 ) -> bool
 where
-    E: Error,
+    E: Display,
 {
     println!(
-        "Error: {} ({}/{} attempt(s) remaining. Retrying in ~{} seconds...)",
-        err.description(),
-        remaining,
+        "Error: {} (Attempt {}/{}. Retrying in {:?}...)",
+        err,
+        attempt + 1,
         retry.retries,
-        delay.as_secs()
+        delay
     );
     true
 }
