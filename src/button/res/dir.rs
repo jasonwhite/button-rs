@@ -25,7 +25,7 @@ use std::io;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use sha2::{Digest, Sha256};
+use util::Sha256;
 
 use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -112,7 +112,7 @@ impl Resource for Dir {
             Ok(metadata) => {
                 if metadata.is_dir() {
                     // Use an empty hash to indicate existence.
-                    Ok(ResourceState::Checksum(Sha256::default().result()))
+                    Ok(ResourceState::Checksum(Sha256::default()))
                 } else {
                     Err(io::Error::new(io::ErrorKind::Other, "Not a directory"))
                 }
@@ -128,8 +128,8 @@ impl Resource for Dir {
     /// topological order. Thus, if all output resource are accounted for,
     /// directory deletion will always succeed.
     fn delete(&self) -> Result<(), Error> {
-        use util::{Retry, progress_dummy};
         use std::time::Duration;
+        use util::{progress_dummy, Retry};
 
         // Retry directory deletions. On Windows, directory deletions can fail
         // spuriously.

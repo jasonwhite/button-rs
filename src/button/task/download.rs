@@ -23,10 +23,14 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time;
 
+use failure::ResultExt;
+use reqwest;
+use tempfile::NamedTempFile;
+
 use super::traits::{Task, TaskResult};
 
 use res;
-use util::{progress_dummy, Retry};
+use util::{progress_dummy, Retry, Sha256, ShaVerifyError};
 
 /// A task to download a URL. This would normally be a task with no input
 /// resources.
@@ -38,7 +42,7 @@ pub struct Download {
     url: String,
 
     /// Expected SHA256 hash.
-    sha256: String,
+    sha256: Sha256,
 
     /// Output path.
     path: PathBuf,
@@ -50,32 +54,6 @@ pub struct Download {
     /// Retry settings.
     #[serde(default)]
     retry: Retry,
-}
-
-impl Download {
-    #[cfg(test)]
-    #[allow(dead_code)]
-    pub fn new(url: String, sha256: String, path: PathBuf) -> Download {
-        Download {
-            url: url,
-            sha256: sha256,
-            path: path,
-            timeout: None,
-            retry: Retry::new(),
-        }
-    }
-
-    fn execute_impl(&self, _root: &Path, log: &mut io::Write) -> TaskResult {
-        writeln!(log, "Downloading `{:?}` to {:?}", self.url, self.path)?;
-
-        // TODO:
-        //  1. Download to a temporary path.
-        //  2. Verify its checksum. Fail if it is wrong and delete the bad file.
-        //  3. Rename to correct path upon success.
-        //
-        // TODO: Implement timeouts and retries.
-        Ok(())
-    }
 }
 
 impl fmt::Display for Download {
@@ -91,9 +69,33 @@ impl fmt::Debug for Download {
 }
 
 impl Task for Download {
-    fn execute(&self, root: &Path, log: &mut io::Write) -> TaskResult {
-        self.retry
-            .call(|| self.execute_impl(root, log), progress_dummy)
+    fn execute(&self, _root: &Path, log: &mut io::Write) -> TaskResult {
+        writeln!(log, "Downloading \"{}\" to {:?}", self.url, self.path)?;
+
+        // Retry the download if necessary.
+        let mut response = self.retry.call(|| {
+                reqwest::get(&self.url)?.error_for_status()
+            }, progress_dummy)?;
+
+        // Download to a temporary file that sits next to the desired path.
+        let dir = self.path.parent().unwrap_or_else(|| Path::new("."));
+        let mut temp = NamedTempFile::new_in(dir)?;
+
+        response.copy_to(&mut io::BufWriter::new(&mut temp))?;
+
+        let temp = temp.into_temp_path();
+
+        // Verify the SHA256
+        let sha256 = Sha256::from_path(&temp)?;
+        if self.sha256 != sha256 {
+            let result: TaskResult =
+                Err(ShaVerifyError::new(self.sha256.clone(), sha256).into());
+            result.context(format!("Failed to verify SHA256 for URL {}", self.url))?;
+        }
+
+        temp.persist(&self.path)?;
+
+        Ok(())
     }
 
     fn known_outputs(&self, resources: &mut res::Set) {

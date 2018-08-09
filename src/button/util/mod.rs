@@ -23,12 +23,14 @@ mod iter;
 mod path;
 mod queue;
 mod retry;
+mod sha256;
 
 pub use self::counter::Counter;
 pub use self::iter::empty_or_any;
 pub use self::path::PathExt;
 pub use self::queue::RandomQueue;
 pub use self::retry::{progress_dummy, progress_print, Retry};
+pub use self::sha256::{Sha256, ShaVerifyError};
 
 /// A tri-state for checking if we should do things.
 #[derive(

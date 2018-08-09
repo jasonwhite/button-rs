@@ -54,9 +54,11 @@ impl From<json::error::Error> for RulesError {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Rule {
     /// Inputs to the task.
+    #[serde(default)]
     pub inputs: res::Set,
 
     /// Outputs from the task.
+    #[serde(default)]
     pub outputs: res::Set,
 
     /// The sequence of tasks to execute.

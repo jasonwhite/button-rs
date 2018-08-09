@@ -23,3 +23,17 @@ mod traits;
 
 pub use self::console::Console;
 pub use self::traits::{Error, EventLogger, TaskLogger};
+
+// TODO: Add additional loggers:
+//
+//  - dump
+//
+//    A logger that records everything, including the time at which each event
+//    is triggered. This could be useful for "replaying" a build through
+//    different loggers later.
+//
+//  - web
+//
+//    A logger that sends all of the events to a web page for display. This
+//    could be useful for seeing the output for long running tasks as they
+//    occur. It could also display a Gantt chart of the build tasks.

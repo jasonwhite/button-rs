@@ -1,0 +1,37 @@
+[
+    {
+        "tasks": [
+            {
+                "download": {
+                    "url": "https://www.sqlite.org/2018/sqlite-amalgamation-3240000.zip",
+                    "sha256": "ad68c1216c3a474cf360c7581a4001e952515b3649342100f2d7ca7c8e313da6",
+                    "path": "sqlite.zip"
+                }
+            }
+        ]
+    },
+    {
+        "inputs": [{"file": "sqlite.zip"}],
+        "tasks": [
+            {
+                "command": {
+                    "program": "rm",
+                    "args": ["-rf", "sqlite-amalgamation-3240000"]
+                }
+            },
+            {
+                "command": {
+                    "program": "unzip",
+                    "args": ["sqlite.zip"]
+                }
+            },
+            {
+                "command": {
+                    "program": "mv",
+                    "args": ["sqlite-amalgamation-3240000", "sqlite"]
+                }
+            }
+        ],
+        "outputs": []
+    }
+]

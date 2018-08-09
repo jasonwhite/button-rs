@@ -24,7 +24,6 @@ use std::fmt;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -35,7 +34,7 @@ use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 use super::traits::{Error, Resource, ResourceState};
 
 use failure::ResultExt;
-use util::PathExt;
+use util::{self, PathExt};
 
 /// A file resource. This can actually be a file *or* directory.
 ///
@@ -55,9 +54,7 @@ impl FilePath {
 
     /// Assumes this resource is a regular file and returns its checksum.
     fn file_state(&self) -> Result<ResourceState, Error> {
-        let mut hasher = Sha256::default();
-
-        let mut f = match fs::File::open(&self.path) {
+        let f = match fs::File::open(&self.path) {
             Ok(f) => Ok(f),
             Err(err) => match err.kind() {
                 io::ErrorKind::NotFound => {
@@ -67,21 +64,7 @@ impl FilePath {
             },
         }.with_context(|_| format!("Could not open file {:?}", self.path))?;
 
-        const BUF_SIZE: usize = 16384;
-
-        let mut buf = [0u8; BUF_SIZE];
-
-        loop {
-            let n = f.read(&mut buf)?;
-
-            if n == 0 {
-                break;
-            }
-
-            hasher.input(&buf[0..n]);
-        }
-
-        Ok(ResourceState::Checksum(hasher.result()))
+        Ok(ResourceState::Checksum(util::Sha256::from_reader(f)?))
     }
 
     /// Assumes this resource is a directory and returns the checksum of its
@@ -89,7 +72,7 @@ impl FilePath {
     fn dir_state(&self) -> Result<ResourceState, Error> {
         let mut hasher = Sha256::default();
 
-        let mut names = vec![];
+        let mut names = Vec::new();
 
         for entry in fs::read_dir(&self.path)? {
             names.push(entry?.file_name());
@@ -107,7 +90,7 @@ impl FilePath {
             }
         }
 
-        Ok(ResourceState::Checksum(hasher.result()))
+        Ok(ResourceState::Checksum(hasher.result().into()))
     }
 }
 

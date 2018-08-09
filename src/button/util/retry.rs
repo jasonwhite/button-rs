@@ -66,9 +66,9 @@
 // effectively no jittering.
 
 use std::cmp::min;
+use std::fmt::Display;
 use std::thread::sleep;
 use std::time::Duration;
-use std::fmt::Display;
 
 #[derive(
     Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Copy, Clone,

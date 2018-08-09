@@ -25,9 +25,9 @@ use failure;
 
 use serde::Serialize;
 
-use generic_array::{typenum, GenericArray};
+use util;
 
-pub type Checksum = GenericArray<u8, typenum::U32>;
+pub type Checksum = util::Sha256;
 
 /// The state associated with a resource. This is stored in the build state and
 /// used to determine if a resource has changed.
@@ -44,7 +44,7 @@ impl fmt::Display for ResourceState {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             ResourceState::Missing => write!(f, "missing"),
-            ResourceState::Checksum(c) => write!(f, "{:x}", c),
+            ResourceState::Checksum(c) => write!(f, "{}", c),
         }
     }
 }
