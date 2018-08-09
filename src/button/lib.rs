@@ -33,6 +33,7 @@ extern crate serde;
 extern crate serde_json;
 extern crate sha2;
 extern crate tempfile;
+extern crate termcolor;
 
 mod build;
 pub mod build_graph;

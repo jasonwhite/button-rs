@@ -20,26 +20,34 @@
 
 use std::io::{self, Write};
 use std::time::Instant;
+use std::sync::Arc;
 
 use res;
 use task;
 
 use super::traits::{Error, EventLogger, LogResult, TaskLogger};
 
+use termcolor as tc;
+use termcolor::WriteColor;
+
 pub struct ConsoleTask {
+    bufwriter: Arc<tc::BufferWriter>,
+    buf: tc::Buffer,
     start_time: Instant,
-    buf: Vec<u8>,
 }
 
 impl ConsoleTask {
-    pub fn new(thread: usize, task: &task::Any) -> Result<ConsoleTask, Error> {
-        let mut buf = Vec::new();
+    pub fn new(thread: usize, task: &task::Any, bufwriter: Arc<tc::BufferWriter>) -> Result<ConsoleTask, Error> {
+        let mut buf = bufwriter.buffer();
 
-        writeln!(&mut buf, "[{}] {}", thread, task)?;
+        buf.set_color(tc::ColorSpec::new().set_fg(Some(tc::Color::Green)).set_bold(true))?;
+        write!(&mut buf, "[{}] {}", thread, task)?;
+        buf.reset()?;
 
         Ok(ConsoleTask {
-            start_time: Instant::now(),
+            bufwriter,
             buf,
+            start_time: Instant::now(),
         })
     }
 }
@@ -60,34 +68,47 @@ impl io::Write for ConsoleTask {
 
 impl TaskLogger for ConsoleTask {
     fn finish(self, result: &Result<(), Error>) -> LogResult {
-        let duration = self.start_time.elapsed();
 
-        let stdout = io::stdout();
-        let mut stdout = stdout.lock();
+        let ConsoleTask { bufwriter, mut buf, start_time } = self;
+
+        let duration = start_time.elapsed();
 
         // TODO: Convert \r\n to \n on Windows.
-        // TODO: Filter out ASCII escape codes if coloring is turned off.
-        stdout.write_all(&self.buf)?;
+        // TODO: Convert ASCII escape codes to Windows if necessary.
 
         // Add a new line to the end if there isn't one.
-        if !self.buf.ends_with(b"\n") {
-            stdout.write_all(b"\n")?;
+        if !buf.as_slice().ends_with(b"\n") {
+            buf.write_all(b"\n")?;
         }
 
-        writeln!(stdout, "Task duration: {:.4?}", duration)?;
+        buf.set_color(tc::ColorSpec::new().set_fg(Some(tc::Color::Blue)))?;
+        write!(&mut buf, "Task duration")?;
+        buf.reset()?;
+        writeln!(&mut buf, ": {:.4?}", duration)?;
 
         if let Err(err) = result {
+            let mut red_fg = tc::ColorSpec::new();
+            red_fg.set_fg(Some(tc::Color::Red));
+
             // Print out the chain of errors.
             let mut errors = err.iter_chain();
 
             if let Some(err) = errors.next() {
-                writeln!(stdout, "    Error: {}", err)?;
+                buf.set_color(&red_fg)?;
+                write!(&mut buf, "    Error")?;
+                buf.reset()?;
+                writeln!(&mut buf, ": {}", err)?;
             }
 
             for err in errors {
-                writeln!(stdout, "Caused by: {}", err)?;
+                buf.set_color(&red_fg)?;
+                write!(&mut buf, "Caused by")?;
+                buf.reset()?;
+                writeln!(&mut buf, ": {}", err)?;
             }
         }
+
+        bufwriter.print(&buf)?;
 
         Ok(())
     }
@@ -97,21 +118,16 @@ impl TaskLogger for ConsoleTask {
 ///
 /// This buffers task output and prints out the task once it has finished.
 pub struct Console {
-    /// Time since the build started.
     start_time: Instant,
-}
-
-impl Default for Console {
-    fn default() -> Console {
-        Console {
-            start_time: Instant::now(),
-        }
-    }
+    bufwriter: Arc<tc::BufferWriter>,
 }
 
 impl Console {
-    pub fn new() -> Console {
-        Console::default()
+    pub fn new(color: tc::ColorChoice) -> Console {
+        Console {
+            bufwriter: Arc::new(tc::BufferWriter::stdout(color)),
+            start_time: Instant::now(),
+        }
     }
 }
 
@@ -135,7 +151,7 @@ impl EventLogger for Console {
         thread: usize,
         task: &task::Any,
     ) -> Result<ConsoleTask, Error> {
-        ConsoleTask::new(thread, task)
+        ConsoleTask::new(thread, task, self.bufwriter.clone())
     }
 
     fn delete(&self, thread: usize, resource: &res::Any) -> LogResult {

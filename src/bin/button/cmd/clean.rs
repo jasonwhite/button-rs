@@ -23,7 +23,7 @@ use num_cpus;
 
 use failure::Error;
 
-use opts::{rules_path, Coloring};
+use opts::{rules_path, ColorChoice};
 
 use button::{clean, logger};
 
@@ -47,11 +47,11 @@ pub struct Clean {
         long = "color",
         default_value = "auto",
         raw(
-            possible_values = "&Coloring::variants()",
+            possible_values = "&ColorChoice::variants()",
             case_insensitive = "true"
         )
     )]
-    color: Coloring,
+    color: ColorChoice,
 
     /// The number of threads to use. Defaults to the number of logical cores.
     #[structopt(short = "t", long = "threads", default_value = "0")]
@@ -69,7 +69,7 @@ impl Clean {
 
         let root = file.parent().unwrap_or_else(|| Path::new("."));
 
-        let logger = logger::Console::new();
+        let logger = logger::Console::new(self.color.into());
 
         clean(root, self.dryrun, threads, &logger)
     }

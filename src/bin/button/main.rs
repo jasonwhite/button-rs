@@ -22,6 +22,7 @@ extern crate failure;
 extern crate num_cpus;
 #[macro_use]
 extern crate structopt;
+extern crate termcolor;
 
 mod cmd;
 mod opts;

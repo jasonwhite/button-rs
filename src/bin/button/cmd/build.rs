@@ -23,7 +23,7 @@ use num_cpus;
 
 use button::{build, clean, logger, Rules};
 
-use opts::{rules_path, Coloring};
+use opts::{rules_path, ColorChoice};
 
 use failure::{Error, ResultExt};
 
@@ -47,11 +47,11 @@ pub struct Build {
         long = "color",
         default_value = "auto",
         raw(
-            possible_values = "&Coloring::variants()",
+            possible_values = "&ColorChoice::variants()",
             case_insensitive = "true"
         )
     )]
-    color: Coloring,
+    color: ColorChoice,
 
     /// The number of threads to use. Defaults to the number of logical cores.
     #[structopt(short = "t", long = "threads", default_value = "0")]
@@ -92,7 +92,7 @@ impl Build {
         let root = file.parent().unwrap_or_else(|| Path::new("."));
 
         // TODO: Pass the verbosity setting to the logger.
-        let mut logger = logger::Console::new();
+        let mut logger = logger::Console::new(self.color.into());
 
         if self.clean {
             clean(root, self.dryrun, threads, &logger)?;

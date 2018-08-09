@@ -19,36 +19,40 @@
 // THE SOFTWARE.
 
 use std::str::FromStr;
-
 use std::env;
 use std::path::{Path, PathBuf};
 
 use button::util::PathExt;
 
-/// Coloring of command output.
-#[derive(Debug)]
-pub enum Coloring {
-    Auto,
-    Never,
-    Always,
-}
+use termcolor;
 
-impl Coloring {
-    pub fn variants() -> [&'static str; 3] {
-        ["auto", "never", "always"]
+/// A color choice.
+#[derive(Debug, Copy, Clone)]
+pub struct ColorChoice(termcolor::ColorChoice);
+
+impl ColorChoice {
+    pub fn variants() -> [&'static str; 4] {
+        ["auto", "always", "ansi", "never"]
     }
 }
 
-impl FromStr for Coloring {
+impl FromStr for ColorChoice {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "auto" => Ok(Coloring::Auto),
-            "never" => Ok(Coloring::Never),
-            "always" => Ok(Coloring::Always),
-            _ => Err("invalid coloring mode"),
+            "auto" => Ok(ColorChoice(termcolor::ColorChoice::Auto)),
+            "always" => Ok(ColorChoice(termcolor::ColorChoice::Always)),
+            "ansi" => Ok(ColorChoice(termcolor::ColorChoice::AlwaysAnsi)),
+            "never" => Ok(ColorChoice(termcolor::ColorChoice::Never)),
+            _ => Err("invalid color choice"),
         }
+    }
+}
+
+impl Into<termcolor::ColorChoice> for ColorChoice {
+    fn into(self) -> termcolor::ColorChoice {
+        self.0
     }
 }
 
