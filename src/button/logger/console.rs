@@ -27,6 +27,7 @@ use task;
 
 use super::traits::{Error, EventLogger, LogResult, TaskLogger};
 
+use atty;
 use termcolor as tc;
 use termcolor::WriteColor;
 
@@ -143,6 +144,15 @@ pub struct Console {
 
 impl Console {
     pub fn new(verbose: bool, color: tc::ColorChoice) -> Console {
+        // Don't use colors if stdout is piped to a file.
+        let color = if color == tc::ColorChoice::Auto
+            && !atty::is(atty::Stream::Stdout)
+        {
+            tc::ColorChoice::Never
+        } else {
+            color
+        };
+
         Console {
             verbose,
             bufwriter: Arc::new(tc::BufferWriter::stdout(color)),

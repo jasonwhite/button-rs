@@ -24,7 +24,6 @@ use std::str::FromStr;
 
 use button::util::PathExt;
 
-use atty;
 use termcolor;
 
 /// A color choice.
@@ -42,13 +41,7 @@ impl FromStr for ColorChoice {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "auto" => {
-                if atty::is(atty::Stream::Stdout) {
-                    Ok(ColorChoice(termcolor::ColorChoice::Auto))
-                } else {
-                    Ok(ColorChoice(termcolor::ColorChoice::Never))
-                }
-            }
+            "auto" => Ok(ColorChoice(termcolor::ColorChoice::Auto)),
             "always" => Ok(ColorChoice(termcolor::ColorChoice::Always)),
             "ansi" => Ok(ColorChoice(termcolor::ColorChoice::AlwaysAnsi)),
             "never" => Ok(ColorChoice(termcolor::ColorChoice::Never)),
