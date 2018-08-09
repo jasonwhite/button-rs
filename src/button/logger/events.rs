@@ -18,47 +18,49 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+use std::fs;
+use std::io::{self, Write};
+use std::mem;
+use std::path::Path;
+
+use bincode;
+use chrono::{DateTime, Utc};
+
 use res;
 use task;
 
-use chrono::{DateTime, Utc};
+use super::traits::{EventLogger, LogResult, TaskLogger};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BeginBuild {
-    pub datetime: DateTime<Utc>,
     pub threads: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EndBuild {
-    pub datetime: DateTime<Utc>,
     pub result: Result<(), Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StartTask {
-    pub datetime: DateTime<Utc>,
     pub thread: usize,
     pub task: task::Any,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WriteTask {
-    pub datetime: DateTime<Utc>,
     pub thread: usize,
     pub data: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FinishTask {
-    pub datetime: DateTime<Utc>,
     pub thread: usize,
     pub result: Result<(), Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Delete {
-    pub datetime: DateTime<Utc>,
     pub thread: usize,
     pub resource: res::Any,
 }
@@ -116,4 +118,85 @@ impl From<Delete> for LogEvent {
     fn from(event: Delete) -> LogEvent {
         LogEvent::Delete(event)
     }
+}
+
+/// Logs a stream of events from a file path.
+pub fn log_from_path<P, L>(path: P, logger: L, realtime: bool) -> LogResult<()>
+where
+    P: AsRef<Path>,
+    L: EventLogger,
+{
+    let f = fs::File::open(path.as_ref())?;
+    log_from_reader(io::BufReader::new(f), logger, realtime)
+}
+
+/// Logs a stream of events from a reader.
+pub fn log_from_reader<R, L>(
+    mut reader: R,
+    mut logger: L,
+    realtime: bool,
+) -> LogResult<()>
+where
+    R: io::Read,
+    L: EventLogger,
+{
+    use std::thread::sleep;
+
+    // Vector to hold task events for each thread.
+    let mut threads: Vec<Option<L::TaskLogger>> = Vec::new();
+
+    // The timestamp is always serialized first.
+    let mut dt: DateTime<Utc> = bincode::deserialize_from(&mut reader)?;
+
+    // TODO: Catch legitimate deserialization errors.
+    while let Ok((datetime, event)) =
+        bincode::deserialize_from::<_, (DateTime<Utc>, _)>(&mut reader)
+    {
+        if realtime {
+            sleep(datetime.signed_duration_since(dt).to_std()?);
+        }
+
+        dt = datetime;
+
+        match event {
+            LogEvent::BeginBuild(e) => {
+                logger.begin_build(e.threads)?;
+                threads = Vec::with_capacity(e.threads);
+                for _ in 0..e.threads {
+                    threads.push(None);
+                }
+            }
+
+            LogEvent::EndBuild(_e) => {
+                let result = Ok(());
+                // TODO: Construct a failure::Error from the list of string
+                // causes.
+                logger.end_build(&result)?;
+            }
+
+            LogEvent::StartTask(e) => {
+                threads[e.thread] = Some(logger.start_task(e.thread, &e.task)?);
+            }
+
+            LogEvent::WriteTask(e) => {
+                if let Some(ref mut t) = threads[e.thread] {
+                    t.write(&e.data)?;
+                }
+            }
+
+            LogEvent::FinishTask(e) => {
+                if let Some(t) = mem::replace(&mut threads[e.thread], None) {
+                    let result = Ok(());
+                    // TODO: Fix result
+                    t.finish(&result)?;
+                }
+            }
+
+            LogEvent::Delete(e) => {
+                logger.delete(e.thread, &e.resource)?;
+            }
+        }
+    }
+
+    Ok(())
 }

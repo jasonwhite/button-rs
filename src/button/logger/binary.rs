@@ -46,7 +46,6 @@ where
         let mut writer = self.writer.lock().unwrap();
         match writer.dump(
             WriteTask {
-                datetime: Utc::now(),
                 thread: self.thread,
                 data: buf.to_vec(),
             }.into(),
@@ -83,7 +82,6 @@ where
         let mut writer = self.writer.lock().unwrap();
         writer.dump(
             FinishTask {
-                datetime: Utc::now(),
                 thread: self.thread,
                 result,
             }.into(),
@@ -100,8 +98,21 @@ impl<W> BinaryWriter<W>
 where
     W: io::Write,
 {
+    pub fn new(mut writer: W) -> Result<BinaryWriter<W>, bincode::Error> {
+        // Always serialize the date time for when the logger is constructed.
+        // This is used to calculate durations for all subsequent events that
+        // are written.
+        let dt = Utc::now();
+        bincode::serialize_into(&mut writer, &dt)?;
+
+        Ok(BinaryWriter { writer })
+    }
+
     /// Serializes a log event.
-    pub fn dump(&mut self, event: LogEvent) -> bincode::Result<()> {
+    pub fn dump(&mut self, event: LogEvent) -> Result<(), bincode::Error> {
+        // Always serialize a timestamp with the event.
+        let event = (Utc::now(), event);
+
         bincode::serialize_into(&mut self.writer, &event)
     }
 }
@@ -110,11 +121,14 @@ pub struct Binary<W> {
     writer: Arc<Mutex<BinaryWriter<W>>>,
 }
 
-impl<W> Binary<W> {
-    pub fn from_writer(writer: W) -> Binary<W> {
-        Binary {
-            writer: Arc::new(Mutex::new(BinaryWriter { writer })),
-        }
+impl<W> Binary<W>
+where
+    W: io::Write,
+{
+    pub fn from_writer(writer: W) -> Result<Binary<W>, Error> {
+        Ok(Binary {
+            writer: Arc::new(Mutex::new(BinaryWriter::new(writer)?)),
+        })
     }
 }
 
@@ -126,12 +140,7 @@ where
 
     fn begin_build(&mut self, threads: usize) -> LogResult<()> {
         let mut writer = self.writer.lock().unwrap();
-        writer.dump(
-            BeginBuild {
-                datetime: Utc::now(),
-                threads,
-            }.into(),
-        )?;
+        writer.dump(BeginBuild { threads }.into())?;
         Ok(())
     }
 
@@ -144,12 +153,7 @@ where
         };
 
         let mut writer = self.writer.lock().unwrap();
-        writer.dump(
-            EndBuild {
-                datetime: Utc::now(),
-                result,
-            }.into(),
-        )?;
+        writer.dump(EndBuild { result }.into())?;
         Ok(())
     }
 
@@ -161,7 +165,6 @@ where
         let mut writer = self.writer.lock().unwrap();
         writer.dump(
             StartTask {
-                datetime: Utc::now(),
                 thread,
                 task: task.clone(),
             }.into(),
@@ -177,40 +180,11 @@ where
         let mut writer = self.writer.lock().unwrap();
         writer.dump(
             Delete {
-                datetime: Utc::now(),
                 thread,
                 resource: resource.clone(),
             }.into(),
         )?;
 
         Ok(())
-    }
-}
-
-/// Iterator over events in the serialized binary log.
-pub struct EventStream<R> {
-    reader: R,
-}
-
-impl<R> EventStream<R>
-where
-    R: io::Read,
-{
-    pub fn new(reader: R) -> EventStream<R> {
-        EventStream { reader }
-    }
-}
-
-impl<R> Iterator for EventStream<R>
-where
-    R: io::Read,
-{
-    type Item = LogEvent;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match bincode::deserialize_from(&mut self.reader) {
-            Ok(event) => Some(event),
-            Err(_) => None, // TODO: Handle this error somehow
-        }
     }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Jason White
+// Copyright (c) 2018 Jason White
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -18,44 +18,43 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-mod build;
-mod clean;
-mod graph;
-mod replay;
+use std::path::PathBuf;
 
-pub use self::build::Build;
-pub use self::clean::Clean;
-pub use self::graph::Graph;
-pub use self::replay::Replay;
-
-use failure::Error;
+use button::{logger, Error};
+use opts::ColorChoice;
 
 #[derive(StructOpt, Debug)]
-pub enum Command {
-    /// Builds everything.
-    #[structopt(name = "build")]
-    Build(Build),
+pub struct Replay {
+    /// Path to the replay file.
+    #[structopt(parse(from_os_str))]
+    path: PathBuf,
 
-    /// Deletes all files created during the build.
-    #[structopt(name = "clean")]
-    Clean(Clean),
+    /// Perform playback in real time. If not specified, playback is
+    /// instantaneous.
+    #[structopt(long = "realtime")]
+    realtime: bool,
 
-    /// Generates a graphviz file of the build graph.
-    #[structopt(name = "graph")]
-    Graph(Graph),
+    /// Print additional information.
+    #[structopt(long = "verbose", short = "v")]
+    verbose: bool,
 
-    /// Replays a build log file.
-    #[structopt(name = "replay")]
-    Replay(Replay),
+    /// When to colorize the output.
+    #[structopt(
+        long = "color",
+        default_value = "auto",
+        raw(
+            possible_values = "&ColorChoice::variants()",
+            case_insensitive = "true"
+        )
+    )]
+    color: ColorChoice,
 }
 
-impl Command {
+impl Replay {
     pub fn main(&self) -> Result<(), Error> {
-        match self {
-            Command::Build(ref x) => x.main(),
-            Command::Clean(ref x) => x.main(),
-            Command::Graph(ref x) => x.main(),
-            Command::Replay(ref x) => x.main(),
-        }
+        let logger = logger::Console::new(self.verbose, self.color.into());
+        logger::log_from_path(&self.path, logger, self.realtime)?;
+
+        Ok(())
     }
 }

@@ -91,16 +91,23 @@ impl Build {
 
         let root = file.parent().unwrap_or_else(|| Path::new("."));
 
-        let mut logger = logger::binary_file("build.log")?;
+        // Log to both the console and a binary file for later analysis.
+        //
+        // TODO: Write the binary log to .button/log and have `button replay`
+        // automatically replay it if no file is specified.
+        let mut loggers = logger::LoggerList::new();
+        loggers
+            .push(logger::Console::new(self.verbose, self.color.into()).into());
+        loggers.push(logger::binary_file_logger("build.log")?.into());
 
         if self.clean {
-            clean(root, self.dryrun, threads, &logger)?;
+            clean(root, self.dryrun, threads, &loggers)?;
         }
 
         let rules = Rules::from_path(&file).with_context(|_err| {
             format!("Failed loading rules from file {:?}", file)
         })?;
 
-        build(root, rules, self.dryrun, threads, &mut logger)
+        build(root, rules, self.dryrun, threads, &mut loggers)
     }
 }
