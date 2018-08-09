@@ -91,8 +91,7 @@ impl Build {
 
         let root = file.parent().unwrap_or_else(|| Path::new("."));
 
-        // TODO: Pass the verbosity setting to the logger.
-        let mut logger = logger::Console::new(self.color.into());
+        let mut logger = logger::Console::new(self.verbose, self.color.into());
 
         if self.clean {
             clean(root, self.dryrun, threads, &logger)?;

@@ -11,6 +11,7 @@ name = "button"
 path = "src/button/lib.rs"
 
 [dependencies]
+atty = "0.2"
 bincode = "1"
 crossbeam = "0.2"
 failure = "0.1"

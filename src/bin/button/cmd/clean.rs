@@ -69,7 +69,7 @@ impl Clean {
 
         let root = file.parent().unwrap_or_else(|| Path::new("."));
 
-        let logger = logger::Console::new(self.color.into());
+        let logger = logger::Console::new(self.verbose, self.color.into());
 
         clean(root, self.dryrun, threads, &logger)
     }

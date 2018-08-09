@@ -31,6 +31,7 @@ use termcolor as tc;
 use termcolor::WriteColor;
 
 pub struct ConsoleTask {
+    verbose: bool,
     bufwriter: Arc<tc::BufferWriter>,
     buf: tc::Buffer,
     start_time: Instant,
@@ -38,6 +39,7 @@ pub struct ConsoleTask {
 
 impl ConsoleTask {
     pub fn new(
+        verbose: bool,
         thread: usize,
         task: &task::Any,
         bufwriter: Arc<tc::BufferWriter>,
@@ -54,6 +56,7 @@ impl ConsoleTask {
         buf.write_all(b"\n")?;
 
         Ok(ConsoleTask {
+            verbose,
             bufwriter,
             buf,
             start_time: Instant::now(),
@@ -78,6 +81,7 @@ impl io::Write for ConsoleTask {
 impl TaskLogger for ConsoleTask {
     fn finish(self, result: &Result<(), Error>) -> LogResult {
         let ConsoleTask {
+            verbose,
             bufwriter,
             mut buf,
             start_time,
@@ -93,10 +97,12 @@ impl TaskLogger for ConsoleTask {
             buf.write_all(b"\n")?;
         }
 
-        buf.set_color(tc::ColorSpec::new().set_fg(Some(tc::Color::Blue)))?;
-        write!(&mut buf, "Task duration")?;
-        buf.reset()?;
-        writeln!(&mut buf, ": {:.4?}", duration)?;
+        if verbose {
+            buf.set_color(tc::ColorSpec::new().set_fg(Some(tc::Color::Blue)))?;
+            write!(&mut buf, "Task duration")?;
+            buf.reset()?;
+            writeln!(&mut buf, ": {:.4?}", duration)?;
+        }
 
         if let Err(err) = result {
             let mut red_fg = tc::ColorSpec::new();
@@ -130,13 +136,15 @@ impl TaskLogger for ConsoleTask {
 ///
 /// This buffers task output and prints out the task once it has finished.
 pub struct Console {
+    verbose: bool,
     start_time: Instant,
     bufwriter: Arc<tc::BufferWriter>,
 }
 
 impl Console {
-    pub fn new(color: tc::ColorChoice) -> Console {
+    pub fn new(verbose: bool, color: tc::ColorChoice) -> Console {
         Console {
+            verbose,
             bufwriter: Arc::new(tc::BufferWriter::stdout(color)),
             start_time: Instant::now(),
         }
@@ -163,7 +171,7 @@ impl EventLogger for Console {
         thread: usize,
         task: &task::Any,
     ) -> Result<ConsoleTask, Error> {
-        ConsoleTask::new(thread, task, self.bufwriter.clone())
+        ConsoleTask::new(self.verbose, thread, task, self.bufwriter.clone())
     }
 
     fn delete(&self, thread: usize, resource: &res::Any) -> LogResult {
