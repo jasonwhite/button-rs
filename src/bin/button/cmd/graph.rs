@@ -84,7 +84,7 @@ impl Graph {
             stream.flush() // Flush to catch write errors
         } else {
             let mut stdout = io::stdout();
-            // build_graph.graphviz(&mut stdout.lock())?;
+            build_graph.graphviz(&mut stdout.lock())?;
             stdout.flush() // Flush to catch write errors
         }.context("Failed writing GraphViz DOT file")?;
 
