@@ -73,9 +73,10 @@ impl Task for Download {
         writeln!(log, "Downloading \"{}\" to {:?}", self.url, self.path)?;
 
         // Retry the download if necessary.
-        let mut response = self.retry.call(|| {
-                reqwest::get(&self.url)?.error_for_status()
-            }, progress_dummy)?;
+        let mut response = self.retry.call(
+            || reqwest::get(&self.url)?.error_for_status(),
+            progress_dummy,
+        )?;
 
         // Download to a temporary file that sits next to the desired path.
         let dir = self.path.parent().unwrap_or_else(|| Path::new("."));
@@ -90,7 +91,10 @@ impl Task for Download {
         if self.sha256 != sha256 {
             let result: TaskResult =
                 Err(ShaVerifyError::new(self.sha256.clone(), sha256).into());
-            result.context(format!("Failed to verify SHA256 for URL {}", self.url))?;
+            result.context(format!(
+                "Failed to verify SHA256 for URL {}",
+                self.url
+            ))?;
         }
 
         temp.persist(&self.path)?;

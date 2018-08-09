@@ -19,8 +19,8 @@
 // THE SOFTWARE.
 
 use std::io::{self, Write};
-use std::time::Instant;
 use std::sync::Arc;
+use std::time::Instant;
 
 use res;
 use task;
@@ -37,12 +37,21 @@ pub struct ConsoleTask {
 }
 
 impl ConsoleTask {
-    pub fn new(thread: usize, task: &task::Any, bufwriter: Arc<tc::BufferWriter>) -> Result<ConsoleTask, Error> {
+    pub fn new(
+        thread: usize,
+        task: &task::Any,
+        bufwriter: Arc<tc::BufferWriter>,
+    ) -> Result<ConsoleTask, Error> {
         let mut buf = bufwriter.buffer();
 
-        buf.set_color(tc::ColorSpec::new().set_fg(Some(tc::Color::Green)).set_bold(true))?;
+        buf.set_color(
+            tc::ColorSpec::new()
+                .set_fg(Some(tc::Color::Green))
+                .set_bold(true),
+        )?;
         write!(&mut buf, "[{}] {}", thread, task)?;
         buf.reset()?;
+        buf.write_all(b"\n")?;
 
         Ok(ConsoleTask {
             bufwriter,
@@ -68,8 +77,11 @@ impl io::Write for ConsoleTask {
 
 impl TaskLogger for ConsoleTask {
     fn finish(self, result: &Result<(), Error>) -> LogResult {
-
-        let ConsoleTask { bufwriter, mut buf, start_time } = self;
+        let ConsoleTask {
+            bufwriter,
+            mut buf,
+            start_time,
+        } = self;
 
         let duration = start_time.elapsed();
 

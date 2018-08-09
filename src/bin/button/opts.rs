@@ -18,9 +18,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::str::FromStr;
 use std::env;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 use button::util::PathExt;
 
