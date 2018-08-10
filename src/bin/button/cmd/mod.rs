@@ -30,6 +30,8 @@ pub use self::replay::Replay;
 
 use failure::Error;
 
+use opts::GlobalOpts;
+
 #[derive(StructOpt, Debug)]
 pub enum Command {
     /// Builds everything.
@@ -50,12 +52,12 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn main(&self) -> Result<(), Error> {
+    pub fn main(&self, global: &GlobalOpts) -> Result<(), Error> {
         match self {
-            Command::Build(ref x) => x.main(),
-            Command::Clean(ref x) => x.main(),
-            Command::Graph(ref x) => x.main(),
-            Command::Replay(ref x) => x.main(),
+            Command::Build(ref x) => x.main(global),
+            Command::Clean(ref x) => x.main(global),
+            Command::Graph(ref x) => x.main(global),
+            Command::Replay(ref x) => x.main(global),
         }
     }
 }

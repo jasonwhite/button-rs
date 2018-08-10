@@ -18,17 +18,30 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::env;
-use std::path::{Path, PathBuf};
+use atty;
+
 use std::str::FromStr;
 
-use button::util::PathExt;
+use termcolor as tc;
 
-use termcolor;
+/// Global command line options.
+#[derive(StructOpt, Debug)]
+pub struct GlobalOpts {
+    /// When to colorize the output.
+    #[structopt(
+        long = "color",
+        default_value = "auto",
+        raw(
+            possible_values = "&ColorChoice::variants()",
+            case_insensitive = "true"
+        )
+    )]
+    pub color: ColorChoice,
+}
 
 /// A color choice.
 #[derive(Debug, Copy, Clone)]
-pub struct ColorChoice(termcolor::ColorChoice);
+pub struct ColorChoice(tc::ColorChoice);
 
 impl ColorChoice {
     pub fn variants() -> [&'static str; 4] {
@@ -41,83 +54,27 @@ impl FromStr for ColorChoice {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "auto" => Ok(ColorChoice(termcolor::ColorChoice::Auto)),
-            "always" => Ok(ColorChoice(termcolor::ColorChoice::Always)),
-            "ansi" => Ok(ColorChoice(termcolor::ColorChoice::AlwaysAnsi)),
-            "never" => Ok(ColorChoice(termcolor::ColorChoice::Never)),
+            "auto" => Ok(ColorChoice(tc::ColorChoice::Auto)),
+            "always" => Ok(ColorChoice(tc::ColorChoice::Always)),
+            "ansi" => Ok(ColorChoice(tc::ColorChoice::AlwaysAnsi)),
+            "never" => Ok(ColorChoice(tc::ColorChoice::Never)),
             _ => Err("invalid color choice"),
         }
     }
 }
 
-impl Into<termcolor::ColorChoice> for ColorChoice {
-    fn into(self) -> termcolor::ColorChoice {
-        self.0
-    }
-}
-
-#[derive(Debug)]
-pub enum Edges {
-    Explicit,
-    Implicit,
-    Both,
-}
-
-impl Edges {
-    pub fn variants() -> [&'static str; 3] {
-        ["explicit", "implicit", "both"]
-    }
-}
-
-impl FromStr for Edges {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "explicit" => Ok(Edges::Explicit),
-            "implicit" => Ok(Edges::Implicit),
-            "both" => Ok(Edges::Both),
-            _ => Err("invalid edge type"),
-        }
-    }
-}
-
-/// Returns a path to the rules, starting at the given directory. The canonical
-/// name for the JSON rules file is "button.json". This function shall search
-/// for the file in the given starting directory and all parent directories.
-/// Returns `None` if it cannot be found.
-pub fn find_rules_path(start: &Path) -> Option<PathBuf> {
-    let path = start.join("button.json");
-
-    if path.is_file() {
-        // Path was found. Return a path relative to `start`.
-        Some(
-            path.relative_from(&env::current_dir().unwrap())
-                .unwrap_or(path),
-        )
-    } else {
-        // Search in the parent directory.
-        match start.parent() {
-            Some(parent) => find_rules_path(parent),
-            None => None,
-        }
-    }
-}
-
-/// Returns a path to the rules.
-pub fn rules_path(path: &Option<PathBuf>) -> PathBuf {
-    match path {
-        Some(ref path) => path.to_path_buf(),
-        None => {
-            let cwd = env::current_dir().unwrap();
-            match find_rules_path(&cwd) {
-                Some(path) => path,
-
-                // Not found. Just assume it lives in the current directory even
-                // though it doesn't (or it would have been found). The error
-                // will get reported when trying to load this file later.
-                None => PathBuf::from("button.json"),
+impl Into<tc::ColorChoice> for ColorChoice {
+    fn into(self) -> tc::ColorChoice {
+        match self.0 {
+            tc::ColorChoice::Auto => {
+                // Don't use colors if stdout is piped to a file.
+                if atty::is(atty::Stream::Stdout) {
+                    tc::ColorChoice::Auto
+                } else {
+                    tc::ColorChoice::Never
+                }
             }
+            x @ _ => x,
         }
     }
 }

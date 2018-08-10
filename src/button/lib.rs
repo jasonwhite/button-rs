@@ -17,7 +17,6 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-extern crate atty;
 extern crate bincode;
 extern crate chrono;
 #[macro_use]
@@ -48,6 +47,6 @@ pub mod state;
 pub mod task;
 pub mod util;
 
-pub use build::{build, clean, BuildFailure};
+pub use build::{Build, BuildFailure};
 pub use error::Error;
 pub use rules::Rules;

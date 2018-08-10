@@ -20,19 +20,19 @@
 use std::path::{Path, PathBuf};
 
 use num_cpus;
-
 use failure::Error;
 
-use opts::{rules_path, ColorChoice};
+use button::{self, logger};
 
-use button::{clean, logger};
+use opts::GlobalOpts;
+use paths;
 
 #[derive(StructOpt, Debug)]
 pub struct Clean {
-    /// Path to the build description. If not specified, finds "button.json"
-    /// in the current directory or parent directories.
-    #[structopt(long = "file", short = "f", parse(from_os_str))]
-    file: Option<PathBuf>,
+    /// Path to the build rules. If not specified, finds "button.json" in the
+    /// current directory or parent directories.
+    #[structopt(long = "rules", short = "r", parse(from_os_str))]
+    rules: Option<PathBuf>,
 
     /// Doesn't delete anything. Just prints what would be deleted.
     #[structopt(long = "dryrun", short = "n")]
@@ -42,35 +42,25 @@ pub struct Clean {
     #[structopt(long = "verbose", short = "v")]
     verbose: bool,
 
-    /// When to colorize the output.
-    #[structopt(
-        long = "color",
-        default_value = "auto",
-        raw(
-            possible_values = "&ColorChoice::variants()",
-            case_insensitive = "true"
-        )
-    )]
-    color: ColorChoice,
-
     /// The number of threads to use. Defaults to the number of logical cores.
     #[structopt(short = "t", long = "threads", default_value = "0")]
     threads: usize,
 }
 
 impl Clean {
-    pub fn main(&self) -> Result<(), Error> {
-        let file = rules_path(&self.file);
+    pub fn main(&self, global: &GlobalOpts) -> Result<(), Error> {
+        let rules = paths::rules_path(&self.rules);
         let threads = if self.threads == 0 {
             num_cpus::get()
         } else {
             self.threads
         };
 
-        let root = file.parent().unwrap_or_else(|| Path::new("."));
+        let root = rules.parent().unwrap_or_else(|| Path::new("."));
 
-        let logger = logger::Console::new(self.verbose, self.color.into());
+        let logger = logger::Console::new(self.verbose, global.color.into());
 
-        clean(root, self.dryrun, threads, &logger)
+        let build = button::Build::new(root, Path::new(paths::STATE));
+        build.clean(self.dryrun, threads, &logger)
     }
 }

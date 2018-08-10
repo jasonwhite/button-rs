@@ -33,7 +33,7 @@ pub use self::console::{Console, ConsoleTask};
 pub use self::events::{log_from_path, log_from_reader, LogEvent};
 pub use self::traits::{EventLogger, LogResult, TaskLogger};
 
-use error::Error;
+use error::{Error, ResultExt};
 use res;
 use task;
 
@@ -57,8 +57,14 @@ pub fn binary_file_logger<P>(path: P) -> Result<BinaryFile, Error>
 where
     P: AsRef<Path>,
 {
-    let f = fs::File::create(path.as_ref())?;
-    Ok(BinaryFile::from_writer(io::BufWriter::new(f))?)
+    let f = fs::File::create(path.as_ref())
+        .with_context(|_| {
+            format!("Failed creating file {:?}", path.as_ref())
+        })?;
+    Ok(BinaryFile::from_writer(io::BufWriter::new(f))
+       .with_context(|_| {
+           format!("Failed writing to {:?}", path.as_ref())
+       })?)
 }
 
 /// Types of loggers. Useful for static dispatch of multiple loggers.

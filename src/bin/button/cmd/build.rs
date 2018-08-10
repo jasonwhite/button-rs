@@ -20,19 +20,19 @@
 use std::path::{Path, PathBuf};
 
 use num_cpus;
-
-use button::{build, clean, logger, Rules};
-
-use opts::{rules_path, ColorChoice};
-
 use failure::{Error, ResultExt};
+
+use button::{self, logger, Rules};
+
+use opts::GlobalOpts;
+use paths;
 
 #[derive(StructOpt, Debug)]
 pub struct Build {
-    /// Path to the build description. If not specified, finds "button.json" in
-    /// the current directory or parent directories.
-    #[structopt(long = "file", short = "f", parse(from_os_str))]
-    file: Option<PathBuf>,
+    /// Path to the build rules. If not specified, finds "button.json" in the
+    /// current directory or parent directories.
+    #[structopt(long = "rules", short = "r", parse(from_os_str))]
+    rules: Option<PathBuf>,
 
     /// Doesn't run the build. Just prints the tasks that will be executed.
     #[structopt(short = "n", long = "dryrun")]
@@ -41,17 +41,6 @@ pub struct Build {
     /// Print additional information.
     #[structopt(short = "v", long = "verbose")]
     verbose: bool,
-
-    /// When to colorize the output.
-    #[structopt(
-        long = "color",
-        default_value = "auto",
-        raw(
-            possible_values = "&ColorChoice::variants()",
-            case_insensitive = "true"
-        )
-    )]
-    color: ColorChoice,
 
     /// The number of threads to use. Defaults to the number of logical cores.
     #[structopt(short = "t", long = "threads", default_value = "0")]
@@ -81,33 +70,35 @@ pub struct Build {
 }
 
 impl Build {
-    pub fn main(&self) -> Result<(), Error> {
-        let file = rules_path(&self.file);
+    pub fn main(&self, global: &GlobalOpts) -> Result<(), Error> {
+        let rules = paths::rules_path(&self.rules);
         let threads = if self.threads == 0 {
             num_cpus::get()
         } else {
             self.threads
         };
 
-        let root = file.parent().unwrap_or_else(|| Path::new("."));
+        let root = rules.parent().unwrap_or_else(|| Path::new("."));
+
+        // Ensure the .button directory exists.
+        paths::init(&root).context("Failed initializing .button directory")?;
 
         // Log to both the console and a binary file for later analysis.
-        //
-        // TODO: Write the binary log to .button/log and have `button replay`
-        // automatically replay it if no file is specified.
         let mut loggers = logger::LoggerList::new();
         loggers
-            .push(logger::Console::new(self.verbose, self.color.into()).into());
-        loggers.push(logger::binary_file_logger("build.log")?.into());
+            .push(logger::Console::new(self.verbose, global.color.into()).into());
+        loggers.push(logger::binary_file_logger(paths::LOG)?.into());
+
+        let build = button::Build::new(root, Path::new(paths::STATE));
 
         if self.clean {
-            clean(root, self.dryrun, threads, &loggers)?;
+            build.clean(self.dryrun, threads, &loggers)?;
         }
 
-        let rules = Rules::from_path(&file).with_context(|_err| {
-            format!("Failed loading rules from file {:?}", file)
+        let rules = Rules::from_path(&rules).with_context(|_| {
+            format!("Failed loading rules from file {:?}", rules)
         })?;
 
-        build(root, rules, self.dryrun, threads, &mut loggers)
+        build.build(rules, self.dryrun, threads, &mut loggers)
     }
 }

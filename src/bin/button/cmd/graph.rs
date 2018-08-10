@@ -24,16 +24,18 @@ use std::path::PathBuf;
 use button::build_graph::{BuildGraph, FromRules};
 use button::graph::Graphviz;
 use button::rules::Rules;
-use opts::{rules_path, Edges};
+
+use opts::GlobalOpts;
+use paths;
 
 use failure::{Error, ResultExt};
 
 #[derive(StructOpt, Debug)]
 pub struct Graph {
-    /// Path to the build description. If not specified, finds "button.json"
-    /// in the current directory or parent directories.
-    #[structopt(long = "file", short = "f", parse(from_os_str))]
-    file: Option<PathBuf>,
+    /// Path to the build rules. If not specified, finds "button.json" in the
+    /// current directory or parent directories.
+    #[structopt(long = "rules", short = "r", parse(from_os_str))]
+    rules: Option<PathBuf>,
 
     /// Path to the output file. If not specified, writes to standard output.
     #[structopt(long = "output", short = "o", parse(from_os_str))]
@@ -51,26 +53,15 @@ pub struct Graph {
     /// Display the full name for each node instead of the abbreviated name.
     #[structopt(long = "full")]
     full: bool,
-
-    /// Type of edges to show in the graph.
-    #[structopt(
-        long = "edges",
-        default_value = "explicit",
-        raw(
-            possible_values = "&Edges::variants()",
-            case_insensitive = "true"
-        )
-    )]
-    edges: Edges,
 }
 
 impl Graph {
     /// Shows a pretty graph of the build.
-    pub fn main(&self) -> Result<(), Error> {
-        let file = rules_path(&self.file);
+    pub fn main(&self, _global: &GlobalOpts) -> Result<(), Error> {
+        let rules = paths::rules_path(&self.rules);
 
-        let rules = Rules::from_path(&file).with_context(|_| {
-            format!("Failed loading rules from file {:?}", file)
+        let rules = Rules::from_path(&rules).with_context(|_| {
+            format!("Failed loading rules from file {:?}", rules)
         })?;
 
         let build_graph = BuildGraph::from_rules(rules)?;

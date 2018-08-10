@@ -189,241 +189,256 @@ impl<'a> Iterator for DirtyNodes<'a> {
     }
 }
 
-/// Cleans all outputs of the build and the build state.
-///
-/// The clean algorithm proceeds as follows:
-///
-///  1. Load the build state. If the build state does not exist, abort without
-///     error because there is nothing to clean.
-pub fn clean<L>(
-    root: &Path,
-    dryrun: bool,
-    threads: usize,
-    logger: &L,
-) -> Result<(), Error>
-where
-    L: EventLogger,
-{
-    let state_path = root.join(".button-state");
+pub struct Build<'a> {
+    /// Path to the root of the project. This is used to ensure tasks start in
+    /// the correct working directory.
+    root: &'a Path,
 
-    let state = match fs::File::open(&state_path) {
-        Ok(f) => BuildState::from_reader(io::BufReader::new(f)).with_context(
-            |_| {
-                format!(
-                    "Failed loading build state from file {:?}. \
-                     Is it corrupted? Consider doing a `git clean -fdx` \
-                     or equivalent.",
-                    state_path
-                )
-            },
-        )?,
-        Err(err) => {
-            if err.kind() == io::ErrorKind::NotFound {
-                // Nothing to do if it doesn't exist.
-                return Ok(());
-            } else {
-                // Some other fatal IO error occurred.
-                return Err(err.into());
-            }
+    /// Path to the build state. If this has a parent directory, the parent
+    /// directory must exist.
+    state: &'a Path,
+}
+
+impl<'a> Build<'a> {
+    /// Creates a new `Build`.
+    pub fn new(root: &'a Path, state: &'a Path) -> Build<'a>
+    {
+        Build {
+            root,
+            state,
         }
-    };
+    }
 
-    // Delete resources in reverse topological order.
-    state
-        .graph
-        .traverse(
-            |tid, index, node| {
-                if let Node::Resource(r) = node {
-                    // Only delete the resource if the state has been computed.
-                    // A computed state indicates that the build system "owns"
-                    // the resource.
-                    if !dryrun
-                        && !state.graph.is_root_node(index)
-                        && state.checksums.contains_key(&index)
-                    {
-                        logger.delete(tid, r)?;
-                        r.delete()?;
-                    }
-                }
-
-                // Let the traversal proceed to the next node.
-                Ok(true)
-            },
-            threads,
-            true,
-        ).map_err(BuildFailure::new)?; // TODO: Return a ResourceDeletion error.
-
-    // Delete the build state
-    fs::remove_file(&state_path)?;
-
-    Ok(())
-}
-
-/// Runs an incremental build.
-///
-/// The build algorithm proceeds as follows:
-///
-///  1. Load the build state if possible. If there is no build state, creates a
-///     new one.
-///
-///     (a) Updates the build state with the new build graph (which is
-///         constructed from the passed in build rules). This is done diffing
-///         the set of nodes in the two graphs.
-///
-///     (b) For resources that don't exist in the new graph, they are deleted
-///         from disk. Resources are deleted in reverse topological order such
-///         that files are deleted before their parent directories. If any
-///         resources fail to be deleted, the build fails. Resources that are
-///         not owned by the build system yet (i.e., resources whose state has
-///         not yet been computed) are not deleted.
-///
-///  2. Find out-of-date nodes and queue them. For root resources that have
-///     changed state, queue them. For non-root resources that have changed,
-///     queue the task that produces them.
-///
-///     If the queue is empty after this, then there is nothing to do.
-///
-///  3. Create a subgraph from the queued nodes.
-///
-///  4. Traverse the subgraph in topological order, thereby building everything.
-///     For resources that don't change state after being built, traversal
-///     doesn't go any further.
-///
-///  5. For any nodes that failed to build, add them to the queue for execution
-///     next time. We don't want the build to succeed as long as there are
-///     failing nodes.
-///
-///  6. Persist the build state to disk. This is done atomically using a
-///     temporary file and rename.
-pub fn build<L>(
-    root: &Path,
-    rules: Rules,
-    dryrun: bool,
-    threads: usize,
-    logger: &mut L,
-) -> Result<(), Error>
-where
-    L: EventLogger,
-{
-    logger.begin_build(threads)?;
-
-    let result = build_impl(root, rules, dryrun, threads, logger);
-
-    logger.end_build(&result)?;
-    result
-}
-
-fn build_impl<L>(
-    root: &Path,
-    rules: Rules,
-    dryrun: bool,
-    threads: usize,
-    logger: &L,
-) -> Result<(), Error>
-where
-    L: EventLogger,
-{
-    let state_path = root.join(".button-state");
-    let graph = BuildGraph::from_rules(rules)
-        .context("Failed to create build graph from rules")?;
-
-    // Load/create the build state.
-    let BuildState {
-        graph,
-        mut queue,
-        checksums,
-    } = {
-        match fs::File::open(&state_path) {
-            Ok(f) => {
-                let mut state = BuildState::from_reader(io::BufReader::new(f))
-                    .with_context(|_| {
-                        format!(
-                            "Failed loading build state from file {:?}. \
-                             Is it corrupted? Consider doing a \
-                             `git clean -fdx` or equivalent.",
-                            state_path
-                        )
-                    })?;
-                let (old_state, removed) = state.update(graph);
-                if !removed.is_empty() && !dryrun {
-                    // TODO: For a dryrun, print out the resources that would be
-                    // deleted.
-                    delete_nodes(
-                        &old_state,
-                        removed.into_iter(),
-                        threads,
-                        logger,
-                    ).context("Failed deleting resources")?;
-                }
-
-                state
-            }
+    /// Cleans all outputs of the build and the build state.
+    ///
+    /// This does *not* clean up build logs or anything else. Since the client
+    /// is creating these things, it's up to the client to clean them up.
+    pub fn clean<L>(
+        &self,
+        dryrun: bool,
+        threads: usize,
+        logger: &L,
+    ) -> Result<(), Error>
+    where
+        L: EventLogger,
+    {
+        let state = match fs::File::open(self.state) {
+            Ok(f) => BuildState::from_reader(io::BufReader::new(f)).with_context(
+                |_| {
+                    format!(
+                        "Failed loading build state from file {:?}. \
+                         Is it corrupted? Consider doing a `git clean -fdx` \
+                         or equivalent.",
+                        self.state
+                    )
+                },
+            )?,
             Err(err) => {
                 if err.kind() == io::ErrorKind::NotFound {
-                    // If it doesn't exist, create it.
-                    BuildState::from_graph(graph)
+                    // Nothing to do if it doesn't exist.
+                    return Ok(());
                 } else {
                     // Some other fatal IO error occurred.
                     return Err(err.into());
                 }
             }
-        }
-    };
+        };
 
-    for node in DirtyNodes::new(&graph, &checksums) {
-        queue.push(node);
+        // Delete resources in reverse topological order.
+        state
+            .graph
+            .traverse(
+                |tid, index, node| {
+                    if let Node::Resource(r) = node {
+                        // Only delete the resource if the state has been computed.
+                        // A computed state indicates that the build system "owns"
+                        // the resource.
+                        if !dryrun
+                            && !state.graph.is_root_node(index)
+                            && state.checksums.contains_key(&index)
+                        {
+                            logger.delete(tid, r)?;
+                            r.delete()?;
+                        }
+                    }
+
+                    // Let the traversal proceed to the next node.
+                    Ok(true)
+                },
+                threads,
+                true,
+            ).map_err(BuildFailure::new)?; // TODO: Return a ResourceDeletion error.
+
+        // Delete the build state
+        fs::remove_file(self.state)?;
+
+        Ok(())
     }
 
-    if queue.is_empty() {
-        // Don't bother traversing the graph if the queue is empty.
-        println!("Nothing to do!");
-        return Ok(());
+    /// Runs an incremental build.
+    ///
+    /// The build algorithm proceeds as follows:
+    ///
+    ///  1. Load the build state if possible. If there is no build state, creates a
+    ///     new one.
+    ///
+    ///     (a) Updates the build state with the new build graph (which is
+    ///         constructed from the passed in build rules). This is done diffing
+    ///         the set of nodes in the two graphs.
+    ///
+    ///     (b) For resources that don't exist in the new graph, they are deleted
+    ///         from disk. Resources are deleted in reverse topological order such
+    ///         that files are deleted before their parent directories. If any
+    ///         resources fail to be deleted, the build fails. Resources that are
+    ///         not owned by the build system yet (i.e., resources whose state has
+    ///         not yet been computed) are not deleted.
+    ///
+    ///  2. Find out-of-date nodes and queue them. For root resources that have
+    ///     changed state, queue them. For non-root resources that have changed,
+    ///     queue the task that produces them.
+    ///
+    ///     If the queue is empty after this, then there is nothing to do.
+    ///
+    ///  3. Create a subgraph from the queued nodes.
+    ///
+    ///  4. Traverse the subgraph in topological order, thereby building everything.
+    ///     For resources that don't change state after being built, traversal
+    ///     doesn't go any further.
+    ///
+    ///  5. For any nodes that failed to build, add them to the queue for execution
+    ///     next time. We don't want the build to succeed as long as there are
+    ///     failing nodes.
+    ///
+    ///  6. Persist the build state to disk. This is done atomically using a
+    ///     temporary file and rename.
+    pub fn build<L>(
+        &self,
+        rules: Rules,
+        dryrun: bool,
+        threads: usize,
+        logger: &mut L,
+    ) -> Result<(), Error>
+    where
+        L: EventLogger,
+    {
+        logger.begin_build(threads)?;
+
+        let result = self.build_impl(rules, dryrun, threads, logger);
+
+        logger.end_build(&result)?;
+        result
     }
 
-    let context = BuildContext {
-        root,
-        dryrun,
-        checksums: Mutex::new(checksums),
-    };
+    fn build_impl<L>(
+        &self,
+        rules: Rules,
+        dryrun: bool,
+        threads: usize,
+        logger: &L,
+    ) -> Result<(), Error>
+    where
+        L: EventLogger,
+    {
+        let graph = BuildGraph::from_rules(rules)
+            .context("Failed to create build graph from rules")?;
 
-    let result = {
-        // Create the subgraph from the queued nodes.
-        let subgraph = Subgraph::new(&graph, graph.dfs(queue.into_iter()));
+        // Load/create the build state.
+        let BuildState {
+            graph,
+            mut queue,
+            checksums,
+        } = {
+            match fs::File::open(self.state) {
+                Ok(f) => {
+                    let mut state = BuildState::from_reader(io::BufReader::new(f))
+                        .with_context(|_| {
+                            format!(
+                                "Failed loading build state from file {:?}. \
+                                 Is it corrupted? Consider doing a \
+                                 `git clean -fdx` or equivalent.",
+                                self.state
+                            )
+                        })?;
+                    let (old_state, removed) = state.update(graph);
+                    if !removed.is_empty() && !dryrun {
+                        // TODO: For a dryrun, print out the resources that would be
+                        // deleted.
+                        delete_nodes(
+                            &old_state,
+                            removed.into_iter(),
+                            threads,
+                            logger,
+                        ).context("Failed deleting resources")?;
+                    }
 
-        // Build the subgraph.
-        subgraph.traverse(
-            |tid, index, node| build_node(&context, tid, index, node, logger),
-            threads,
-            false,
-        )
-    };
+                    state
+                }
+                Err(err) => {
+                    if err.kind() == io::ErrorKind::NotFound {
+                        // If it doesn't exist, create it.
+                        BuildState::from_graph(graph)
+                    } else {
+                        // Some other fatal IO error occurred.
+                        return Err(err.into());
+                    }
+                }
+            }
+        };
 
-    let queue = {
-        if let Err(errors) = &result {
-            // Queue all failed nodes so that they get visited again next time.
-            errors.iter().map(|x| x.0).collect()
-        } else {
-            Vec::new()
+        for node in DirtyNodes::new(&graph, &checksums) {
+            queue.push(node);
         }
-    };
 
-    // Serialize the state. This must be the last thing that we do. If anything
-    // fails above (e.g., failing to delete a resource), the state will remain
-    // untouched and the error should be reproducible. Note that task failures
-    // should not prevent the state from being saved. Instead, those are added
-    // to the queue to be executed again.
-    BuildState {
-        graph,
-        queue,
-        checksums: context.checksums.into_inner().unwrap(),
-    }.write_to_path(&state_path)
-    .with_context(|_| {
-        format!("Failed writing build state to {:?}", state_path)
-    })?;
+        if queue.is_empty() {
+            // Don't bother traversing the graph if the queue is empty.
+            return Ok(());
+        }
 
-    result.map_err(BuildFailure::new)?;
+        let context = BuildContext {
+            root: self.root,
+            dryrun,
+            checksums: Mutex::new(checksums),
+        };
 
-    Ok(())
+        let result = {
+            // Create the subgraph from the queued nodes.
+            let subgraph = Subgraph::new(&graph, graph.dfs(queue.into_iter()));
+
+            // Build the subgraph.
+            subgraph.traverse(
+                |tid, index, node| build_node(&context, tid, index, node, logger),
+                threads,
+                false,
+            )
+        };
+
+        let queue = {
+            if let Err(errors) = &result {
+                // Queue all failed nodes so that they get visited again next time.
+                errors.iter().map(|x| x.0).collect()
+            } else {
+                Vec::new()
+            }
+        };
+
+        // Serialize the state. This must be the last thing that we do. If anything
+        // fails above (e.g., failing to delete a resource), the state will remain
+        // untouched and the error should be reproducible. Note that task failures
+        // should not prevent the state from being saved. Instead, those are added
+        // to the queue to be executed again.
+        BuildState {
+            graph,
+            queue,
+            checksums: context.checksums.into_inner().unwrap(),
+        }.write_to_path(self.state)
+        .with_context(|_| {
+            format!("Failed writing build state to {:?}", self.state)
+        })?;
+
+        result.map_err(BuildFailure::new)?;
+
+        Ok(())
+    }
 }
 
 fn build_node<L>(

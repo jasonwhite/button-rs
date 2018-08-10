@@ -18,16 +18,18 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use button::{logger, Error};
-use opts::ColorChoice;
+use opts::GlobalOpts;
+
+use failure::ResultExt;
 
 #[derive(StructOpt, Debug)]
 pub struct Replay {
     /// Path to the replay file.
     #[structopt(parse(from_os_str))]
-    path: PathBuf,
+    path: Option<PathBuf>,
 
     /// Perform playback in real time. If not specified, playback is
     /// instantaneous.
@@ -37,23 +39,21 @@ pub struct Replay {
     /// Print additional information.
     #[structopt(long = "verbose", short = "v")]
     verbose: bool,
-
-    /// When to colorize the output.
-    #[structopt(
-        long = "color",
-        default_value = "auto",
-        raw(
-            possible_values = "&ColorChoice::variants()",
-            case_insensitive = "true"
-        )
-    )]
-    color: ColorChoice,
 }
 
 impl Replay {
-    pub fn main(&self) -> Result<(), Error> {
-        let logger = logger::Console::new(self.verbose, self.color.into());
-        logger::log_from_path(&self.path, logger, self.realtime)?;
+    pub fn main(&self, global: &GlobalOpts) -> Result<(), Error> {
+
+        let path = match &self.path {
+            Some(path) => path,
+            None => Path::new(".button/log"),
+        };
+
+        let logger = logger::Console::new(self.verbose, global.color.into());
+        logger::log_from_path(&path, logger, self.realtime)
+            .with_context(|_| {
+                format!("Failed loading binary log from {:?}", path)
+            })?;
 
         Ok(())
     }

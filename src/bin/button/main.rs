@@ -17,6 +17,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+extern crate atty;
 extern crate button;
 extern crate failure;
 extern crate num_cpus;
@@ -24,23 +25,14 @@ extern crate num_cpus;
 extern crate structopt;
 extern crate termcolor;
 
+mod args;
 mod cmd;
 mod opts;
+mod paths;
 
+use args::Args;
 use structopt::StructOpt;
 
 fn main() {
-    // Parse arguments and delegate to a subcommand. If any errors occur, print
-    // out the error and its chain of causes.
-    if let Err(error) = cmd::Command::from_args().main() {
-        let mut causes = error.iter_chain();
-
-        if let Some(cause) = causes.next() {
-            println!("    Error: {}", cause);
-        }
-
-        for cause in causes {
-            println!("Caused by: {}", cause);
-        }
-    }
+    ::std::process::exit(Args::from_args().main())
 }
