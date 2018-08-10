@@ -20,6 +20,7 @@
 
 use std::fmt;
 use std::hash::Hash;
+use std::path::Path;
 
 use failure;
 
@@ -66,7 +67,7 @@ pub trait Resource:
 {
     /// Gets the state of the resource. This is used to determine if it has
     /// changed.
-    fn state(&self) -> Result<ResourceState, Error>;
+    fn state(&self, root: &Path) -> Result<ResourceState, Error>;
 
     /// Deletes the resource. Care should be taken by the caller to not delete
     /// *input* resources. That is, resources that the build system did not
@@ -74,5 +75,5 @@ pub trait Resource:
     /// error if the resource already does not exist. Output resources should be
     /// deleting in reverse topological order such that files can get deleted
     /// before directories.
-    fn delete(&self) -> Result<(), Error>;
+    fn delete(&self, root: &Path) -> Result<(), Error>;
 }

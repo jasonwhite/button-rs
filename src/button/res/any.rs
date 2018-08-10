@@ -19,7 +19,7 @@
 // THE SOFTWARE.
 
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::dir::Dir;
 use super::filepath::FilePath;
@@ -77,17 +77,17 @@ impl From<Dir> for Any {
 }
 
 impl Resource for Any {
-    fn state(&self) -> Result<ResourceState, Error> {
+    fn state(&self, root: &Path) -> Result<ResourceState, Error> {
         match self {
-            Any::File(ref x) => x.state(),
-            Any::Dir(ref x) => x.state(),
+            Any::File(ref x) => x.state(root),
+            Any::Dir(ref x) => x.state(root),
         }
     }
 
-    fn delete(&self) -> Result<(), Error> {
+    fn delete(&self, root: &Path) -> Result<(), Error> {
         match self {
-            Any::File(ref x) => x.delete(),
-            Any::Dir(ref x) => x.delete(),
+            Any::File(ref x) => x.delete(root),
+            Any::Dir(ref x) => x.delete(root),
         }
     }
 }

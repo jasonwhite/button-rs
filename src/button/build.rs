@@ -67,6 +67,7 @@ struct BuildContext<'a> {
 
 /// For a list of nodes, delete them in reverse topological order.
 fn delete_nodes<I, L>(
+    root: &Path,
     state: &BuildState,
     nodes: I,
     threads: usize,
@@ -91,7 +92,7 @@ where
                         && state.checksums.contains_key(&index)
                     {
                         logger.delete(tid, r)?;
-                        r.delete()?;
+                        r.delete(root)?;
                     }
                 }
 
@@ -123,6 +124,7 @@ where
 /// changes and maintaining a queue in the background alleviating this build
 /// latency.
 struct DirtyNodes<'a> {
+    root: &'a Path,
     graph: &'a BuildGraph,
     nodes: <BuildGraph as Nodes<'a>>::Iter,
     checksums: &'a HashMap<usize, ResourceState>,
@@ -130,10 +132,12 @@ struct DirtyNodes<'a> {
 
 impl<'a> DirtyNodes<'a> {
     pub fn new(
+        root: &'a Path,
         graph: &'a BuildGraph,
         checksums: &'a HashMap<usize, ResourceState>,
     ) -> DirtyNodes<'a> {
         DirtyNodes {
+            root,
             graph,
             nodes: graph.nodes(),
             checksums,
@@ -150,7 +154,7 @@ impl<'a> Iterator for DirtyNodes<'a> {
                 match self.checksums.get(&index) {
                     Some(stored_state) => {
                         // Compute the current state and see if they differ.
-                        if let Ok(current_state) = r.state() {
+                        if let Ok(current_state) = r.state(self.root) {
                             if stored_state != &current_state {
                                 if let Some(parent) =
                                     self.graph.incoming(index).next()
@@ -253,7 +257,7 @@ impl<'a> Build<'a> {
                             && state.checksums.contains_key(&index)
                         {
                             logger.delete(tid, r)?;
-                            r.delete()?;
+                            r.delete(self.root)?;
                         }
                     }
 
@@ -362,6 +366,7 @@ impl<'a> Build<'a> {
                         // TODO: For a dryrun, print out the resources that
                         // would be deleted.
                         delete_nodes(
+                            self.root,
                             &old_state,
                             removed.into_iter(),
                             threads,
@@ -383,7 +388,7 @@ impl<'a> Build<'a> {
             }
         };
 
-        for node in DirtyNodes::new(&graph, &checksums) {
+        for node in DirtyNodes::new(self.root, &graph, &checksums) {
             queue.push(node);
         }
 
@@ -464,7 +469,7 @@ fn build_resource(
     index: usize,
     node: &res::Any,
 ) -> Result<bool, Error> {
-    let state = node.state()?;
+    let state = node.state(context.root)?;
 
     let mut checksums = context.checksums.lock().unwrap();
 

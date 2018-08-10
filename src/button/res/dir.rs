@@ -22,7 +22,7 @@ use std::ffi::OsStr;
 use std::fmt;
 use std::fs;
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use util::Sha256;
@@ -42,8 +42,9 @@ impl Dir {
         Dir { path }
     }
 
-    fn delete_impl(&self) -> Result<(), Error> {
-        match fs::remove_dir(&self.path) {
+    fn delete_impl(&self, root: &Path) -> Result<(), Error> {
+        let path = root.join(&self.path);
+        match fs::remove_dir(&path) {
             Ok(()) => Ok(()),
             Err(err) => {
                 match err.kind() {
@@ -107,8 +108,9 @@ impl<'de> Deserialize<'de> for Dir {
 }
 
 impl Resource for Dir {
-    fn state(&self) -> Result<ResourceState, Error> {
-        Ok(match self.path.metadata() {
+    fn state(&self, root: &Path) -> Result<ResourceState, Error> {
+        let path = root.join(&self.path);
+        Ok(match path.metadata() {
             Ok(metadata) => {
                 if metadata.is_dir() {
                     // Use an empty hash to indicate existence.
@@ -127,7 +129,7 @@ impl Resource for Dir {
     /// Deletes the directory if it is empty. Resources are deleted in reverse
     /// topological order. Thus, if all output resource are accounted for,
     /// directory deletion will always succeed.
-    fn delete(&self) -> Result<(), Error> {
+    fn delete(&self, root: &Path) -> Result<(), Error> {
         use std::time::Duration;
         use util::{progress_dummy, Retry};
 
@@ -137,6 +139,6 @@ impl Resource for Dir {
             .with_retries(10)
             .with_delay(Duration::from_millis(50));
 
-        retry.call(|| self.delete_impl(), progress_dummy)
+        retry.call(|| self.delete_impl(root), progress_dummy)
     }
 }

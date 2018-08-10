@@ -88,9 +88,10 @@ impl Build {
         loggers.push(
             logger::Console::new(self.verbose, global.color.into()).into(),
         );
-        loggers.push(logger::binary_file_logger(paths::LOG)?.into());
+        loggers.push(logger::binary_file_logger(root.join(paths::LOG))?.into());
 
-        let build = button::Build::new(root, Path::new(paths::STATE));
+        let state_path = root.join(paths::STATE);
+        let build = button::Build::new(root, &state_path);
 
         if self.clean {
             build.clean(self.dryrun, threads, &loggers)?;

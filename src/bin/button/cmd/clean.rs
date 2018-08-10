@@ -60,7 +60,8 @@ impl Clean {
 
         let logger = logger::Console::new(self.verbose, global.color.into());
 
-        let build = button::Build::new(root, Path::new(paths::STATE));
+        let state_path = root.join(paths::STATE);
+        let build = button::Build::new(root, &state_path);
         build.clean(self.dryrun, threads, &logger)
     }
 }

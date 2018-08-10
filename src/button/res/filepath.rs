@@ -53,8 +53,9 @@ impl FilePath {
     }
 
     /// Assumes this resource is a regular file and returns its checksum.
-    fn file_state(&self) -> Result<ResourceState, Error> {
-        let f = match fs::File::open(&self.path) {
+    fn file_state(&self, root: &Path) -> Result<ResourceState, Error> {
+        let path = root.join(&self.path);
+        let f = match fs::File::open(&path) {
             Ok(f) => Ok(f),
             Err(err) => match err.kind() {
                 io::ErrorKind::NotFound => {
@@ -69,12 +70,14 @@ impl FilePath {
 
     /// Assumes this resource is a directory and returns the checksum of its
     /// file contents.
-    fn dir_state(&self) -> Result<ResourceState, Error> {
+    fn dir_state(&self, root: &Path) -> Result<ResourceState, Error> {
+        let path = root.join(&self.path);
+
         let mut hasher = Sha256::default();
 
         let mut names = Vec::new();
 
-        for entry in fs::read_dir(&self.path)? {
+        for entry in fs::read_dir(&path)? {
             names.push(entry?.file_name());
         }
 
@@ -148,20 +151,22 @@ impl Resource for FilePath {
     /// If a file, the checksum is of the contents of the file. If a directory,
     /// the checksum is of the sorted list of directory entries. Thus, if a file
     /// is added or removed from a directory, the checksum changes.
-    fn state(&self) -> Result<ResourceState, Error> {
+    fn state(&self, root: &Path) -> Result<ResourceState, Error> {
         if self.path.is_dir() {
-            self.dir_state()
+            self.dir_state(root)
         } else {
             // Assume its a file even if its not. It'll error out if there are
             // problems reading it.
-            self.file_state()
+            self.file_state(root)
         }
     }
 
     /// If a file, simply deletes the file. If a directory, deletes the
     /// directory if it is empty.
-    fn delete(&self) -> Result<(), Error> {
-        let metadata = match fs::metadata(&self.path) {
+    fn delete(&self, root: &Path) -> Result<(), Error> {
+        let path = root.join(&self.path);
+
+        let metadata = match fs::metadata(&path) {
             Ok(metadata) => Ok(metadata),
             Err(err) => match err.kind() {
                 io::ErrorKind::NotFound => {
@@ -178,12 +183,12 @@ impl Resource for FilePath {
             //  - A user may have created a file inside of it.
             //  - An untracked output may have been created inside of it.
             //  - On Windows, someone may have a lock on the directory.
-            let _ = fs::remove_dir(&self.path);
+            let _ = fs::remove_dir(&path);
             Ok(())
         } else {
             // Assume its a file even if its not. It'll error out if there are
             // problems deleting it.
-            fs::remove_file(&self.path)?;
+            fs::remove_file(&path)?;
             Ok(())
         }
     }
