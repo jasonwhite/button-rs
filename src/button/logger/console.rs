@@ -25,7 +25,9 @@ use std::time::Instant;
 use res;
 use task;
 
-use super::traits::{Error, EventLogger, LogResult, TaskLogger};
+use error::Error;
+
+use super::traits::{EventLogger, LogResult, TaskLogger};
 
 use atty;
 use termcolor as tc;
@@ -80,7 +82,7 @@ impl io::Write for ConsoleTask {
 }
 
 impl TaskLogger for ConsoleTask {
-    fn finish(self, result: &Result<(), Error>) -> LogResult {
+    fn finish(self, result: &Result<(), Error>) -> LogResult<()> {
         let ConsoleTask {
             verbose,
             bufwriter,
@@ -164,13 +166,13 @@ impl Console {
 impl EventLogger for Console {
     type TaskLogger = ConsoleTask;
 
-    fn begin_build(&mut self, _threads: usize) -> LogResult {
+    fn begin_build(&mut self, _threads: usize) -> LogResult<()> {
         self.start_time = Instant::now();
 
         Ok(())
     }
 
-    fn end_build(&mut self, _result: &Result<(), Error>) -> LogResult {
+    fn end_build(&mut self, _result: &Result<(), Error>) -> LogResult<()> {
         println!("Build duration: {:.4?}", self.start_time.elapsed());
 
         Ok(())
@@ -184,7 +186,7 @@ impl EventLogger for Console {
         ConsoleTask::new(self.verbose, thread, task, self.bufwriter.clone())
     }
 
-    fn delete(&self, thread: usize, resource: &res::Any) -> LogResult {
+    fn delete(&self, thread: usize, resource: &res::Any) -> LogResult<()> {
         println!("[{}] Deleting {}", thread, resource);
 
         Ok(())

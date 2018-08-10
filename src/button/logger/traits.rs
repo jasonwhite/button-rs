@@ -20,18 +20,18 @@
 
 use std::io;
 
-pub use failure::Error;
+use error::Error;
 
 use res;
 use task;
 
 /// A log result represents the result of the logging operation itself. For
 /// example, events should use this to propagate errors relating to IO.
-pub type LogResult = Result<(), Error>;
+pub type LogResult<T> = Result<T, Error>;
 
 pub trait TaskLogger: io::Write {
     /// Finishes the task.
-    fn finish(self, result: &Result<(), Error>) -> LogResult;
+    fn finish(self, result: &Result<(), Error>) -> LogResult<()>;
 }
 
 /// An event logger.
@@ -42,10 +42,10 @@ pub trait EventLogger: Send + Sync {
     type TaskLogger: TaskLogger;
 
     /// Called when the build has started.
-    fn begin_build(&mut self, threads: usize) -> LogResult;
+    fn begin_build(&mut self, threads: usize) -> LogResult<()>;
 
     /// Called when the build has finished.
-    fn end_build(&mut self, result: &Result<(), Error>) -> LogResult;
+    fn end_build(&mut self, result: &Result<(), Error>) -> LogResult<()>;
 
     /// Called when a task is about to be executed.
     fn start_task(
@@ -55,5 +55,5 @@ pub trait EventLogger: Send + Sync {
     ) -> Result<Self::TaskLogger, Error>;
 
     /// Called when a resource is deleted.
-    fn delete(&self, thread: usize, resource: &res::Any) -> LogResult;
+    fn delete(&self, thread: usize, resource: &res::Any) -> LogResult<()>;
 }

@@ -19,6 +19,7 @@
 // THE SOFTWARE.
 extern crate atty;
 extern crate bincode;
+extern crate chrono;
 #[macro_use]
 extern crate serde_derive;
 extern crate crossbeam;
@@ -48,4 +49,5 @@ pub mod task;
 pub mod util;
 
 pub use build::{build, clean, BuildFailure};
+pub use error::Error;
 pub use rules::Rules;
