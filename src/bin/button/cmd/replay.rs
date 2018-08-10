@@ -43,17 +43,15 @@ pub struct Replay {
 
 impl Replay {
     pub fn main(&self, global: &GlobalOpts) -> Result<(), Error> {
-
         let path = match &self.path {
             Some(path) => path,
             None => Path::new(".button/log"),
         };
 
         let logger = logger::Console::new(self.verbose, global.color.into());
-        logger::log_from_path(&path, logger, self.realtime)
-            .with_context(|_| {
-                format!("Failed loading binary log from {:?}", path)
-            })?;
+        logger::log_from_path(&path, logger, self.realtime).with_context(
+            |_| format!("Failed loading binary log from {:?}", path),
+        )?;
 
         Ok(())
     }

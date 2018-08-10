@@ -57,31 +57,28 @@ pub fn binary_file_logger<P>(path: P) -> Result<BinaryFile, Error>
 where
     P: AsRef<Path>,
 {
-    let f = fs::File::create(path.as_ref())
-        .with_context(|_| {
-            format!("Failed creating file {:?}", path.as_ref())
-        })?;
+    let f = fs::File::create(path.as_ref()).with_context(|_| {
+        format!("Failed creating file {:?}", path.as_ref())
+    })?;
     Ok(BinaryFile::from_writer(io::BufWriter::new(f))
-       .with_context(|_| {
-           format!("Failed writing to {:?}", path.as_ref())
-       })?)
+        .with_context(|_| format!("Failed writing to {:?}", path.as_ref()))?)
 }
 
 /// Types of loggers. Useful for static dispatch of multiple loggers.
-pub enum AnyLogger {
+pub enum Any {
     Console(Console),
     BinaryFile(BinaryFile),
 }
 
-impl From<Console> for AnyLogger {
+impl From<Console> for Any {
     fn from(l: Console) -> Self {
-        AnyLogger::Console(l)
+        Any::Console(l)
     }
 }
 
-impl From<BinaryFile> for AnyLogger {
+impl From<BinaryFile> for Any {
     fn from(l: BinaryFile) -> Self {
-        AnyLogger::BinaryFile(l)
+        Any::BinaryFile(l)
     }
 }
 
@@ -127,20 +124,20 @@ impl TaskLogger for AnyTaskLogger {
     }
 }
 
-impl EventLogger for AnyLogger {
+impl EventLogger for Any {
     type TaskLogger = AnyTaskLogger;
 
     fn begin_build(&mut self, threads: usize) -> LogResult<()> {
         match self {
-            AnyLogger::Console(l) => l.begin_build(threads),
-            AnyLogger::BinaryFile(l) => l.begin_build(threads),
+            Any::Console(l) => l.begin_build(threads),
+            Any::BinaryFile(l) => l.begin_build(threads),
         }
     }
 
     fn end_build(&mut self, result: &Result<(), Error>) -> LogResult<()> {
         match self {
-            AnyLogger::Console(l) => l.end_build(result),
-            AnyLogger::BinaryFile(l) => l.end_build(result),
+            Any::Console(l) => l.end_build(result),
+            Any::BinaryFile(l) => l.end_build(result),
         }
     }
 
@@ -150,47 +147,50 @@ impl EventLogger for AnyLogger {
         task: &task::Any,
     ) -> Result<Self::TaskLogger, Error> {
         match self {
-            AnyLogger::Console(l) => Ok(l.start_task(thread, task)?.into()),
-            AnyLogger::BinaryFile(l) => Ok(l.start_task(thread, task)?.into()),
+            Any::Console(l) => Ok(l.start_task(thread, task)?.into()),
+            Any::BinaryFile(l) => Ok(l.start_task(thread, task)?.into()),
         }
     }
 
     fn delete(&self, thread: usize, resource: &res::Any) -> LogResult<()> {
         match self {
-            AnyLogger::Console(l) => l.delete(thread, resource),
-            AnyLogger::BinaryFile(l) => l.delete(thread, resource),
+            Any::Console(l) => l.delete(thread, resource),
+            Any::BinaryFile(l) => l.delete(thread, resource),
         }
     }
 }
 
 /// A list of task loggers.
-pub struct TaskLoggerList {
-    inner: Vec<AnyTaskLogger>,
+pub struct TaskLoggerList<T> {
+    inner: Vec<T>,
 }
 
-impl TaskLoggerList {
-    pub fn with_capacity(capacity: usize) -> TaskLoggerList {
+impl<T> TaskLoggerList<T> {
+    pub fn with_capacity(capacity: usize) -> TaskLoggerList<T> {
         TaskLoggerList {
             inner: Vec::with_capacity(capacity),
         }
     }
 }
 
-impl ops::Deref for TaskLoggerList {
-    type Target = Vec<AnyTaskLogger>;
+impl<T> ops::Deref for TaskLoggerList<T> {
+    type Target = Vec<T>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-impl ops::DerefMut for TaskLoggerList {
+impl<T> ops::DerefMut for TaskLoggerList<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
 }
 
-impl io::Write for TaskLoggerList {
+impl<T> io::Write for TaskLoggerList<T>
+where
+    T: io::Write,
+{
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         for logger in &mut self.inner {
             logger.write(buf)?;
@@ -208,7 +208,10 @@ impl io::Write for TaskLoggerList {
     }
 }
 
-impl TaskLogger for TaskLoggerList {
+impl<T> TaskLogger for TaskLoggerList<T>
+where
+    T: TaskLogger,
+{
     fn finish(self, result: &Result<(), Error>) -> LogResult<()> {
         for logger in self.inner {
             logger.finish(result)?;
@@ -219,32 +222,35 @@ impl TaskLogger for TaskLoggerList {
 }
 
 /// A list of loggers.
-pub struct LoggerList {
-    inner: Vec<AnyLogger>,
+pub struct List<T> {
+    inner: Vec<T>,
 }
 
-impl LoggerList {
-    pub fn new() -> LoggerList {
-        LoggerList { inner: Vec::new() }
+impl<T> List<T> {
+    pub fn new() -> List<T> {
+        List { inner: Vec::new() }
     }
 }
 
-impl ops::Deref for LoggerList {
-    type Target = Vec<AnyLogger>;
+impl<T> ops::Deref for List<T> {
+    type Target = Vec<T>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-impl ops::DerefMut for LoggerList {
+impl<T> ops::DerefMut for List<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
 }
 
-impl EventLogger for LoggerList {
-    type TaskLogger = TaskLoggerList;
+impl<T> EventLogger for List<T>
+where
+    T: EventLogger,
+{
+    type TaskLogger = TaskLoggerList<T::TaskLogger>;
 
     fn begin_build(&mut self, threads: usize) -> LogResult<()> {
         for logger in &mut self.inner {

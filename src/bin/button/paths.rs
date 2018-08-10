@@ -27,11 +27,11 @@
 //! reason. The locations of these files are entirely up to the library user to
 //! configure.
 
+use button::util::PathExt;
+use std::env;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::env;
-use button::util::PathExt;
 
 /// Name of the rules file.
 pub const RULES: &str = "button.json";

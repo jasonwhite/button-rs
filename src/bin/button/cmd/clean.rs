@@ -19,8 +19,8 @@
 // THE SOFTWARE.
 use std::path::{Path, PathBuf};
 
-use num_cpus;
 use failure::Error;
+use num_cpus;
 
 use button::{self, logger};
 

@@ -42,7 +42,8 @@ impl Args {
             red.set_fg(Some(tc::Color::Red));
             red.set_bold(true);
 
-            let mut stdout = tc::StandardStream::stdout(self.global.color.into());
+            let mut stdout =
+                tc::StandardStream::stdout(self.global.color.into());
 
             let mut causes = error.iter_chain();
 
@@ -62,7 +63,7 @@ impl Args {
                 let _ = writeln!(&mut stdout, ": {}", cause);
             }
 
-            return 1
+            return 1;
         }
 
         0

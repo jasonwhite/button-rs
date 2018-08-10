@@ -201,12 +201,8 @@ pub struct Build<'a> {
 
 impl<'a> Build<'a> {
     /// Creates a new `Build`.
-    pub fn new(root: &'a Path, state: &'a Path) -> Build<'a>
-    {
-        Build {
-            root,
-            state,
-        }
+    pub fn new(root: &'a Path, state: &'a Path) -> Build<'a> {
+        Build { root, state }
     }
 
     /// Cleans all outputs of the build and the build state.
@@ -223,16 +219,15 @@ impl<'a> Build<'a> {
         L: EventLogger,
     {
         let state = match fs::File::open(self.state) {
-            Ok(f) => BuildState::from_reader(io::BufReader::new(f)).with_context(
-                |_| {
+            Ok(f) => BuildState::from_reader(io::BufReader::new(f))
+                .with_context(|_| {
                     format!(
                         "Failed loading build state from file {:?}. \
                          Is it corrupted? Consider doing a `git clean -fdx` \
                          or equivalent.",
                         self.state
                     )
-                },
-            )?,
+                })?,
             Err(err) => {
                 if err.kind() == io::ErrorKind::NotFound {
                     // Nothing to do if it doesn't exist.
@@ -250,9 +245,9 @@ impl<'a> Build<'a> {
             .traverse(
                 |tid, index, node| {
                     if let Node::Resource(r) = node {
-                        // Only delete the resource if the state has been computed.
-                        // A computed state indicates that the build system "owns"
-                        // the resource.
+                        // Only delete the resource if the state has been
+                        // computed. A computed state indicates that the build
+                        // system "owns" the resource.
                         if !dryrun
                             && !state.graph.is_root_node(index)
                             && state.checksums.contains_key(&index)
@@ -267,7 +262,8 @@ impl<'a> Build<'a> {
                 },
                 threads,
                 true,
-            ).map_err(BuildFailure::new)?; // TODO: Return a ResourceDeletion error.
+            ).map_err(BuildFailure::new)?;
+        // TODO: Return a ResourceDeletion error.
 
         // Delete the build state
         fs::remove_file(self.state)?;
@@ -279,19 +275,20 @@ impl<'a> Build<'a> {
     ///
     /// The build algorithm proceeds as follows:
     ///
-    ///  1. Load the build state if possible. If there is no build state, creates a
-    ///     new one.
+    ///  1. Load the build state if possible. If there is no build state,
+    ///     creates a new one.
     ///
     ///     (a) Updates the build state with the new build graph (which is
-    ///         constructed from the passed in build rules). This is done diffing
-    ///         the set of nodes in the two graphs.
+    ///         constructed from the passed in build rules). This is done
+    ///         diffing the set of nodes in the two graphs.
     ///
-    ///     (b) For resources that don't exist in the new graph, they are deleted
-    ///         from disk. Resources are deleted in reverse topological order such
-    ///         that files are deleted before their parent directories. If any
-    ///         resources fail to be deleted, the build fails. Resources that are
-    ///         not owned by the build system yet (i.e., resources whose state has
-    ///         not yet been computed) are not deleted.
+    ///     (b) For resources that don't exist in the new graph, they are
+    ///         deleted from disk. Resources are deleted in reverse topological
+    ///         order such that files are deleted before their parent
+    ///         directories. If any resources fail to be deleted, the
+    ///         build fails. Resources that are not owned by the build system
+    ///         yet (i.e., resources whose state has not yet been computed) are
+    ///         not deleted.
     ///
     ///  2. Find out-of-date nodes and queue them. For root resources that have
     ///     changed state, queue them. For non-root resources that have changed,
@@ -301,13 +298,13 @@ impl<'a> Build<'a> {
     ///
     ///  3. Create a subgraph from the queued nodes.
     ///
-    ///  4. Traverse the subgraph in topological order, thereby building everything.
-    ///     For resources that don't change state after being built, traversal
-    ///     doesn't go any further.
+    ///  4. Traverse the subgraph in topological order, thereby building
+    ///     everything. For resources that don't change state after being built,
+    ///     traversal doesn't go any further.
     ///
-    ///  5. For any nodes that failed to build, add them to the queue for execution
-    ///     next time. We don't want the build to succeed as long as there are
-    ///     failing nodes.
+    ///  5. For any nodes that failed to build, add them to the queue for
+    ///     execution next time. We don't want the build to succeed as long as
+    ///     there are failing nodes.
     ///
     ///  6. Persist the build state to disk. This is done atomically using a
     ///     temporary file and rename.
@@ -350,19 +347,20 @@ impl<'a> Build<'a> {
         } = {
             match fs::File::open(self.state) {
                 Ok(f) => {
-                    let mut state = BuildState::from_reader(io::BufReader::new(f))
-                        .with_context(|_| {
-                            format!(
+                    let mut state =
+                        BuildState::from_reader(io::BufReader::new(f))
+                            .with_context(|_| {
+                                format!(
                                 "Failed loading build state from file {:?}. \
                                  Is it corrupted? Consider doing a \
                                  `git clean -fdx` or equivalent.",
                                 self.state
                             )
-                        })?;
+                            })?;
                     let (old_state, removed) = state.update(graph);
                     if !removed.is_empty() && !dryrun {
-                        // TODO: For a dryrun, print out the resources that would be
-                        // deleted.
+                        // TODO: For a dryrun, print out the resources that
+                        // would be deleted.
                         delete_nodes(
                             &old_state,
                             removed.into_iter(),
@@ -406,7 +404,9 @@ impl<'a> Build<'a> {
 
             // Build the subgraph.
             subgraph.traverse(
-                |tid, index, node| build_node(&context, tid, index, node, logger),
+                |tid, index, node| {
+                    build_node(&context, tid, index, node, logger)
+                },
                 threads,
                 false,
             )
@@ -414,18 +414,19 @@ impl<'a> Build<'a> {
 
         let queue = {
             if let Err(errors) = &result {
-                // Queue all failed nodes so that they get visited again next time.
+                // Queue all failed nodes so that they get visited again next
+                // time.
                 errors.iter().map(|x| x.0).collect()
             } else {
                 Vec::new()
             }
         };
 
-        // Serialize the state. This must be the last thing that we do. If anything
-        // fails above (e.g., failing to delete a resource), the state will remain
-        // untouched and the error should be reproducible. Note that task failures
-        // should not prevent the state from being saved. Instead, those are added
-        // to the queue to be executed again.
+        // Serialize the state. This must be the last thing that we do. If
+        // anything fails above (e.g., failing to delete a resource), the state
+        // will remain untouched and the error should be reproducible. Note that
+        // task failures should not prevent the state from being saved. Instead,
+        // those are added to the queue to be executed again.
         BuildState {
             graph,
             queue,

@@ -19,8 +19,8 @@
 // THE SOFTWARE.
 use std::path::{Path, PathBuf};
 
-use num_cpus;
 use failure::{Error, ResultExt};
+use num_cpus;
 
 use button::{self, logger, Rules};
 
@@ -84,9 +84,10 @@ impl Build {
         paths::init(&root).context("Failed initializing .button directory")?;
 
         // Log to both the console and a binary file for later analysis.
-        let mut loggers = logger::LoggerList::new();
-        loggers
-            .push(logger::Console::new(self.verbose, global.color.into()).into());
+        let mut loggers: logger::List<logger::Any> = logger::List::new();
+        loggers.push(
+            logger::Console::new(self.verbose, global.color.into()).into(),
+        );
         loggers.push(logger::binary_file_logger(paths::LOG)?.into());
 
         let build = button::Build::new(root, Path::new(paths::STATE));
