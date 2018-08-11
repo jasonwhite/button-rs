@@ -25,6 +25,7 @@ use std::path::Path;
 
 use bincode;
 use chrono::{DateTime, Utc};
+use error::SerError;
 
 use res;
 use task;
@@ -36,9 +37,9 @@ pub struct BeginBuild {
     pub threads: usize,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct EndBuild {
-    pub result: Result<(), Vec<String>>,
+    pub result: Result<(), SerError>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -53,10 +54,10 @@ pub struct WriteTask {
     pub data: Vec<u8>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct FinishTask {
     pub thread: usize,
-    pub result: Result<(), Vec<String>>,
+    pub result: Result<(), SerError>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -66,7 +67,7 @@ pub struct Delete {
 }
 
 /// A logging event.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum LogEvent {
     BeginBuild(BeginBuild),
     EndBuild(EndBuild),
@@ -148,7 +149,6 @@ where
     // The timestamp is always serialized first.
     let mut dt: DateTime<Utc> = bincode::deserialize_from(&mut reader)?;
 
-    // TODO: Catch legitimate deserialization errors.
     while let Ok((datetime, event)) =
         bincode::deserialize_from::<_, (DateTime<Utc>, _)>(&mut reader)
     {
@@ -167,10 +167,8 @@ where
                 }
             }
 
-            LogEvent::EndBuild(_e) => {
-                let result = Ok(());
-                // TODO: Construct a failure::Error from the list of string
-                // causes.
+            LogEvent::EndBuild(e) => {
+                let result = e.result.map_err(|e| e.into());
                 logger.end_build(&result)?;
             }
 
@@ -186,8 +184,7 @@ where
 
             LogEvent::FinishTask(e) => {
                 if let Some(t) = mem::replace(&mut threads[e.thread], None) {
-                    let result = Ok(());
-                    // TODO: Fix result
+                    let result = e.result.map_err(|e| e.into());
                     t.finish(&result)?;
                 }
             }

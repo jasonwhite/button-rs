@@ -18,4 +18,42 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+use std::fmt;
+
 pub use failure::{Error, ResultExt};
+
+/// A serializable error.
+///
+/// The cause chain is stored as a vector of strings such that it can be
+/// serialized and deserialized easily.
+///
+/// In practice, we don't care about retaining type information because we only
+/// care about displaying the error chain to the user as a string.
+#[derive(Serialize, Deserialize)]
+pub struct SerError(Vec<String>);
+
+impl SerError {
+    pub fn new(error: &Error) -> SerError {
+        SerError(error.iter_chain().map(|c| format!("{}", c)).collect())
+    }
+}
+
+impl fmt::Debug for SerError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{:?}", self.0[0])
+    }
+}
+
+impl Into<Error> for SerError {
+    fn into(self) -> Error {
+        let mut causes = self.0.into_iter().rev();
+
+        let mut err = Error::from_boxed_compat(causes.next().unwrap().into());
+
+        for cause in causes {
+            err = err.context(cause).into();
+        }
+
+        err
+    }
+}
