@@ -26,7 +26,8 @@ use std::path::Path;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::any::Any;
-use super::traits::{Task, TaskResult};
+use super::traits::Task;
+use error::Error;
 
 use res;
 
@@ -94,7 +95,7 @@ impl fmt::Debug for List {
 }
 
 impl Task for List {
-    fn execute(&self, root: &Path, log: &mut io::Write) -> TaskResult {
+    fn execute(&self, root: &Path, log: &mut io::Write) -> Result<(), Error> {
         for task in &self.list {
             task.execute(root, log)?;
         }

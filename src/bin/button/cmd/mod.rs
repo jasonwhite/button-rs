@@ -28,7 +28,7 @@ pub use self::clean::Clean;
 pub use self::graph::Graph;
 pub use self::replay::Replay;
 
-use failure::Error;
+use button::Error;
 
 use opts::GlobalOpts;
 

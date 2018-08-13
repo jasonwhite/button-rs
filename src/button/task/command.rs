@@ -30,10 +30,10 @@ use std::path::{Path, PathBuf};
 use std::process;
 use std::time::Duration;
 
-use failure::ResultExt;
+use error::{Error, ResultExt};
 use tempfile::{NamedTempFile, TempPath};
 
-use super::traits::{Task, TaskResult};
+use super::traits::Task;
 use util::NeverAlwaysAuto;
 
 use res;
@@ -156,7 +156,7 @@ impl Command {
         self
     }
 
-    fn execute_impl(&self, root: &Path, log: &mut io::Write) -> TaskResult {
+    fn execute_impl(&self, root: &Path, log: &mut io::Write) -> Result<(), Error> {
         // TODO:
         //  1. Spawn the process
         //  2. Capture stdout/stderr appropriately.
@@ -289,7 +289,7 @@ impl fmt::Debug for Command {
 }
 
 impl Task for Command {
-    fn execute(&self, root: &Path, log: &mut io::Write) -> TaskResult {
+    fn execute(&self, root: &Path, log: &mut io::Write) -> Result<(), Error> {
         if let Some(ref retry) = self.retry {
             retry.call(|| self.execute_impl(root, log), progress_dummy)
         } else {

@@ -34,7 +34,7 @@ use task::{self, Task};
 
 use graph::{Algo, Neighbors, NodeIndexable, Nodes, Subgraph};
 
-use failure::{Error, ResultExt};
+use error::{Error, ResultExt};
 
 /// A build failure. Contains each of the node indexes that failed and the
 /// associated error.

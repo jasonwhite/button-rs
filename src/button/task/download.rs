@@ -23,11 +23,11 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time;
 
-use failure::ResultExt;
 use reqwest;
 use tempfile::NamedTempFile;
 
-use super::traits::{Task, TaskResult};
+use super::traits::Task;
+use error::{Error, ResultExt};
 
 use res;
 use util::{progress_dummy, Retry, Sha256, ShaVerifyError};
@@ -69,7 +69,7 @@ impl fmt::Debug for Download {
 }
 
 impl Task for Download {
-    fn execute(&self, _root: &Path, log: &mut io::Write) -> TaskResult {
+    fn execute(&self, _root: &Path, log: &mut io::Write) -> Result<(), Error> {
         writeln!(log, "Downloading \"{}\" to {:?}", self.url, self.path)?;
 
         // Retry the download if necessary.
@@ -89,7 +89,7 @@ impl Task for Download {
         // Verify the SHA256
         let sha256 = Sha256::from_path(&temp)?;
         if self.sha256 != sha256 {
-            let result: TaskResult =
+            let result: Result<(), Error> =
                 Err(ShaVerifyError::new(self.sha256.clone(), sha256).into());
             result.context(format!(
                 "Failed to verify SHA256 for URL {}",

@@ -23,13 +23,10 @@ use std::hash::Hash;
 use std::io;
 use std::path::Path;
 
-use failure;
+use error::Error;
 use serde::Serialize;
 
 use res;
-
-pub type TaskError = failure::Error;
-pub type TaskResult = Result<(), TaskError>;
 
 /// A task is a routine to be executed that produces resources as outputs.
 ///
@@ -48,7 +45,7 @@ pub trait Task:
     /// the resources it output. These are its *implicit* inputs and outputs.
     /// Ideally, the *explicit* inputs and outputs are a subset of the
     /// *implicit* inputs and outputs.
-    fn execute(&self, root: &Path, log: &mut io::Write) -> TaskResult;
+    fn execute(&self, root: &Path, log: &mut io::Write) -> Result<(), Error>;
 
     /// Inputs the task knows about *a priori*. It must calculate these by
     /// *only* looking at the task parameters. It should not do anything fancy

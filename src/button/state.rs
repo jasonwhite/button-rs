@@ -30,7 +30,7 @@ use res::ResourceState;
 use graph::{Algo, NodeIndexable, Nodes};
 
 use bincode;
-use failure;
+use error::Error;
 
 use tempfile::NamedTempFile;
 
@@ -70,7 +70,7 @@ impl BuildState {
     /// Reads the state from a file.
     pub fn from_path<P: AsRef<Path>>(
         path: P,
-    ) -> Result<BuildState, failure::Error> {
+    ) -> Result<BuildState, Error> {
         let f = fs::File::open(path)?;
         Ok(Self::from_reader(io::BufReader::new(f))?)
     }
@@ -95,7 +95,7 @@ impl BuildState {
     pub fn write_to_path<P: AsRef<Path>>(
         &self,
         path: P,
-    ) -> Result<(), failure::Error> {
+    ) -> Result<(), Error> {
         let path = path.as_ref();
 
         let dir = path.parent().unwrap_or_else(|| Path::new("."));

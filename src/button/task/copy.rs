@@ -23,7 +23,8 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use super::traits::{Task, TaskResult};
+use super::traits::Task;
+use error::Error;
 
 use res;
 use util::{progress_dummy, Retry};
@@ -45,7 +46,7 @@ pub struct Copy {
 }
 
 impl Copy {
-    fn execute_impl(&self, root: &Path, _log: &mut io::Write) -> TaskResult {
+    fn execute_impl(&self, root: &Path, _log: &mut io::Write) -> Result<(), Error> {
         fs::copy(&root.join(&self.from), &root.join(&self.to))?;
         Ok(())
     }
@@ -64,7 +65,7 @@ impl fmt::Debug for Copy {
 }
 
 impl Task for Copy {
-    fn execute(&self, root: &Path, log: &mut io::Write) -> TaskResult {
+    fn execute(&self, root: &Path, log: &mut io::Write) -> Result<(), Error> {
         self.retry
             .call(|| self.execute_impl(root, log), progress_dummy)
     }

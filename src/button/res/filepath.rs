@@ -31,9 +31,9 @@ use sha2::{Digest, Sha256};
 
 use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 
-use super::traits::{Error, Resource, ResourceState};
+use super::traits::{Resource, ResourceState};
 
-use failure::ResultExt;
+use error::{Error, ResultExt};
 use util::{self, PathExt};
 
 /// A file resource. This can actually be a file *or* directory.

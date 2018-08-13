@@ -19,7 +19,6 @@
 // THE SOFTWARE.
 extern crate atty;
 extern crate button;
-extern crate failure;
 extern crate num_cpus;
 #[macro_use]
 extern crate structopt;

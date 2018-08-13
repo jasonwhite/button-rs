@@ -24,11 +24,10 @@ use std::path::PathBuf;
 use button::build_graph::{BuildGraph, FromRules};
 use button::graph::Graphviz;
 use button::rules::Rules;
+use button::{Error, ResultExt};
 
 use opts::GlobalOpts;
 use paths;
-
-use failure::{Error, ResultExt};
 
 #[derive(StructOpt, Debug)]
 pub struct Graph {

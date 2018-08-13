@@ -25,11 +25,12 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
+use error::Error;
 use util::Sha256;
 
 use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 
-use super::traits::{Error, Resource, ResourceState};
+use super::traits::{Resource, ResourceState};
 
 /// A directory resource. We don't care about the contents of this resource.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]

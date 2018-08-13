@@ -48,5 +48,5 @@ pub mod task;
 pub mod util;
 
 pub use build::{Build, BuildFailure};
-pub use error::Error;
+pub use error::{Error, ResultExt};
 pub use rules::Rules;

@@ -20,10 +20,8 @@
 
 use std::path::{Path, PathBuf};
 
-use button::{logger, Error};
+use button::{logger, Error, ResultExt};
 use opts::GlobalOpts;
-
-use failure::ResultExt;
 
 #[derive(StructOpt, Debug)]
 pub struct Replay {

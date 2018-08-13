@@ -27,7 +27,9 @@ use std::process;
 
 use tempfile;
 
-use super::traits::{Task, TaskResult};
+use error::Error;
+
+use super::traits::Task;
 
 use util::{progress_dummy, Retry};
 
@@ -59,7 +61,7 @@ pub struct BatchScript {
 }
 
 impl BatchScript {
-    fn execute_impl(&self, root: &Path, log: &mut io::Write) -> TaskResult {
+    fn execute_impl(&self, root: &Path, log: &mut io::Write) -> Result<(), Error> {
         let mut cmd = process::Command::new("cmd.exe");
 
         // Don't allow user input.
@@ -127,7 +129,7 @@ impl fmt::Debug for BatchScript {
 }
 
 impl Task for BatchScript {
-    fn execute(&self, root: &Path, log: &mut io::Write) -> TaskResult {
+    fn execute(&self, root: &Path, log: &mut io::Write) -> Result<(), Error> {
         if let Some(ref retry) = self.retry {
             retry.call(|| self.execute_impl(root, log), progress_dummy)
         } else {

@@ -21,9 +21,11 @@
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+use error::Error;
+
 use super::dir::Dir;
 use super::filepath::FilePath;
-use super::traits::{Error, Resource, ResourceState};
+use super::traits::{Resource, ResourceState};
 use std::collections::BTreeSet;
 
 /// A set of resources.

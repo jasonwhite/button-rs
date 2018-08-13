@@ -22,7 +22,7 @@ use std::fmt;
 use std::hash::Hash;
 use std::path::Path;
 
-use failure;
+use error::Error;
 
 use serde::Serialize;
 
@@ -49,8 +49,6 @@ impl fmt::Display for ResourceState {
         }
     }
 }
-
-pub type Error = failure::Error;
 
 /// A resource is an abstract representation of some unit of system state. A
 /// resource can be a file, directory, environment variable. The only thing we
