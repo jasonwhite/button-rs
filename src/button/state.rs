@@ -25,17 +25,15 @@ use std::mem;
 use std::path::Path;
 
 use build_graph::BuildGraph;
+use error::Error;
+use graph::{Algo, NodeIndexable, Nodes};
 use res::ResourceState;
 
-use graph::{Algo, NodeIndexable, Nodes};
-
 use bincode;
-use error::Error;
-
 use tempfile::NamedTempFile;
 
 /// The state of the build.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct BuildState {
     /// The build graph.
     pub graph: BuildGraph,
@@ -75,16 +73,26 @@ impl BuildState {
 
     /// Reads the state from a stream.
     pub fn from_reader<R: io::Read>(
-        reader: R,
+        mut reader: R,
     ) -> Result<BuildState, bincode::Error> {
-        bincode::deserialize_from(reader)
+        // Read the version string.
+        let version: String = bincode::deserialize_from(&mut reader)?;
+
+        if version != env!("CARGO_PKG_VERSION") {
+            // Create a new build state when the version is different. This will
+            // force a full rebuild when `update()` is called.
+            Ok(BuildState::default())
+        } else {
+            bincode::deserialize_from(reader)
+        }
     }
 
     /// Writes the state to a stream.
     pub fn write_to<W: io::Write>(
         &self,
-        writer: W,
+        mut writer: W,
     ) -> Result<(), bincode::Error> {
+        bincode::serialize_into(&mut writer, env!("CARGO_PKG_VERSION"))?;
         bincode::serialize_into(writer, &self)
     }
 
