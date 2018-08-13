@@ -50,7 +50,11 @@ impl MakeDir {
         }
     }
 
-    fn execute_impl(&self, root: &Path, _log: &mut io::Write) -> Result<(), Error> {
+    fn execute_impl(
+        &self,
+        root: &Path,
+        _log: &mut io::Write,
+    ) -> Result<(), Error> {
         fs::create_dir_all(&root.join(&self.path))?;
         Ok(())
     }

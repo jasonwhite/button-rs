@@ -68,9 +68,7 @@ impl BuildState {
     }
 
     /// Reads the state from a file.
-    pub fn from_path<P: AsRef<Path>>(
-        path: P,
-    ) -> Result<BuildState, Error> {
+    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<BuildState, Error> {
         let f = fs::File::open(path)?;
         Ok(Self::from_reader(io::BufReader::new(f))?)
     }
@@ -92,10 +90,7 @@ impl BuildState {
 
     /// Writes the state to a file. Note that the file is atomically updated
     /// using a temporary file.
-    pub fn write_to_path<P: AsRef<Path>>(
-        &self,
-        path: P,
-    ) -> Result<(), Error> {
+    pub fn write_to_path<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
         let path = path.as_ref();
 
         let dir = path.parent().unwrap_or_else(|| Path::new("."));

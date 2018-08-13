@@ -61,7 +61,11 @@ pub struct BatchScript {
 }
 
 impl BatchScript {
-    fn execute_impl(&self, root: &Path, log: &mut io::Write) -> Result<(), Error> {
+    fn execute_impl(
+        &self,
+        root: &Path,
+        log: &mut io::Write,
+    ) -> Result<(), Error> {
         let mut cmd = process::Command::new("cmd.exe");
 
         // Don't allow user input.

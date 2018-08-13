@@ -46,7 +46,11 @@ pub struct Copy {
 }
 
 impl Copy {
-    fn execute_impl(&self, root: &Path, _log: &mut io::Write) -> Result<(), Error> {
+    fn execute_impl(
+        &self,
+        root: &Path,
+        _log: &mut io::Write,
+    ) -> Result<(), Error> {
         fs::copy(&root.join(&self.from), &root.join(&self.to))?;
         Ok(())
     }

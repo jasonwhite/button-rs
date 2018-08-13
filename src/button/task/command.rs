@@ -156,7 +156,11 @@ impl Command {
         self
     }
 
-    fn execute_impl(&self, root: &Path, log: &mut io::Write) -> Result<(), Error> {
+    fn execute_impl(
+        &self,
+        root: &Path,
+        log: &mut io::Write,
+    ) -> Result<(), Error> {
         // TODO:
         //  1. Spawn the process
         //  2. Capture stdout/stderr appropriately.

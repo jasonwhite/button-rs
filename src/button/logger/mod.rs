@@ -228,9 +228,7 @@ pub struct List<T> {
 
 impl<T> Default for List<T> {
     fn default() -> Self {
-        List {
-            inner: Vec::new()
-        }
+        List { inner: Vec::new() }
     }
 }
 

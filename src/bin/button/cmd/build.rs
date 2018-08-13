@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 
 use num_cpus;
 
-use button::{self, logger, Rules, Error, ResultExt};
+use button::{self, logger, Error, ResultExt, Rules};
 
 use opts::GlobalOpts;
 use paths;
