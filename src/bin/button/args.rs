@@ -57,7 +57,7 @@ impl Args {
 
             // Rest of the causes.
             for cause in causes {
-                let _ = stdout.set_color(&red).unwrap();
+                stdout.set_color(&red).unwrap();
                 let _ = write!(&mut stdout, "Caused by");
                 let _ = stdout.reset();
                 let _ = writeln!(&mut stdout, ": {}", cause);

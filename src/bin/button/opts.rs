@@ -74,7 +74,7 @@ impl Into<tc::ColorChoice> for ColorChoice {
                     tc::ColorChoice::Never
                 }
             }
-            x @ _ => x,
+            x => x,
         }
     }
 }

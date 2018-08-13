@@ -57,11 +57,6 @@ where
         }
     }
 
-    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        self.write(buf)?;
-        Ok(())
-    }
-
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }

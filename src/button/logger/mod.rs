@@ -193,7 +193,7 @@ where
 {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         for logger in &mut self.inner {
-            logger.write(buf)?;
+            logger.write_all(buf)?;
         }
 
         Ok(buf.len())
@@ -226,9 +226,17 @@ pub struct List<T> {
     inner: Vec<T>,
 }
 
+impl<T> Default for List<T> {
+    fn default() -> Self {
+        List {
+            inner: Vec::new()
+        }
+    }
+}
+
 impl<T> List<T> {
     pub fn new() -> List<T> {
-        List { inner: Vec::new() }
+        List::default()
     }
 }
 

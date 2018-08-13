@@ -165,7 +165,7 @@ impl<'de> Deserialize<'de> for Sha256 {
                 E: de::Error,
             {
                 let v = <[u8; 32]>::from_hex(v).map_err(|e| match e {
-                    FromHexError::InvalidHexCharacter { c, index: _ } => {
+                    FromHexError::InvalidHexCharacter { c, .. } => {
                         E::invalid_value(
                             de::Unexpected::Char(c),
                             &"string with only hexadecimal characters",

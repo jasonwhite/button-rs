@@ -178,7 +178,7 @@ where
 
             LogEvent::WriteTask(e) => {
                 if let Some(ref mut t) = threads[e.thread] {
-                    t.write(&e.data)?;
+                    t.write_all(&e.data)?;
                 }
             }
 
