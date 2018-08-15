@@ -21,6 +21,7 @@ generic-array = { version = "0.9", features = ["serde"] }
 hex = "0.3"
 indexmap = { version = "1", features = ["serde-1"] }
 num_cpus = "1"
+os_pipe = "0.7"
 rand = "0.5"
 reqwest = "0.8"
 serde = "1"

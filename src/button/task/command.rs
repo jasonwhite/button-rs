@@ -24,11 +24,13 @@ use std::fmt;
 #[cfg(windows)]
 use std::fmt::Write as FmtWrite;
 use std::fs;
-use std::io;
+use std::io::{self, Read};
 use std::io::Write as IoWrite;
 use std::path::{Path, PathBuf};
 use std::process;
 use std::time::Duration;
+
+use os_pipe;
 
 use error::{Error, ResultExt};
 use tempfile::{NamedTempFile, TempPath};
@@ -162,41 +164,52 @@ impl Command {
         log: &mut io::Write,
     ) -> Result<(), Error> {
         // TODO:
-        //  1. Spawn the process
-        //  2. Capture stdout/stderr appropriately.
-        //  4. Add implicit dependency detection framework and refactor all of
-        //     the above to make it work.
-        //  5. Implement timeouts.
+        //  1. Add implicit dependency detection framework and refactor
+        //     everything to make it work.
+        //  2. Implement timeouts (using futures?).
 
-        let mut cmd = process::Command::new(&self.program);
+        let mut child = process::Command::new(&self.program);
 
         if let Some(ref path) = self.stdin {
             if path == Path::new(DEV_NULL) {
-                cmd.stdin(process::Stdio::null());
+                child.stdin(process::Stdio::null());
             } else {
-                cmd.stdin(fs::File::open(path)?);
+                child.stdin(fs::File::open(path)?);
             }
         } else {
             // We don't ever want the build system to pause waiting for user
             // input from the parent process' input stream.
-            cmd.stdin(process::Stdio::null());
+            child.stdin(process::Stdio::null());
         }
 
-        if let Some(ref path) = self.stdout {
-            if path == Path::new(DEV_NULL) {
-                // Use cross-platform method.
-                cmd.stdout(process::Stdio::null());
+        let (mut reader, writer) = os_pipe::pipe()?;
+
+        {
+            // Make sure the writer is dropped even if it isn't used below.
+            // Otherwise, the parent process will hang reading from the child
+            // process.
+            let writer = writer;
+
+            if let Some(ref path) = self.stdout {
+                if path == Path::new(DEV_NULL) {
+                    // Use cross-platform method.
+                    child.stdout(process::Stdio::null());
+                } else {
+                    child.stdout(fs::File::create(path)?);
+                }
             } else {
-                cmd.stdout(fs::File::create(path)?);
+                child.stdout(writer.try_clone()?);
             }
-        }
 
-        if let Some(ref path) = self.stderr {
-            if path == Path::new(DEV_NULL) {
-                // Use cross-platform method.
-                cmd.stderr(process::Stdio::null());
+            if let Some(ref path) = self.stderr {
+                if path == Path::new(DEV_NULL) {
+                    // Use cross-platform method.
+                    child.stderr(process::Stdio::null());
+                } else {
+                    child.stderr(fs::File::create(path)?);
+                }
             } else {
-                cmd.stderr(fs::File::create(path)?);
+                child.stderr(writer);
             }
         }
 
@@ -216,45 +229,57 @@ impl Command {
             let mut arg = OsString::new();
             arg.push("@");
             arg.push(&temp);
-            cmd.arg(&arg);
+            child.arg(&arg);
 
             Some(temp)
         } else {
-            cmd.args(&self.args);
+            child.args(&self.args);
             None
         };
 
         if let Some(ref cwd) = self.cwd {
-            cmd.current_dir(root.join(cwd));
+            child.current_dir(root.join(cwd));
         } else if !root.as_os_str().is_empty() {
-            cmd.current_dir(root);
+            child.current_dir(root);
         }
 
         if let Some(ref env) = self.env {
-            cmd.envs(env);
+            child.envs(env);
         }
 
-        let output = cmd.output().with_context(|_| {
+        let mut handle = child.spawn().with_context(|_| {
             format!("Failed to spawn process {:?}", self.program)
         })?;
+        drop(child);
 
-        // TODO: Interleave stdout and stderr.
-        // TODO: Don't buffer stdout/stderr.
-        log.write_all(&output.stdout).context("writing stdout")?;
-        log.write_all(&output.stderr).context("writing stderr")?;
+        // Read the combined stdout/stderr.
+        let mut buf = [0u8; 4096];
+        loop {
+            let n = reader.read(&mut buf)?;
+            if n == 0 {
+                break;
+            }
 
-        if output.status.success() {
-            Ok(())
-        } else {
-            match output.status.code() {
-                Some(code) => Err(io::Error::new(
+            log.write_all(&buf[0..n])?;
+        }
+
+        // Wait for the child to exit.
+        match handle.wait()?.code() {
+            Some(code) => {
+                if code == 0 {
+                    Ok(())
+                } else {
+                    Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        format!("Process exited with error code {}", code)
+                    ).into())
+                }
+            }
+            None => {
+                Err(io::Error::new(
                     io::ErrorKind::Other,
-                    format!("Process exited with error code {}", code),
-                ).into()),
-                None => Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "Process terminated by signal",
-                ).into()),
+                    "Process terminated by signal"
+                ).into())
             }
         }
     }
