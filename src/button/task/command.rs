@@ -28,7 +28,6 @@ use std::io::{self, Read};
 use std::io::Write as IoWrite;
 use std::path::{Path, PathBuf};
 use std::process;
-use std::time::Duration;
 
 use os_pipe;
 
@@ -95,10 +94,6 @@ pub struct Command {
     /// arguments are displayed in full instead.
     display: Option<String>,
 
-    /// How much time to give the command to execute. If `None`, there is no
-    /// time limit.
-    timeout: Option<Duration>,
-
     /// Retry settings.
     retry: Option<Retry>,
 }
@@ -116,7 +111,6 @@ impl Command {
             stdout: None,
             stderr: None,
             display: None,
-            timeout: None,
             retry: None,
         })
     }
@@ -141,13 +135,6 @@ impl Command {
     #[allow(dead_code)]
     pub fn display(&mut self, display: String) -> &mut Command {
         self.display = Some(display);
-        self
-    }
-
-    // Sets the timeout for the command.
-    #[allow(dead_code)]
-    pub fn timeout(&mut self, timeout: Duration) -> &mut Command {
-        self.timeout = Some(timeout);
         self
     }
 
