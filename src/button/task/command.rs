@@ -24,8 +24,7 @@ use std::fmt;
 #[cfg(windows)]
 use std::fmt::Write as FmtWrite;
 use std::fs;
-use std::io::{self, Read};
-use std::io::Write as IoWrite;
+use std::io::{self, Read, Write as IoWrite};
 use std::path::{Path, PathBuf};
 use std::process;
 
@@ -258,16 +257,14 @@ impl Command {
                 } else {
                     Err(io::Error::new(
                         io::ErrorKind::Other,
-                        format!("Process exited with error code {}", code)
+                        format!("Process exited with error code {}", code),
                     ).into())
                 }
             }
-            None => {
-                Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "Process terminated by signal"
-                ).into())
-            }
+            None => Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Process terminated by signal",
+            ).into()),
         }
     }
 }
