@@ -51,7 +51,7 @@ impl fmt::Display for ResourceState {
 }
 
 /// A resource is an abstract representation of some unit of system state. A
-/// resource can be a file, directory, environment variable. The only thing we
+/// resource can be a file, directory, environment variable. The main things we
 /// are interested in doing with a resource is:
 ///
 ///  1. Getting its state so that we can determine if it has changed.

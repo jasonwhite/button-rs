@@ -250,7 +250,8 @@ impl Command {
         }
 
         // Wait for the child to exit.
-        match handle.wait()?.code() {
+        let status = handle.wait()?;
+        match status.code() {
             Some(code) => {
                 if code == 0 {
                     Ok(())
@@ -261,10 +262,23 @@ impl Command {
                     ).into())
                 }
             }
-            None => Err(io::Error::new(
-                io::ErrorKind::Other,
-                "Process terminated by signal",
-            ).into()),
+            None => {
+                #[cfg(unix)]
+                {
+                    use std::os::unix::process::ExitStatusExt;
+
+                    Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        format!(
+                            "Process terminated by signal {}",
+                            status.signal().unwrap()
+                        ),
+                    ).into())
+                }
+
+                #[cfg(windows)]
+                Ok(())
+            }
         }
     }
 }
