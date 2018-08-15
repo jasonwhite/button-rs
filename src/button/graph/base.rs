@@ -23,7 +23,7 @@ use std::slice;
 
 use indexmap::map::{self, IndexMap};
 
-use super::visit::{
+use super::traits::{
     Algo, Edges, GraphBase, Neighbors, NodeIndexable, Nodes, Visitable,
 };
 

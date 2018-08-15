@@ -20,7 +20,7 @@
 use std::collections::{hash_set, HashMap, HashSet};
 use std::iter;
 
-use super::visit::{
+use super::traits::{
     Algo, GraphBase, Neighbors, NodeIndexable, Nodes, Visitable,
 };
 

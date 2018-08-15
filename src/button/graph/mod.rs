@@ -20,11 +20,11 @@
 
 mod base;
 mod subgraph;
-mod visit;
+mod traits;
 
 pub use self::base::{Graph, NodeTrait};
 pub use self::subgraph::Subgraph;
-pub use self::visit::{
+pub use self::traits::{
     Algo, Edges, GraphBase, Graphviz, Neighbors, NodeIndexable, Nodes,
     VisitMap, Visitable,
 };
