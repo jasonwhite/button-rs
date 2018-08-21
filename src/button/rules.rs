@@ -65,10 +65,24 @@ pub struct Rule {
     pub tasks: task::List,
 }
 
-#[derive(Debug, PartialEq)]
-pub struct Rules {
-    pub rules: Vec<Rule>,
+/// A group of rules.
+///
+/// Partitions are used to group tasks together to be cached or distributed
+/// to another machine.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Partition {
+    /// The set of inputs for all tasks in the partition. These are used to
+    /// calculate the cache key and are also sent to another machine for
+    /// distributed builds.
+    #[serde(default)]
+    inputs: res::Set,
+
+    /// List of rules that are in this partition.
+    rules: Vec<Rule>,
 }
+
+#[derive(Debug, PartialEq)]
+pub struct Rules(Vec<Rule>);
 
 impl Rules {
     pub fn new(mut rules: Vec<Rule>) -> Rules {
@@ -78,7 +92,7 @@ impl Rules {
             r.tasks.known_outputs(&mut r.outputs);
         }
 
-        Rules { rules }
+        Rules(rules)
     }
 
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Rules, RulesError> {
@@ -94,21 +108,21 @@ impl Rules {
     }
 
     #[cfg(test)]
-    pub fn from_str<'a>(s: &'a str) -> Result<Rules, RulesError> {
+    pub fn from_str(s: &str) -> Result<Rules, RulesError> {
         Ok(Self::new(json::from_str(s)?))
     }
 
     #[cfg(test)]
     pub fn to_string(&self) -> Result<String, json::error::Error> {
-        Ok(json::to_string(&self.rules)?)
+        Ok(json::to_string(&self.0)?)
     }
 
     pub fn iter(&self) -> Iter<Rule> {
-        self.rules.iter()
+        self.0.iter()
     }
 
     pub fn iter_mut(&mut self) -> IterMut<Rule> {
-        self.rules.iter_mut()
+        self.0.iter_mut()
     }
 }
 
@@ -117,7 +131,7 @@ impl IntoIterator for Rules {
     type IntoIter = ::std::vec::IntoIter<Rule>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.rules.into_iter()
+        self.0.into_iter()
     }
 }
 
@@ -152,7 +166,8 @@ mod tests {
 
         let outputs = vec![FilePath::from("foo.o").into()];
         let tasks = vec![
-            Command::new(PathBuf::from("gcc"), vec!["foo.c".to_owned()]).into(),
+            Command::new(PathBuf::from("gcc"), vec!["foo.c"].iter().collect())
+                .into(),
         ];
 
         assert_eq!(

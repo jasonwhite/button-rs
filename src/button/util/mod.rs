@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+mod args;
 mod counter;
 mod iter;
 mod path;
@@ -25,6 +26,7 @@ mod queue;
 mod retry;
 mod sha256;
 
+pub use self::args::{Arg, ArgBuf, Arguments};
 pub use self::counter::Counter;
 pub use self::iter::empty_or_any;
 pub use self::path::PathExt;

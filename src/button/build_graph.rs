@@ -49,32 +49,6 @@ impl fmt::Display for Node {
     }
 }
 
-#[derive(
-    Serialize,
-    Deserialize,
-    Clone,
-    Copy,
-    Ord,
-    Eq,
-    PartialOrd,
-    PartialEq,
-    Hash,
-    Debug,
-)]
-pub enum Edge {
-    /// An explicit edge is one that is user-defined in the build description.
-    /// That is, it is *explicitly* declared.
-    Explicit,
-
-    /// An implicit edge is one that is automatically determined after the task
-    /// is executed. That is, it is *implicitly* discovered. Tasks, when
-    /// executed, return resources that are read from or written to. The edges
-    /// associated with these resources are then implicit. It is usually the
-    /// case that, for every implicit edge, there is an equivalent explicit
-    /// edge.
-    Implicit,
-}
-
 /// Error for when one or more cycles are detected in the build graph.
 #[derive(Eq, PartialEq)]
 pub struct CyclesError<N, E>
@@ -243,7 +217,7 @@ impl error::Error for RaceError {
 #[derive(Debug, Eq, PartialEq)]
 pub enum Error {
     Races(RaceError),
-    Cycles(CyclesError<Node, Edge>),
+    Cycles(CyclesError<Node, ()>),
 }
 
 impl From<RaceError> for Error {
@@ -252,8 +226,8 @@ impl From<RaceError> for Error {
     }
 }
 
-impl From<CyclesError<Node, Edge>> for Error {
-    fn from(err: CyclesError<Node, Edge>) -> Error {
+impl From<CyclesError<Node, ()>> for Error {
+    fn from(err: CyclesError<Node, ()>) -> Error {
         Error::Cycles(err)
     }
 }
@@ -283,7 +257,9 @@ impl error::Error for Error {
     }
 }
 
-pub type BuildGraph = Graph<Node, Edge>;
+pub type BuildGraph = Graph<Node, ()>;
+
+pub type SuperBuildGraph = Graph<Graph<Node, ()>, ()>;
 
 /// The build graph.
 ///
@@ -312,12 +288,12 @@ impl FromRules for BuildGraph {
 
             for r in inputs {
                 let node = g.add_node(Node::Resource(r));
-                g.add_edge(node, task, Edge::Explicit);
+                g.add_edge(node, task, ());
             }
 
             for r in outputs {
                 let node = g.add_node(Node::Resource(r));
-                g.add_edge(task, node, Edge::Explicit);
+                g.add_edge(task, node, ());
             }
         }
 
@@ -388,9 +364,7 @@ impl Graphviz for BuildGraph {
 /// more parents. In such a case where two tasks output the same resource,
 /// depending on the order in which they get executed, they could be overwriting
 /// each other's output.
-fn check_races(
-    graph: Graph<Node, Edge>,
-) -> Result<Graph<Node, Edge>, RaceError> {
+fn check_races(graph: Graph<Node, ()>) -> Result<Graph<Node, ()>, RaceError> {
     let mut races = Vec::new();
 
     for i in graph.nodes() {

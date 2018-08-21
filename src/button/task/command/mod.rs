@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Jason White
+// Copyright (c) 2018 Jason White
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -18,26 +18,27 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+mod detect;
+
+use self::detect::{Detect, Process};
+
 use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::fmt;
-#[cfg(windows)]
-use std::fmt::Write as FmtWrite;
 use std::fs;
-use std::io::{self, Read, Write as IoWrite};
+use std::io;
 use std::path::{Path, PathBuf};
 use std::process;
 
 use os_pipe;
 
 use error::{Error, ResultExt};
-use tempfile::{NamedTempFile, TempPath};
 
 use super::traits::Task;
 use util::NeverAlwaysAuto;
 
 use res;
-use util::{progress_dummy, Retry};
+use util::{progress_dummy, Arg, Arguments, Retry};
 
 const DEV_NULL: &str = "/dev/null";
 
@@ -51,7 +52,7 @@ pub struct Command {
     program: PathBuf,
 
     /// Program arguments.
-    args: Vec<String>,
+    args: Arguments,
 
     /// Optional working directory to spawn the process in. If `None`, uses the
     /// working directory of the parent process (i.e., the build process).
@@ -95,11 +96,14 @@ pub struct Command {
 
     /// Retry settings.
     retry: Option<Retry>,
+
+    /// Input and output detection
+    detect: Option<Detect>,
 }
 
 impl Command {
     #[cfg(test)]
-    pub fn new(program: PathBuf, args: Vec<String>) -> Box<Command> {
+    pub fn new(program: PathBuf, args: Arguments) -> Box<Command> {
         Box::new(Command {
             program: program,
             args: args,
@@ -144,16 +148,7 @@ impl Command {
         self
     }
 
-    fn execute_impl(
-        &self,
-        root: &Path,
-        log: &mut io::Write,
-    ) -> Result<(), Error> {
-        // TODO:
-        //  1. Add implicit dependency detection framework and refactor
-        //     everything to make it work.
-        //  2. Implement timeouts (using futures?).
-
+    fn create_process(&self, root: &Path) -> Result<Process, Error> {
         let mut child = process::Command::new(&self.program);
 
         if let Some(ref path) = self.stdin {
@@ -168,7 +163,7 @@ impl Command {
             child.stdin(process::Stdio::null());
         }
 
-        let (mut reader, writer) = os_pipe::pipe()?;
+        let (reader, writer) = os_pipe::pipe()?;
 
         {
             // Make sure the writer is dropped even if it isn't used below.
@@ -199,17 +194,27 @@ impl Command {
             }
         }
 
+        if let Some(ref cwd) = self.cwd {
+            child.current_dir(root.join(cwd));
+        } else if !root.as_os_str().is_empty() {
+            child.current_dir(root);
+        }
+
+        if let Some(ref env) = self.env {
+            child.envs(env);
+        }
+
         // Generate a response file if necessary.
         let generate_response_file = match self.response_file {
             NeverAlwaysAuto::Never => false,
             NeverAlwaysAuto::Always => true,
-            NeverAlwaysAuto::Auto => args_too_large(&self.args),
+            NeverAlwaysAuto::Auto => self.args.is_too_large(),
         };
 
-        // The temporary response file needs to outlive the spawned process, so
-        // it needs to be bound to a variable even if it is never used.
-        let _rsp = if generate_response_file {
-            let temp = response_file(&self.args)
+        let response_file = if generate_response_file {
+            let temp = self
+                .args
+                .response_file()
                 .context("Failed writing response file")?;
 
             let mut arg = OsString::new();
@@ -223,63 +228,31 @@ impl Command {
             None
         };
 
-        if let Some(ref cwd) = self.cwd {
-            child.current_dir(root.join(cwd));
-        } else if !root.as_os_str().is_empty() {
-            child.current_dir(root);
+        Ok(Process::new(child, reader, response_file))
+    }
+
+    fn execute_impl(
+        &self,
+        root: &Path,
+        log: &mut io::Write,
+    ) -> Result<(), Error> {
+        let process = self.create_process(root)?;
+
+        let detect = self
+            .detect
+            .unwrap_or_else(|| Detect::from_program(&self.program));
+
+        let detected = detect.run(root, process, log)?;
+
+        for p in detected.inputs() {
+            writeln!(log, "Input: {:?}", p)?;
         }
 
-        if let Some(ref env) = self.env {
-            child.envs(env);
+        for p in detected.outputs() {
+            writeln!(log, "Output: {:?}", p)?;
         }
 
-        let mut handle = child.spawn().with_context(|_| {
-            format!("Failed to spawn process {:?}", self.program)
-        })?;
-        drop(child);
-
-        // Read the combined stdout/stderr.
-        let mut buf = [0u8; 4096];
-        loop {
-            let n = reader.read(&mut buf)?;
-            if n == 0 {
-                break;
-            }
-
-            log.write_all(&buf[0..n])?;
-        }
-
-        // Wait for the child to exit.
-        let status = handle.wait()?;
-        match status.code() {
-            Some(code) => {
-                if code == 0 {
-                    Ok(())
-                } else {
-                    Err(io::Error::new(
-                        io::ErrorKind::Other,
-                        format!("Process exited with error code {}", code),
-                    ).into())
-                }
-            }
-            None => {
-                #[cfg(unix)]
-                {
-                    use std::os::unix::process::ExitStatusExt;
-
-                    Err(io::Error::new(
-                        io::ErrorKind::Other,
-                        format!(
-                            "Process terminated by signal {}",
-                            status.signal().unwrap()
-                        ),
-                    ).into())
-                }
-
-                #[cfg(windows)]
-                Ok(())
-            }
-        }
+        Ok(())
     }
 }
 
@@ -288,10 +261,14 @@ impl fmt::Display for Command {
         if let Some(ref display) = self.display {
             write!(f, "{}", display)
         } else {
-            write!(f, "{}", Arg::new(self.program.to_string_lossy().as_ref()))?;
+            write!(
+                f,
+                "{}",
+                Arg::new(&self.program.to_string_lossy().as_ref())
+            )?;
 
             for arg in &self.args {
-                write!(f, " {}", Arg::new(arg))?;
+                write!(f, " {}", arg)?;
             }
 
             Ok(())
@@ -303,10 +280,10 @@ impl fmt::Debug for Command {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "\"")?;
 
-        write!(f, "{}", Arg::new(self.program.to_string_lossy().as_ref()))?;
+        write!(f, "{}", Arg::new(&self.program.to_string_lossy().as_ref()))?;
 
         for arg in &self.args {
-            write!(f, " {}", Arg::new(arg))?;
+            write!(f, " {}", arg)?;
         }
 
         write!(f, "\"")?;
@@ -372,223 +349,9 @@ impl Task for Command {
     }
 }
 
-/// Helper type for formatting command line arguments.
-struct Arg<'a> {
-    arg: &'a str,
-}
-
-impl<'a> Arg<'a> {
-    pub fn new(arg: &'a str) -> Arg<'a> {
-        Arg { arg }
-    }
-
-    /// Quotes the argument such that it is safe to pass to the shell.
-    #[cfg(windows)]
-    pub fn quote(&self, writer: &mut fmt::Write) -> fmt::Result {
-        let quote = self.arg.chars().any(|c| c == ' ' || c == '\t')
-            || self.arg.is_empty();
-
-        if quote {
-            writer.write_char('"')?;
-        }
-
-        let mut backslashes: usize = 0;
-
-        for x in self.arg.chars() {
-            if x == '\\' {
-                backslashes += 1;
-            } else {
-                // Dump backslashes if we hit a quotation mark.
-                if x == '"' {
-                    // We need 2n+1 backslashes to escape a quote.
-                    for _ in 0..(backslashes + 1) {
-                        writer.write_char('\\')?;
-                    }
-                }
-
-                backslashes = 0;
-            }
-
-            writer.write_char(x)?;
-        }
-
-        if quote {
-            // Escape any trailing backslashes.
-            for _ in 0..backslashes {
-                writer.write_char('\\')?;
-            }
-
-            writer.write_char('"')?;
-        }
-
-        Ok(())
-    }
-
-    #[cfg(unix)]
-    pub fn quote(&self, writer: &mut fmt::Write) -> fmt::Result {
-        let quote = self.arg.chars().any(|c| " \n\t#<>'&|".contains(c))
-            || self.arg.is_empty();
-
-        if quote {
-            writer.write_char('"')?;
-        }
-
-        for c in self.arg.chars() {
-            // Escape special characters.
-            if "\\\"$~".contains(c) {
-                writer.write_char('\\')?;
-            }
-
-            writer.write_char(c)?;
-        }
-
-        if quote {
-            writer.write_char('"')?;
-        }
-
-        Ok(())
-    }
-}
-
-impl<'a> fmt::Display for Arg<'a> {
-    /// Converts an argument such that it is safe to append to a command line
-    /// string.
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.quote(f)
-    }
-}
-
-/// Writes the response file to a stream.
-fn write_response_file<S, I>(args: I, writer: &mut io::Write) -> io::Result<()>
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
-{
-    let mut iter = args.into_iter();
-
-    // Write UTF-8 BOM. Some tools require this to properly decode it as UTF-8
-    // instead of ASCII.
-    writer.write_all(b"\xEF\xBB\xBF")?;
-
-    if let Some(arg) = iter.next() {
-        write!(writer, "{}", Arg::new(arg.as_ref())).unwrap();
-    }
-
-    for arg in iter {
-        write!(writer, " {}", Arg::new(arg.as_ref())).unwrap();
-    }
-
-    // Some programs require a trailing new line (notably LIB.exe and LINK.exe).
-    writer.write_all(b"\n")?;
-
-    Ok(())
-}
-
-/// Generates a temporary response file for the given command line arguments.
-fn response_file<S, I>(args: I) -> io::Result<TempPath>
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
-{
-    let tempfile = NamedTempFile::new()?;
-
-    {
-        let mut writer = io::BufWriter::new(&tempfile);
-        write_response_file(args, &mut writer)?;
-
-        // Explicitly flush to catch any errors.
-        writer.flush()?;
-    }
-
-    Ok(tempfile.into_temp_path())
-}
-
-/// Checks if the given command line arguments are too large and should instead
-/// go into a response file. The entire list of arguments, including the program
-/// name should be passed to this function.
-#[cfg(windows)]
-fn args_too_large<S, I>(args: I) -> bool
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
-{
-    use util::Counter;
-
-    // The maximum length is 32768 characters, including the NULL terminator.
-    let mut counter = Counter::new();
-
-    let mut iter = args.into_iter();
-
-    if let Some(arg) = iter.next() {
-        write!(counter, "{}", Arg::new(arg.as_ref())).unwrap();
-    }
-
-    for arg in iter {
-        write!(counter, " {}", Arg::new(arg.as_ref())).unwrap();
-    }
-
-    // Final NULL terminator.
-    counter += 1;
-
-    counter.count() > 32768
-}
-
-#[cfg(unix)]
-fn args_too_large<S, I>(args: I) -> bool
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
-{
-    let mut size: usize = 0;
-
-    for arg in args {
-        // +1 for the NULL terminator.
-        size += arg.as_ref().len() + 1;
-    }
-
-    // +1 for the final NULL terminator.
-    size += 1;
-
-    // Can't be larger than 128 kB.
-    size > 0x20000
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    #[cfg(windows)]
-    fn test_arg_display() {
-        assert_eq!(format!("{}", Arg::new("foo bar")), "\"foo bar\"");
-        assert_eq!(format!("{}", Arg::new("foo\tbar")), "\"foo\tbar\"");
-        assert_eq!(format!("{}", Arg::new("foobar")), "foobar");
-        assert_eq!(
-            format!("{}", Arg::new("\"foo bar\"")),
-            "\"\\\"foo bar\\\"\""
-        );
-        assert_eq!(format!("{}", Arg::new(r"C:\foo\bar")), r"C:\foo\bar");
-        assert_eq!(format!("{}", Arg::new(r"\\foo\bar")), r"\\foo\bar");
-    }
-
-    #[test]
-    #[cfg(unix)]
-    fn test_arg_display() {
-        assert_eq!(format!("{}", Arg::new("foo bar")), "\"foo bar\"");
-        assert_eq!(format!("{}", Arg::new("foo\tbar")), "\"foo\tbar\"");
-        assert_eq!(format!("{}", Arg::new("foo\nbar")), "\"foo\nbar\"");
-        assert_eq!(format!("{}", Arg::new("foobar")), "foobar");
-        assert_eq!(
-            format!("{}", Arg::new("\"foo bar\"")),
-            "\"\\\"foo bar\\\"\""
-        );
-        assert_eq!(format!("{}", Arg::new(r"\\foo\bar")), r"\\\\foo\\bar");
-        assert_eq!(format!("{}", Arg::new(r"$HOME")), r"\$HOME");
-        assert_eq!(format!("{}", Arg::new(r"foo>bar")), "\"foo>bar\"");
-        assert_eq!(format!("{}", Arg::new(r"foo&bar")), "\"foo&bar\"");
-        assert_eq!(format!("{}", Arg::new(r"~")), r"\~");
-        assert_eq!(format!("{}", Arg::new(r"foo|bar")), "\"foo|bar\"");
-    }
 
     #[test]
     fn test_command_display() {
@@ -597,7 +360,7 @@ mod tests {
                 "{}",
                 Command::new(
                     PathBuf::from("foo"),
-                    vec![String::from("bar"), String::from("baz")]
+                    vec!["bar", "baz"].iter().collect()
                 )
             ),
             "foo bar baz"
@@ -608,7 +371,7 @@ mod tests {
                 "{}",
                 Command::new(
                     PathBuf::from("foo bar"),
-                    vec![String::from("baz")]
+                    vec!["baz"].iter().collect()
                 )
             ),
             "\"foo bar\" baz"
@@ -619,7 +382,7 @@ mod tests {
                 "{}",
                 Command::new(
                     PathBuf::from("foo/bar/baz"),
-                    vec![String::from("some argument")]
+                    vec!["some argument"].iter().collect()
                 ).display(String::from("display this"))
             ),
             "display this"
@@ -630,7 +393,7 @@ mod tests {
                 "{:?}",
                 Command::new(
                     PathBuf::from("foo"),
-                    vec![String::from("bar"), String::from("baz")]
+                    vec!["bar", "baz"].iter().collect()
                 )
             ),
             "\"foo bar baz\""
@@ -641,7 +404,7 @@ mod tests {
                 "{:?}",
                 Command::new(
                     PathBuf::from("foo bar"),
-                    vec![String::from("baz")]
+                    vec!["baz"].iter().collect()
                 )
             ),
             "\"\"foo bar\" baz\""
@@ -652,7 +415,7 @@ mod tests {
                 "{:?}",
                 Command::new(
                     PathBuf::from("foo/bar/baz"),
-                    vec![String::from("some argument")]
+                    vec!["some argument"].iter().collect()
                 ).display(String::from("display this"))
             ),
             "\"foo/bar/baz \"some argument\"\""

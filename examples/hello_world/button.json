@@ -11,8 +11,7 @@
     {
         "inputs": [
             {"dir": "obj"},
-            {"file": "foo.c"},
-            {"file": "foo.h"}
+            {"file": "foo.c"}
         ],
         "tasks": [
             {
@@ -24,13 +23,13 @@
         ],
         "outputs": [
             {"file": "obj/foo.o"}
-        ]
+        ],
+        "partition": "foobar"
     },
     {
         "inputs": [
             {"dir": "obj"},
-            {"file": "bar.c"},
-            {"file": "foo.h"}
+            {"file": "bar.c"}
         ],
         "tasks": [
             {
@@ -42,7 +41,8 @@
         ],
         "outputs": [
             {"file": "obj/bar.o"}
-        ]
+        ],
+        "partition": "foobar"
     },
     {
         "inputs": [
@@ -59,7 +59,8 @@
         ],
         "outputs": [
             {"file": "foobar"}
-        ]
+        ],
+        "partition": "foobar"
     },
     {
         "tasks": [
