@@ -52,12 +52,12 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn main(&self, global: &GlobalOpts) -> Result<(), Error> {
+    pub fn main(self, global: &GlobalOpts) -> Result<(), Error> {
         match self {
-            Command::Build(ref x) => x.main(global),
-            Command::Clean(ref x) => x.main(global),
-            Command::Graph(ref x) => x.main(global),
-            Command::Replay(ref x) => x.main(global),
+            Command::Build(x) => x.main(global),
+            Command::Clean(x) => x.main(global),
+            Command::Graph(x) => x.main(global),
+            Command::Replay(x) => x.main(global),
         }
     }
 }

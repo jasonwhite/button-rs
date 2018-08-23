@@ -69,8 +69,10 @@ pub struct Build {
 }
 
 impl Build {
-    pub fn main(&self, global: &GlobalOpts) -> Result<(), Error> {
-        let rules = paths::rules_path(&self.rules);
+    pub fn main(self, global: &GlobalOpts) -> Result<(), Error> {
+        let rules = paths::rules_or(self.rules)
+            .context("Failed to find build rules")?;
+
         let threads = if self.threads == 0 {
             num_cpus::get()
         } else {

@@ -56,8 +56,9 @@ pub struct Graph {
 
 impl Graph {
     /// Shows a pretty graph of the build.
-    pub fn main(&self, _global: &GlobalOpts) -> Result<(), Error> {
-        let rules = paths::rules_path(&self.rules);
+    pub fn main(self, _global: &GlobalOpts) -> Result<(), Error> {
+        let rules = paths::rules_or(self.rules)
+            .context("Failed to find build rules")?;
 
         let rules = Rules::from_path(&rules).with_context(|_| {
             format!("Failed loading rules from file {:?}", rules)

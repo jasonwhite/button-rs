@@ -27,7 +27,6 @@
 //! reason. The locations of these files are entirely up to the library user to
 //! configure.
 
-use button::util::PathExt;
 use std::env;
 use std::fs;
 use std::io;
@@ -49,40 +48,46 @@ pub const LOG: &str = ".button/log";
 /// Returns a path to the rules, starting at the given directory. The canonical
 /// name for the JSON rules file is "button.json". This function shall search
 /// for the file in the given starting directory and all parent directories.
-/// Returns `None` if it cannot be found.
-pub fn find_rules_path(start: &Path) -> Option<PathBuf> {
-    let path = start.join(RULES);
+/// Returns an error if it cannot be found.
+pub fn find_rules(mut path: PathBuf) -> io::Result<PathBuf> {
+    loop {
+        path.push(RULES);
 
-    if path.is_file() {
-        // Path was found. Return a path relative to `start`.
-        Some(
-            path.relative_from(&env::current_dir().unwrap())
-                .unwrap_or(path),
-        )
-    } else {
-        // Search in the parent directory.
-        match start.parent() {
-            Some(parent) => find_rules_path(parent),
-            None => None,
+        match path.metadata() {
+            Ok(metadata) => {
+                if metadata.is_file() {
+                    return Ok(path);
+                }
+            }
+            Err(err) => match err.kind() {
+                io::ErrorKind::NotFound => (),
+                _ => return Err(err),
+            },
+        };
+
+        // Pop the added path and the parent directory, then try again.
+        if !path.pop() || !path.pop() {
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("Reached file system root looking for '{}'", RULES),
+            ));
         }
     }
 }
 
-/// Returns a path to the rules.
-pub fn rules_path(path: &Option<PathBuf>) -> PathBuf {
-    match path {
-        Some(ref path) => path.to_path_buf(),
-        None => {
-            let cwd = env::current_dir().unwrap();
-            match find_rules_path(&cwd) {
-                Some(path) => path,
+/// If a rules path is given, returns the absolute path to them. Otherwise,
+/// searches through parent directories to find the rules path.
+///
+/// This always returns an absolute path to the rules.
+pub fn rules_or(path: Option<PathBuf>) -> io::Result<PathBuf> {
+    let mut cwd = env::current_dir()?;
 
-                // Not found. Just assume it lives in the current directory even
-                // though it doesn't (or it would have been found). The error
-                // will get reported when trying to load this file later.
-                None => PathBuf::from(RULES),
-            }
+    match path {
+        Some(path) => {
+            cwd.push(path);
+            Ok(cwd)
         }
+        None => find_rules(cwd),
     }
 }
 

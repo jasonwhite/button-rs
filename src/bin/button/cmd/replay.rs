@@ -40,7 +40,7 @@ pub struct Replay {
 }
 
 impl Replay {
-    pub fn main(&self, global: &GlobalOpts) -> Result<(), Error> {
+    pub fn main(self, global: &GlobalOpts) -> Result<(), Error> {
         let path = match &self.path {
             Some(path) => path,
             None => Path::new(".button/log"),

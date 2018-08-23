@@ -36,7 +36,7 @@ pub struct Args {
 impl Args {
     // Delegate to a subcommand. If any errors occur, print out the error and
     // its chain of causes.
-    pub fn main(&self) -> i32 {
+    pub fn main(self) -> i32 {
         if let Err(error) = self.cmd.main(&self.global) {
             let mut red = tc::ColorSpec::new();
             red.set_fg(Some(tc::Color::Red));
