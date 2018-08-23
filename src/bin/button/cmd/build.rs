@@ -85,7 +85,7 @@ impl Build {
         paths::init(&root).context("Failed initializing .button directory")?;
 
         // Log to both the console and a binary file for later analysis.
-        let mut loggers: logger::List<logger::Any> = logger::List::new();
+        let mut loggers = logger::List::<logger::Any>::new();
         loggers.push(
             logger::Console::new(self.verbose, global.color.into()).into(),
         );
