@@ -27,7 +27,6 @@ use os_pipe::PipeReader;
 use tempfile::TempPath;
 
 use error::Error;
-use util::PathExt;
 
 /// Input and output detection strategy.
 #[derive(
@@ -130,21 +129,12 @@ impl Detected {
         self.outputs.iter().map(|p| p.as_ref())
     }
 
-    pub fn add_input(&mut self, root: &Path, path: &Path) {
-        let path = match path.relative_from(root) {
-            Some(x) => x.normalize(),
-            None => path.normalize(),
-        };
-
+    pub fn add_input(&mut self, path: PathBuf) {
         self.inputs.insert(path);
     }
 
-    pub fn add_output(&mut self, root: &Path, path: &Path) {
-        let path = match path.relative_from(root) {
-            Some(x) => x.normalize(),
-            None => path.normalize(),
-        };
-
+    #[allow(dead_code)]
+    pub fn add_output(&mut self, path: PathBuf) {
         self.outputs.insert(path);
     }
 }
@@ -267,8 +257,16 @@ mod cl {
             response_file,
         } = process;
 
+        // Canonicalize the root path such that `strip_prefix` works below.
+        let root = root.canonicalize()?;
+
         let mut reader = io::BufReader::new(reader);
 
+        // Use `/showIncludes` to capture header files that are used by the
+        // build.
+        //
+        // TODO: Use the `VS_UNICODE_OUTPUT` environment variable to get Unicode
+        // output from cl.exe.
         child.arg("/showIncludes");
 
         let handle = child.spawn().context("Failed to spawn process")?;
@@ -281,7 +279,18 @@ mod cl {
         while reader.read_line(&mut line)? != 0 {
             if line.starts_with(INCLUDE_PREFIX) {
                 let include = &line[INCLUDE_PREFIX.len()..].trim();
-                detected.add_input(root, Path::new(include));
+
+                // Canonicalize the path such that the root path and this path
+                // agree on the case of the file path. Otherwise, `strip_prefix`
+                // won't work.
+                let path = Path::new(include).canonicalize()?;
+
+                // Only include paths that are contained within the project
+                // root. Everything else is treated as a system dependency.
+                match path.strip_prefix(&root) {
+                    Ok(path) => detected.add_input(path.to_path_buf()),
+                    Err(_) => (),
+                };
             } else {
                 log.write_all(line.as_ref())?;
             }
