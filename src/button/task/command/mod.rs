@@ -20,25 +20,19 @@
 
 mod detect;
 
-use self::detect::{Detect, Process};
+use self::detect::Detect;
 
-use std::collections::BTreeMap;
-use std::ffi::OsString;
 use std::fmt;
-use std::fs;
 use std::io;
-use std::path::{Path, PathBuf};
-use std::process;
+use std::path::Path;
 
-use os_pipe;
+use error::Error;
 
-use error::{Error, ResultExt};
-
-use super::traits::Task;
-use util::NeverAlwaysAuto;
+use super::traits::{Detected, Task};
+use util::{NeverAlwaysAuto, Process};
 
 use res;
-use util::{progress_dummy, Arg, Arguments, Retry};
+use util::{progress_dummy, Retry};
 
 const DEV_NULL: &str = "/dev/null";
 
@@ -48,18 +42,9 @@ const DEV_NULL: &str = "/dev/null";
     Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone,
 )]
 pub struct Command {
-    /// Program name.
-    program: PathBuf,
-
-    /// Program arguments.
-    args: Arguments,
-
-    /// Optional working directory to spawn the process in. If `None`, uses the
-    /// working directory of the parent process (i.e., the build process).
-    cwd: Option<PathBuf>,
-
-    /// Optional environment variables.
-    env: Option<BTreeMap<String, String>>,
+    /// Settings specific to spawning a process.
+    #[serde(flatten)]
+    process: Process,
 
     /// Response file creation.
     ///
@@ -74,21 +59,7 @@ pub struct Command {
     /// If `Auto`, creates a temporary response file only if the size of the
     /// arguments exceeds the operating system limits.
     #[serde(default)]
-    response_file: NeverAlwaysAuto,
-
-    /// File to send to standard input. If `None`, the standard input stream
-    /// reads from `/dev/null` or equivalent.
-    stdin: Option<PathBuf>,
-
-    /// Redirect standard output to a file instead. If the path is `/dev/null`,
-    /// a cross-platform way of sending the output to a black hole is used. If
-    /// `None`, the output is logged by this task.
-    stdout: Option<PathBuf>,
-
-    /// Redirect standard error to a file instead. If the path is `/dev/null`,
-    /// a cross-platform way of sending the output to a black hole is
-    /// used. If `None`, the output is logged by this task.
-    stderr: Option<PathBuf>,
+    pub response_file: NeverAlwaysAuto,
 
     /// String to display when executing the task. If `None`, the command
     /// arguments are displayed in full instead.
@@ -97,152 +68,22 @@ pub struct Command {
     /// Retry settings.
     retry: Option<Retry>,
 
-    /// Input and output detection
+    /// Input and output detection. If not specified, determines the detection
+    /// method based on the program name.
     detect: Option<Detect>,
 }
 
 impl Command {
-    #[cfg(test)]
-    pub fn new(program: PathBuf, args: Arguments) -> Box<Command> {
-        Box::new(Command {
-            program: program,
-            args: args,
-            cwd: None,
-            env: None,
-            response_file: NeverAlwaysAuto::default(),
-            stdin: None,
-            stdout: None,
-            stderr: None,
-            display: None,
-            retry: None,
-        })
-    }
-}
-
-impl Command {
-    // Sets the working directory for the command.
-    #[allow(dead_code)]
-    pub fn cwd(&mut self, path: PathBuf) -> &mut Command {
-        self.cwd = Some(path);
-        self
-    }
-
-    // Sets the stdout file for the command.
-    #[allow(dead_code)]
-    pub fn stdout(&mut self, path: PathBuf) -> &mut Command {
-        self.stdout = Some(path);
-        self
-    }
-
-    // Sets the display string for the command.
-    #[allow(dead_code)]
-    pub fn display(&mut self, display: String) -> &mut Command {
-        self.display = Some(display);
-        self
-    }
-
-    // Sets the retry configuration.
-    #[allow(dead_code)]
-    pub fn retry(&mut self, retry: Retry) -> &mut Command {
-        self.retry = Some(retry);
-        self
-    }
-
-    fn create_process(&self, root: &Path) -> Result<Process, Error> {
-        let mut child = process::Command::new(&self.program);
-
-        if let Some(ref path) = self.stdin {
-            if path == Path::new(DEV_NULL) {
-                child.stdin(process::Stdio::null());
-            } else {
-                child.stdin(fs::File::open(path)?);
-            }
-        } else {
-            // We don't ever want the build system to pause waiting for user
-            // input from the parent process' input stream.
-            child.stdin(process::Stdio::null());
-        }
-
-        let (reader, writer) = os_pipe::pipe()?;
-
-        {
-            // Make sure the writer is dropped even if it isn't used below.
-            // Otherwise, the parent process will hang reading from the child
-            // process.
-            let writer = writer;
-
-            if let Some(ref path) = self.stdout {
-                if path == Path::new(DEV_NULL) {
-                    // Use cross-platform method.
-                    child.stdout(process::Stdio::null());
-                } else {
-                    child.stdout(fs::File::create(path)?);
-                }
-            } else {
-                child.stdout(writer.try_clone()?);
-            }
-
-            if let Some(ref path) = self.stderr {
-                if path == Path::new(DEV_NULL) {
-                    // Use cross-platform method.
-                    child.stderr(process::Stdio::null());
-                } else {
-                    child.stderr(fs::File::create(path)?);
-                }
-            } else {
-                child.stderr(writer);
-            }
-        }
-
-        if let Some(ref cwd) = self.cwd {
-            child.current_dir(root.join(cwd));
-        } else if !root.as_os_str().is_empty() {
-            child.current_dir(root);
-        }
-
-        if let Some(ref env) = self.env {
-            child.envs(env);
-        }
-
-        // Generate a response file if necessary.
-        let generate_response_file = match self.response_file {
-            NeverAlwaysAuto::Never => false,
-            NeverAlwaysAuto::Always => true,
-            NeverAlwaysAuto::Auto => self.args.is_too_large(),
-        };
-
-        let response_file = if generate_response_file {
-            let temp = self
-                .args
-                .response_file()
-                .context("Failed writing response file")?;
-
-            let mut arg = OsString::new();
-            arg.push("@");
-            arg.push(&temp);
-            child.arg(&arg);
-
-            Some(temp)
-        } else {
-            child.args(&self.args);
-            None
-        };
-
-        Ok(Process::new(child, reader, response_file))
-    }
-
     fn execute_impl(
         &self,
         root: &Path,
         log: &mut io::Write,
-    ) -> Result<(), Error> {
-        let process = self.create_process(root)?;
-
+    ) -> Result<Detected, Error> {
         let detect = self
             .detect
-            .unwrap_or_else(|| Detect::from_program(&self.program));
+            .unwrap_or_else(|| Detect::from_program(&self.process.program));
 
-        let detected = detect.run(root, process, log)?;
+        let detected = detect.run(root, &self.process, log)?;
 
         for p in detected.inputs() {
             writeln!(log, "Input: {:?}", p)?;
@@ -252,7 +93,7 @@ impl Command {
             writeln!(log, "Output: {:?}", p)?;
         }
 
-        Ok(())
+        Ok(detected)
     }
 }
 
@@ -261,39 +102,23 @@ impl fmt::Display for Command {
         if let Some(ref display) = self.display {
             write!(f, "{}", display)
         } else {
-            write!(
-                f,
-                "{}",
-                Arg::new(&self.program.to_string_lossy().as_ref())
-            )?;
-
-            for arg in &self.args {
-                write!(f, " {}", arg)?;
-            }
-
-            Ok(())
+            write!(f, "{}", self.process)
         }
     }
 }
 
 impl fmt::Debug for Command {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "\"")?;
-
-        write!(f, "{}", Arg::new(&self.program.to_string_lossy().as_ref()))?;
-
-        for arg in &self.args {
-            write!(f, " {}", arg)?;
-        }
-
-        write!(f, "\"")?;
-
-        Ok(())
+        write!(f, "{}", self.process)
     }
 }
 
 impl Task for Command {
-    fn execute(&self, root: &Path, log: &mut io::Write) -> Result<(), Error> {
+    fn execute(
+        &self,
+        root: &Path,
+        log: &mut io::Write,
+    ) -> Result<Detected, Error> {
         if let Some(ref retry) = self.retry {
             retry.call(|| self.execute_impl(root, log), progress_dummy)
         } else {
@@ -302,21 +127,21 @@ impl Task for Command {
     }
 
     fn known_inputs(&self, set: &mut res::Set) {
-        set.insert(self.program.clone().into());
+        set.insert(self.process.program.clone().into());
 
-        if let Some(ref path) = self.stdin {
+        if let Some(ref path) = self.process.stdin {
             if path != Path::new(DEV_NULL) {
                 set.insert(path.clone().into());
             }
         }
 
         // Depend on the working directory.
-        if let Some(ref path) = self.cwd {
+        if let Some(ref path) = self.process.cwd {
             set.insert(res::Dir::new(path.clone()).into());
         }
 
         // Depend on parent directory of the stdout file.
-        if let Some(ref path) = self.stdout {
+        if let Some(ref path) = self.process.stdout {
             if path != Path::new(DEV_NULL) {
                 if let Some(parent) = path.parent() {
                     set.insert(res::Dir::new(parent.to_path_buf()).into());
@@ -325,7 +150,7 @@ impl Task for Command {
         }
 
         // Depend on parent directory of the stderr file.
-        if let Some(ref path) = self.stderr {
+        if let Some(ref path) = self.process.stderr {
             if path != Path::new(DEV_NULL) {
                 if let Some(parent) = path.parent() {
                     set.insert(res::Dir::new(parent.to_path_buf()).into());
@@ -335,13 +160,13 @@ impl Task for Command {
     }
 
     fn known_outputs(&self, set: &mut res::Set) {
-        if let Some(ref path) = self.stdout {
+        if let Some(ref path) = self.process.stdout {
             if path != Path::new(DEV_NULL) {
                 set.insert(path.clone().into());
             }
         }
 
-        if let Some(ref path) = self.stderr {
+        if let Some(ref path) = self.process.stderr {
             if path != Path::new(DEV_NULL) {
                 set.insert(path.clone().into());
             }
@@ -352,6 +177,7 @@ impl Task for Command {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn test_command_display() {

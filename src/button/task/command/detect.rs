@@ -18,15 +18,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::collections::HashSet;
 use std::io;
-use std::path::{Path, PathBuf};
-use std::process;
-
-use os_pipe::PipeReader;
-use tempfile::TempPath;
+use std::path::Path;
 
 use error::Error;
+
+use util::Process;
+
+use task::traits::Detected;
 
 /// Input and output detection strategy.
 #[derive(
@@ -97,7 +96,7 @@ impl Detect {
     pub fn run(
         &self,
         root: &Path,
-        process: Process,
+        process: &Process,
         log: &mut io::Write,
     ) -> Result<Detected, Error> {
         match self {
@@ -107,112 +106,21 @@ impl Detect {
     }
 }
 
-/// The sets of detected inputs and outputs of a process.
-pub struct Detected {
-    inputs: HashSet<PathBuf>,
-    outputs: HashSet<PathBuf>,
-}
-
-impl Detected {
-    pub fn new() -> Detected {
-        Detected {
-            inputs: HashSet::new(),
-            outputs: HashSet::new(),
-        }
-    }
-
-    pub fn inputs(&self) -> impl Iterator<Item = &Path> {
-        self.inputs.iter().map(|p| p.as_ref())
-    }
-
-    pub fn outputs(&self) -> impl Iterator<Item = &Path> {
-        self.outputs.iter().map(|p| p.as_ref())
-    }
-
-    pub fn add_input(&mut self, path: PathBuf) {
-        self.inputs.insert(path);
-    }
-
-    #[allow(dead_code)]
-    pub fn add_output(&mut self, path: PathBuf) {
-        self.outputs.insert(path);
-    }
-}
-
-pub struct Process {
-    child: process::Command,
-    reader: PipeReader,
-    response_file: Option<TempPath>,
-}
-
-impl Process {
-    pub fn new(
-        child: process::Command,
-        reader: PipeReader,
-        response_file: Option<TempPath>,
-    ) -> Process {
-        Process {
-            child,
-            reader,
-            response_file,
-        }
-    }
-}
-
-fn wait_child(mut child: process::Child) -> Result<(), io::Error> {
-    let status = child.wait()?;
-    match status.code() {
-        Some(code) => {
-            if code == 0 {
-                Ok(())
-            } else {
-                Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("Process exited with error code {}", code),
-                ).into())
-            }
-        }
-        None => {
-            #[cfg(unix)]
-            {
-                use std::os::unix::process::ExitStatusExt;
-
-                Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    format!(
-                        "Process terminated by signal {}",
-                        status.signal().unwrap()
-                    ),
-                ).into())
-            }
-
-            #[cfg(windows)]
-            Ok(())
-        }
-    }
-}
-
 mod base {
     use std::io::{self, Read};
     use std::path::Path;
 
-    use error::{Error, ResultExt};
+    use error::Error;
+    use util::Process;
 
-    use super::{wait_child, Detected, Process};
+    use task::traits::Detected;
 
     pub fn run(
-        _root: &Path,
-        process: Process,
+        root: &Path,
+        process: &Process,
         log: &mut io::Write,
     ) -> Result<Detected, Error> {
-        let Process {
-            mut child,
-            mut reader,
-            response_file,
-        } = process;
-
-        let handle = child.spawn().context("Failed to spawn process")?;
-        drop(child);
+        let (mut reader, child) = process.spawn(root)?;
 
         let detected = Detected::new();
 
@@ -227,10 +135,7 @@ mod base {
             log.write_all(&buf[0..n])?;
         }
 
-        wait_child(handle)?;
-
-        // NB: The temporary response file needs to outlive the spawned process.
-        drop(response_file);
+        child.wait()?;
 
         Ok(detected)
     }
@@ -240,37 +145,39 @@ mod cl {
     use std::io::{self, BufRead};
     use std::path::Path;
 
-    use error::{Error, ResultExt};
+    use error::Error;
+    use util::Process;
 
-    use super::{wait_child, Detected, Process};
+    use task::traits::Detected;
 
     static INCLUDE_PREFIX: &str = "Note: including file: ";
 
     pub fn run(
         root: &Path,
-        process: Process,
+        process: &Process,
         log: &mut io::Write,
     ) -> Result<Detected, Error> {
-        let Process {
-            mut child,
-            reader,
-            response_file,
-        } = process;
-
-        // Canonicalize the root path such that `strip_prefix` works below.
-        let root = root.canonicalize()?;
-
-        let mut reader = io::BufReader::new(reader);
+        let mut process = process.clone();
 
         // Use `/showIncludes` to capture header files that are used by the
         // build.
         //
         // TODO: Use the `VS_UNICODE_OUTPUT` environment variable to get Unicode
         // output from cl.exe.
-        child.arg("/showIncludes");
+        //
+        // TODO: Echo "Note: including file: " line if "/showIncludes" is
+        // already present in the command line arguments. This should
+        // handle the various formats of "/showIncludes" as well (e.g.,
+        // starting with '-' instead of '/', case differences).
+        process.args.push("/showIncludes".into());
 
-        let handle = child.spawn().context("Failed to spawn process")?;
-        drop(child);
+        let (reader, child) = process.spawn(root)?;
+
+        // Canonicalize the root path such that `strip_prefix` works below.
+        let root = root.canonicalize()?;
+
+        // Buffer the read such that we can read one line at a time.
+        let mut reader = io::BufReader::new(reader);
 
         let mut detected = Detected::new();
 
@@ -298,9 +205,7 @@ mod cl {
             line.clear();
         }
 
-        wait_child(handle)?;
-
-        drop(response_file);
+        child.wait()?;
 
         Ok(detected)
     }

@@ -501,9 +501,11 @@ where
         let mut task_logger = logger.start_task(tid, &task)?;
 
         if context.dryrun {
-            task_logger.finish(&Ok(()))?;
+            task_logger.finish(&Ok(task::Detected::new()))?;
         } else {
             let result = task.execute(context.root, &mut task_logger);
+
+            // TODO: Save the detected inputs/outputs in the state.
 
             task_logger.finish(&result)?;
 

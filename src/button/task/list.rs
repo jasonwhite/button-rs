@@ -26,7 +26,7 @@ use std::path::Path;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::any::Any;
-use super::traits::Task;
+use super::traits::{Detected, Task};
 use error::Error;
 
 use res;
@@ -95,12 +95,19 @@ impl fmt::Debug for List {
 }
 
 impl Task for List {
-    fn execute(&self, root: &Path, log: &mut io::Write) -> Result<(), Error> {
+    fn execute(
+        &self,
+        root: &Path,
+        log: &mut io::Write,
+    ) -> Result<Detected, Error> {
+        let mut detected = Detected::new();
+
         for task in &self.list {
-            task.execute(root, log)?;
+            detected.add(task.execute(root, log)?);
         }
 
-        Ok(())
+        // TODO: Join all detected inputs/outputs.
+        Ok(detected)
     }
 
     fn known_inputs(&self, resources: &mut res::Set) {

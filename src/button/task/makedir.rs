@@ -23,7 +23,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use super::traits::Task;
+use super::traits::{Detected, Task};
 use error::Error;
 
 use res;
@@ -54,9 +54,9 @@ impl MakeDir {
         &self,
         root: &Path,
         _log: &mut io::Write,
-    ) -> Result<(), Error> {
+    ) -> Result<Detected, Error> {
         fs::create_dir_all(&root.join(&self.path))?;
-        Ok(())
+        Ok(Detected::new())
     }
 }
 
@@ -73,7 +73,11 @@ impl fmt::Debug for MakeDir {
 }
 
 impl Task for MakeDir {
-    fn execute(&self, root: &Path, log: &mut io::Write) -> Result<(), Error> {
+    fn execute(
+        &self,
+        root: &Path,
+        log: &mut io::Write,
+    ) -> Result<Detected, Error> {
         self.retry
             .call(|| self.execute_impl(root, log), progress_dummy)
     }

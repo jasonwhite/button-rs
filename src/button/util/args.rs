@@ -166,6 +166,12 @@ impl<'a> From<&'a Arg> for ArgBuf {
     }
 }
 
+impl<'a> From<&'a str> for ArgBuf {
+    fn from(s: &'a str) -> ArgBuf {
+        ArgBuf::from(s.to_string())
+    }
+}
+
 impl ops::Deref for ArgBuf {
     type Target = Arg;
 

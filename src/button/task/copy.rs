@@ -23,7 +23,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use super::traits::Task;
+use super::traits::{Detected, Task};
 use error::Error;
 
 use res;
@@ -50,9 +50,9 @@ impl Copy {
         &self,
         root: &Path,
         _log: &mut io::Write,
-    ) -> Result<(), Error> {
+    ) -> Result<Detected, Error> {
         fs::copy(&root.join(&self.from), &root.join(&self.to))?;
-        Ok(())
+        Ok(Detected::new())
     }
 }
 
@@ -69,7 +69,11 @@ impl fmt::Debug for Copy {
 }
 
 impl Task for Copy {
-    fn execute(&self, root: &Path, log: &mut io::Write) -> Result<(), Error> {
+    fn execute(
+        &self,
+        root: &Path,
+        log: &mut io::Write,
+    ) -> Result<Detected, Error> {
         self.retry
             .call(|| self.execute_impl(root, log), progress_dummy)
     }

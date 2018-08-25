@@ -116,7 +116,7 @@ impl io::Write for AnyTaskLogger {
 }
 
 impl TaskLogger for AnyTaskLogger {
-    fn finish(self, result: &Result<(), Error>) -> LogResult<()> {
+    fn finish(self, result: &Result<task::Detected, Error>) -> LogResult<()> {
         match self {
             AnyTaskLogger::Console(l) => l.finish(result),
             AnyTaskLogger::BinaryFile(l) => l.finish(result),
@@ -212,7 +212,7 @@ impl<T> TaskLogger for TaskLoggerList<T>
 where
     T: TaskLogger,
 {
-    fn finish(self, result: &Result<(), Error>) -> LogResult<()> {
+    fn finish(self, result: &Result<task::Detected, Error>) -> LogResult<()> {
         for logger in self.inner {
             logger.finish(result)?;
         }

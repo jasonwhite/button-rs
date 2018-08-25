@@ -29,7 +29,7 @@ use tempfile;
 
 use error::Error;
 
-use super::traits::Task;
+use super::traits::{Detected, Task};
 
 use util::{progress_dummy, Retry};
 
@@ -65,7 +65,7 @@ impl BatchScript {
         &self,
         root: &Path,
         log: &mut io::Write,
-    ) -> Result<(), Error> {
+    ) -> Result<Detected, Error> {
         let mut cmd = process::Command::new("cmd.exe");
 
         // Don't allow user input.
@@ -101,7 +101,7 @@ impl BatchScript {
         log.write_all(&output.stderr)?;
 
         if output.status.success() {
-            Ok(())
+            Ok(Detected::new())
         } else {
             match output.status.code() {
                 Some(code) => Err(io::Error::new(
@@ -133,7 +133,11 @@ impl fmt::Debug for BatchScript {
 }
 
 impl Task for BatchScript {
-    fn execute(&self, root: &Path, log: &mut io::Write) -> Result<(), Error> {
+    fn execute(
+        &self,
+        root: &Path,
+        log: &mut io::Write,
+    ) -> Result<Detected, Error> {
         if let Some(ref retry) = self.retry {
             retry.call(|| self.execute_impl(root, log), progress_dummy)
         } else {

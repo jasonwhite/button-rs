@@ -26,7 +26,7 @@ use std::time;
 use reqwest;
 use tempfile::NamedTempFile;
 
-use super::traits::Task;
+use super::traits::{Detected, Task};
 use error::{Error, ResultExt};
 
 use res;
@@ -69,7 +69,11 @@ impl fmt::Debug for Download {
 }
 
 impl Task for Download {
-    fn execute(&self, _root: &Path, log: &mut io::Write) -> Result<(), Error> {
+    fn execute(
+        &self,
+        _root: &Path,
+        log: &mut io::Write,
+    ) -> Result<Detected, Error> {
         writeln!(log, "Downloading \"{}\" to {:?}", self.url, self.path)?;
 
         // Retry the download if necessary.
@@ -99,7 +103,7 @@ impl Task for Download {
 
         temp.persist(&self.path)?;
 
-        Ok(())
+        Ok(Detected::new())
     }
 
     fn known_outputs(&self, resources: &mut res::Set) {

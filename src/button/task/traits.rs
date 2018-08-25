@@ -18,15 +18,54 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+use std::collections::HashSet;
 use std::fmt;
 use std::hash::Hash;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use error::Error;
 use serde::Serialize;
 
 use res;
+
+/// The sets of detected inputs and outputs of a process.
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Detected {
+    inputs: HashSet<PathBuf>,
+    outputs: HashSet<PathBuf>,
+}
+
+impl Detected {
+    pub fn new() -> Detected {
+        Detected {
+            inputs: HashSet::new(),
+            outputs: HashSet::new(),
+        }
+    }
+
+    pub fn inputs(&self) -> impl Iterator<Item = &Path> {
+        self.inputs.iter().map(|p| p.as_ref())
+    }
+
+    pub fn outputs(&self) -> impl Iterator<Item = &Path> {
+        self.outputs.iter().map(|p| p.as_ref())
+    }
+
+    pub fn add_input(&mut self, path: PathBuf) {
+        self.inputs.insert(path);
+    }
+
+    #[allow(dead_code)]
+    pub fn add_output(&mut self, path: PathBuf) {
+        self.outputs.insert(path);
+    }
+
+    pub fn add(&mut self, other: Detected) {
+        self.inputs.extend(other.inputs);
+        self.outputs.extend(other.outputs);
+    }
+}
 
 /// A task is a routine to be executed that produces resources as outputs.
 ///
@@ -45,7 +84,11 @@ pub trait Task:
     /// the resources it output. These are its *implicit* inputs and outputs.
     /// Ideally, the *explicit* inputs and outputs are a subset of the
     /// *implicit* inputs and outputs.
-    fn execute(&self, root: &Path, log: &mut io::Write) -> Result<(), Error>;
+    fn execute(
+        &self,
+        root: &Path,
+        log: &mut io::Write,
+    ) -> Result<Detected, Error>;
 
     /// Inputs the task knows about *a priori*. It must calculate these by
     /// *only* looking at the task parameters. It should not do anything fancy

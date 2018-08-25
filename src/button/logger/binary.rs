@@ -66,9 +66,9 @@ impl<W> TaskLogger for BinaryTask<W>
 where
     W: io::Write,
 {
-    fn finish(self, result: &LogResult<()>) -> LogResult<()> {
+    fn finish(self, result: &LogResult<task::Detected>) -> LogResult<()> {
         let result = match result {
-            Ok(()) => Ok(()),
+            Ok(x) => Ok(x.clone()),
             Err(err) => Err(SerError::new(err)),
         };
 

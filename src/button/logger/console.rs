@@ -80,7 +80,7 @@ impl io::Write for ConsoleTask {
 }
 
 impl TaskLogger for ConsoleTask {
-    fn finish(self, result: &Result<(), Error>) -> LogResult<()> {
+    fn finish(self, result: &Result<task::Detected, Error>) -> LogResult<()> {
         let ConsoleTask {
             verbose,
             bufwriter,

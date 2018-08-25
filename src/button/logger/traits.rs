@@ -31,7 +31,7 @@ pub type LogResult<T> = Result<T, Error>;
 
 pub trait TaskLogger: io::Write {
     /// Finishes the task.
-    fn finish(self, result: &Result<(), Error>) -> LogResult<()>;
+    fn finish(self, result: &Result<task::Detected, Error>) -> LogResult<()>;
 }
 
 /// An event logger.

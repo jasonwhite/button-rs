@@ -54,10 +54,10 @@ pub struct WriteTask {
     pub data: Vec<u8>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize)]
 pub struct FinishTask {
     pub thread: usize,
-    pub result: Result<(), SerError>,
+    pub result: Result<task::Detected, SerError>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -67,7 +67,7 @@ pub struct Delete {
 }
 
 /// A logging event.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize)]
 pub enum LogEvent {
     BeginBuild(BeginBuild),
     EndBuild(EndBuild),
