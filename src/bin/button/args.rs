@@ -63,6 +63,8 @@ impl Args {
                 let _ = writeln!(&mut stdout, ": {}", cause);
             }
 
+            let _ = writeln!(&mut stdout, "{}", error.backtrace());
+
             return 1;
         }
 

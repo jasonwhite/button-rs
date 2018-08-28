@@ -36,12 +36,18 @@ pub struct Detected {
     outputs: BTreeSet<PathBuf>,
 }
 
-impl Detected {
-    pub fn new() -> Detected {
+impl Default for Detected {
+    fn default() -> Detected {
         Detected {
             inputs: BTreeSet::new(),
             outputs: BTreeSet::new(),
         }
+    }
+}
+
+impl Detected {
+    pub fn new() -> Detected {
+        Detected::default()
     }
 
     pub fn inputs(&self) -> impl Iterator<Item = &Path> {

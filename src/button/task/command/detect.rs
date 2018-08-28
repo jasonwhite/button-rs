@@ -94,7 +94,7 @@ impl Detect {
 
     /// Run the given process, returning its inputs and outputs.
     pub fn run(
-        &self,
+        self,
         root: &Path,
         process: &Process,
         log: &mut io::Write,
@@ -194,10 +194,9 @@ mod cl {
 
                 // Only include paths that are contained within the project
                 // root. Everything else is treated as a system dependency.
-                match path.strip_prefix(&root) {
-                    Ok(path) => detected.add_input(path.to_path_buf()),
-                    Err(_) => (),
-                };
+                if let Ok(path) = path.strip_prefix(&root) {
+                    detected.add_input(path.to_path_buf());
+                }
             } else {
                 log.write_all(line.as_ref())?;
             }

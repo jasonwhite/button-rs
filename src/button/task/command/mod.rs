@@ -219,7 +219,7 @@ impl<'de> Deserialize<'de> for Command {
             Detect,
         }
 
-        const FIELDS: &'static [&'static str] = &[
+        const FIELDS: &[&str] = &[
             "program",
             "args",
             "cwd",

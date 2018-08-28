@@ -204,9 +204,15 @@ impl fmt::Display for ArgBuf {
 )]
 pub struct Arguments(Vec<ArgBuf>);
 
+impl Default for Arguments {
+    fn default() -> Arguments {
+        Arguments(Vec::new())
+    }
+}
+
 impl Arguments {
     pub fn new() -> Arguments {
-        Arguments(Vec::new())
+        Arguments::default()
     }
 
     /// Counts the number of bytes that the list of arguments takes up when

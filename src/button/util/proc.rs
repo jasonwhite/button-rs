@@ -186,7 +186,7 @@ impl Child {
                     Err(io::Error::new(
                         io::ErrorKind::Other,
                         format!("Process exited with error code {}", code),
-                    ).into())
+                    ))
                 }
             }
             None => {
@@ -201,7 +201,7 @@ impl Child {
                             "Process terminated by signal {}",
                             status.signal().unwrap()
                         ),
-                    ).into())
+                    ))
                 }
 
                 #[cfg(windows)]
