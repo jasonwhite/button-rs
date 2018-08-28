@@ -125,8 +125,12 @@ mod base {
 
         // Generate a response file if necessary.
         let response_file = if process.args.too_large() {
-            Some(process.to_mut().response_file()
-                 .context("Failed generating response file")?)
+            Some(
+                process
+                    .to_mut()
+                    .response_file()
+                    .context("Failed generating response file")?,
+            )
         } else {
             None
         };
@@ -147,7 +151,9 @@ mod base {
         child.wait()?;
 
         if let Some(response_file) = response_file {
-            response_file.close().context("Failed deleting response file")?;
+            response_file
+                .close()
+                .context("Failed deleting response file")?;
         }
 
         Ok(Detected::new())
@@ -186,8 +192,11 @@ mod cl {
 
         // Generate a response file if necessary.
         let response_file = if process.args.too_large() {
-            Some(process.response_file()
-                 .context("Failed generating response file")?)
+            Some(
+                process
+                    .response_file()
+                    .context("Failed generating response file")?,
+            )
         } else {
             None
         };
@@ -216,7 +225,7 @@ mod cl {
                 // Only include paths that are contained within the project
                 // root. Everything else is treated as a system dependency.
                 if let Ok(path) = path.strip_prefix(&root) {
-                    detected.add_input(path.to_path_buf());
+                    detected.add_input(path.to_path_buf().into());
                 }
             } else {
                 log.write_all(line.as_ref())?;
@@ -228,7 +237,8 @@ mod cl {
         child.wait()?;
 
         if let Some(response_file) = response_file {
-            response_file.close()
+            response_file
+                .close()
                 .context("Failed deleting response file")?;
         }
 

@@ -22,7 +22,7 @@ use std::collections::BTreeSet;
 use std::fmt;
 use std::hash::Hash;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use error::Error;
 use serde::Serialize;
@@ -32,8 +32,8 @@ use res;
 /// The sets of detected inputs and outputs of a process.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Detected {
-    inputs: BTreeSet<PathBuf>,
-    outputs: BTreeSet<PathBuf>,
+    inputs: BTreeSet<res::Any>,
+    outputs: BTreeSet<res::Any>,
 }
 
 impl Default for Detected {
@@ -50,21 +50,21 @@ impl Detected {
         Detected::default()
     }
 
-    pub fn inputs(&self) -> impl Iterator<Item = &Path> {
-        self.inputs.iter().map(|p| p.as_ref())
+    pub fn inputs(&self) -> impl Iterator<Item = &res::Any> {
+        self.inputs.iter()
     }
 
-    pub fn outputs(&self) -> impl Iterator<Item = &Path> {
-        self.outputs.iter().map(|p| p.as_ref())
+    pub fn outputs(&self) -> impl Iterator<Item = &res::Any> {
+        self.outputs.iter()
     }
 
-    pub fn add_input(&mut self, path: PathBuf) {
-        self.inputs.insert(path);
+    pub fn add_input(&mut self, r: res::Any) {
+        self.inputs.insert(r);
     }
 
     #[allow(dead_code)]
-    pub fn add_output(&mut self, path: PathBuf) {
-        self.outputs.insert(path);
+    pub fn add_output(&mut self, r: res::Any) {
+        self.outputs.insert(r);
     }
 
     pub fn add(&mut self, other: Detected) {

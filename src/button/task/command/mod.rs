@@ -204,16 +204,8 @@ impl<'de> Deserialize<'de> for Command {
         }
 
         const FIELDS: &[&str] = &[
-            "program",
-            "args",
-            "cwd",
-            "env",
-            "stdin",
-            "stdout",
-            "stderr",
-            "display",
-            "retry",
-            "detect",
+            "program", "args", "cwd", "env", "stdin", "stdout", "stderr",
+            "display", "retry", "detect",
         ];
 
         struct CommandVisitor;
