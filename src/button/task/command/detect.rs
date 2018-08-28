@@ -111,7 +111,7 @@ mod base {
     use std::io::{self, Read};
     use std::path::Path;
 
-    use error::Error;
+    use error::{Error, ResultExt};
     use util::Process;
 
     use task::traits::Detected;
@@ -125,7 +125,8 @@ mod base {
 
         // Generate a response file if necessary.
         let response_file = if process.args.too_large() {
-            Some(process.to_mut().response_file()?)
+            Some(process.to_mut().response_file()
+                 .context("Failed generating response file")?)
         } else {
             None
         };
@@ -148,7 +149,7 @@ mod base {
         child.wait()?;
 
         if let Some(response_file) = response_file {
-            response_file.close()?;
+            response_file.close().context("Failed deleting response file")?;
         }
 
         Ok(detected)
@@ -159,7 +160,7 @@ mod cl {
     use std::io::{self, BufRead};
     use std::path::Path;
 
-    use error::Error;
+    use error::{Error, ResultExt};
     use util::Process;
 
     use task::traits::Detected;
@@ -187,7 +188,8 @@ mod cl {
 
         // Generate a response file if necessary.
         let response_file = if process.args.too_large() {
-            Some(process.response_file()?)
+            Some(process.response_file()
+                 .context("Failed generating response file")?)
         } else {
             None
         };
@@ -228,7 +230,8 @@ mod cl {
         child.wait()?;
 
         if let Some(response_file) = response_file {
-            response_file.close()?;
+            response_file.close()
+                .context("Failed deleting response file")?;
         }
 
         Ok(detected)

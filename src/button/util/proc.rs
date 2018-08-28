@@ -144,13 +144,6 @@ impl Process {
             child.envs(env);
         }
 
-        // // Generate a response file if necessary.
-        // let generate_response_file = match self.response_file {
-        //     ResponseFile::Never => false,
-        //     ResponseFile::Always => true,
-        //     ResponseFile::Auto => self.args.is_too_large(),
-        // };
-
         child.args(&self.args);
 
         let handle = child.spawn().context("Failed to spawn process")?;
