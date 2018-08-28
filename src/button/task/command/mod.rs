@@ -26,24 +26,24 @@ use std::fmt;
 use std::io;
 use std::path::Path;
 
+use serde::de::{
+    self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor,
+};
+use serde::ser::{Serialize, SerializeStruct, Serializer};
+
 use error::Error;
+use res;
+use util::{progress_dummy, NeverAlwaysAuto, Process, Retry};
 
 use super::traits::{Detected, Task};
-use util::{NeverAlwaysAuto, Process};
-
-use res;
-use util::{progress_dummy, Retry};
 
 const DEV_NULL: &str = "/dev/null";
 
 /// A task that executes a single command. A command is simply a process to be
 /// spawned.
-#[derive(
-    Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone,
-)]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
 pub struct Command {
     /// Settings specific to spawning a process.
-    #[serde(flatten)]
     process: Process,
 
     /// Response file creation.
@@ -58,7 +58,6 @@ pub struct Command {
     ///
     /// If `Auto`, creates a temporary response file only if the size of the
     /// arguments exceeds the operating system limits.
-    #[serde(default)]
     pub response_file: NeverAlwaysAuto,
 
     /// String to display when executing the task. If `None`, the command
@@ -171,6 +170,274 @@ impl Task for Command {
                 set.insert(path.clone().into());
             }
         }
+    }
+}
+
+// Implement Serialize manually because `#[serde(flatten)]` doesn't work with
+// bincode. All of this can be removed if/when that is fixed.
+impl Serialize for Command {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("command", 5)?;
+        state.serialize_field("program", &self.process.program)?;
+        state.serialize_field("args", &self.process.args)?;
+        state.serialize_field("cwd", &self.process.cwd)?;
+        state.serialize_field("env", &self.process.env)?;
+        state.serialize_field("stdin", &self.process.stdin)?;
+        state.serialize_field("stdout", &self.process.stdout)?;
+        state.serialize_field("stderr", &self.process.stderr)?;
+        state.serialize_field("response-file", &self.response_file)?;
+        state.serialize_field("display", &self.display)?;
+        state.serialize_field("retry", &self.retry)?;
+        state.serialize_field("detect", &self.detect)?;
+        state.end()
+    }
+}
+
+// Implement Deserialize manually because `#[serde(flatten)]` doesn't work with
+// bincode. All of this can be removed if/when that is fixed.
+impl<'de> Deserialize<'de> for Command {
+    fn deserialize<D>(deserializer: D) -> Result<Command, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "kebab-case")]
+        enum Field {
+            Program,
+            Args,
+            Cwd,
+            Env,
+            Stdin,
+            Stdout,
+            Stderr,
+            ResponseFile,
+            Display,
+            Retry,
+            Detect,
+        }
+
+        const FIELDS: &'static [&'static str] = &[
+            "program",
+            "args",
+            "cwd",
+            "env",
+            "stdin",
+            "stdout",
+            "stderr",
+            "response-file",
+            "display",
+            "retry",
+            "detect",
+        ];
+
+        struct CommandVisitor;
+
+        impl<'de> Visitor<'de> for CommandVisitor {
+            type Value = Command;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("struct Command")
+            }
+
+            fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
+            where
+                V: SeqAccess<'de>,
+            {
+                let program = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+
+                let args = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
+
+                let cwd = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(2, &self))?;
+
+                let env = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(3, &self))?;
+
+                let stdin = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(4, &self))?;
+
+                let stdout = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(5, &self))?;
+
+                let stderr = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(6, &self))?;
+
+                let response_file = seq.next_element()?.unwrap_or_default();
+
+                let display = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(8, &self))?;
+                let retry = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(9, &self))?;
+                let detect = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(10, &self))?;
+
+                Ok(Command {
+                    process: Process {
+                        program,
+                        args,
+                        cwd,
+                        env,
+                        stdin,
+                        stdout,
+                        stderr,
+                    },
+                    response_file,
+                    display,
+                    retry,
+                    detect,
+                })
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
+            where
+                V: MapAccess<'de>,
+            {
+                let mut program = None;
+                let mut args = None;
+                let mut cwd = None;
+                let mut env = None;
+                let mut stdin = None;
+                let mut stdout = None;
+                let mut stderr = None;
+                let mut response_file = None;
+                let mut display = None;
+                let mut retry = None;
+                let mut detect = None;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::Program => {
+                            if program.is_some() {
+                                return Err(de::Error::duplicate_field(
+                                    "program",
+                                ));
+                            }
+
+                            program = Some(map.next_value()?);
+                        }
+                        Field::Args => {
+                            if args.is_some() {
+                                return Err(de::Error::duplicate_field("args"));
+                            }
+
+                            args = Some(map.next_value()?);
+                        }
+                        Field::Cwd => {
+                            if cwd.is_some() {
+                                return Err(de::Error::duplicate_field("cwd"));
+                            }
+
+                            cwd = Some(map.next_value()?);
+                        }
+                        Field::Env => {
+                            if env.is_some() {
+                                return Err(de::Error::duplicate_field("env"));
+                            }
+
+                            env = Some(map.next_value()?);
+                        }
+                        Field::Stdin => {
+                            if stdin.is_some() {
+                                return Err(de::Error::duplicate_field("stdin"));
+                            }
+
+                            stdin = Some(map.next_value()?);
+                        }
+                        Field::Stdout => {
+                            if stdout.is_some() {
+                                return Err(de::Error::duplicate_field(
+                                    "stdout",
+                                ));
+                            }
+
+                            stdout = Some(map.next_value()?);
+                        }
+                        Field::Stderr => {
+                            if stderr.is_some() {
+                                return Err(de::Error::duplicate_field(
+                                    "stderr",
+                                ));
+                            }
+
+                            stderr = Some(map.next_value()?);
+                        }
+                        Field::ResponseFile => {
+                            if response_file.is_some() {
+                                return Err(de::Error::duplicate_field(
+                                    "response-file",
+                                ));
+                            }
+
+                            response_file = Some(map.next_value()?);
+                        }
+                        Field::Display => {
+                            if display.is_some() {
+                                return Err(de::Error::duplicate_field(
+                                    "display",
+                                ));
+                            }
+
+                            display = Some(map.next_value()?);
+                        }
+                        Field::Retry => {
+                            if retry.is_some() {
+                                return Err(de::Error::duplicate_field("retry"));
+                            }
+
+                            retry = Some(map.next_value()?);
+                        }
+                        Field::Detect => {
+                            if detect.is_some() {
+                                return Err(de::Error::duplicate_field(
+                                    "detect",
+                                ));
+                            }
+
+                            detect = Some(map.next_value()?);
+                        }
+                    }
+                }
+
+                let program = program
+                    .ok_or_else(|| de::Error::missing_field("program"))?;
+                let args =
+                    args.ok_or_else(|| de::Error::missing_field("args"))?;
+                let response_file = response_file.unwrap_or_default();
+
+                Ok(Command {
+                    process: Process {
+                        program,
+                        args,
+                        cwd,
+                        env,
+                        stdin,
+                        stdout,
+                        stderr,
+                    },
+                    response_file,
+                    display,
+                    retry,
+                    detect,
+                })
+            }
+        }
+
+        deserializer.deserialize_struct("command", FIELDS, CommandVisitor)
     }
 }
 
