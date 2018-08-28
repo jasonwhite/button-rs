@@ -133,8 +133,6 @@ mod base {
 
         let (mut reader, child) = process.spawn(root)?;
 
-        let detected = Detected::new();
-
         // Read the combined stdout/stderr.
         let mut buf = [0u8; 4096];
         loop {
@@ -152,7 +150,7 @@ mod base {
             response_file.close().context("Failed deleting response file")?;
         }
 
-        Ok(detected)
+        Ok(Detected::new())
     }
 }
 
