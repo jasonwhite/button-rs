@@ -258,7 +258,7 @@ impl Arguments {
     /// Returns true if the argument list exceeds the operating system limits.
     ///
     /// Useful to know when generating a response file is appropriate.
-    pub fn is_too_large(&self) -> bool {
+    pub fn too_large(&self) -> bool {
         #[cfg(windows)]
         {
             self.byte_count() > 32768

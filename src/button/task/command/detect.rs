@@ -107,6 +107,7 @@ impl Detect {
 }
 
 mod base {
+    use std::borrow::Cow;
     use std::io::{self, Read};
     use std::path::Path;
 
@@ -120,6 +121,15 @@ mod base {
         process: &Process,
         log: &mut io::Write,
     ) -> Result<Detected, Error> {
+        let mut process = Cow::Borrowed(process);
+
+        // Generate a response file if necessary.
+        let response_file = if process.args.too_large() {
+            Some(process.to_mut().response_file()?)
+        } else {
+            None
+        };
+
         let (mut reader, child) = process.spawn(root)?;
 
         let detected = Detected::new();
@@ -136,6 +146,10 @@ mod base {
         }
 
         child.wait()?;
+
+        if let Some(response_file) = response_file {
+            response_file.close()?;
+        }
 
         Ok(detected)
     }
@@ -171,6 +185,13 @@ mod cl {
         // starting with '-' instead of '/', case differences).
         process.args.push("/showIncludes".into());
 
+        // Generate a response file if necessary.
+        let response_file = if process.args.too_large() {
+            Some(process.response_file()?)
+        } else {
+            None
+        };
+
         let (reader, child) = process.spawn(root)?;
 
         // Canonicalize the root path such that `strip_prefix` works below.
@@ -205,6 +226,10 @@ mod cl {
         }
 
         child.wait()?;
+
+        if let Some(response_file) = response_file {
+            response_file.close()?;
+        }
 
         Ok(detected)
     }

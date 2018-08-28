@@ -35,26 +35,3 @@ pub use self::proc::{Child, Process};
 pub use self::queue::RandomQueue;
 pub use self::retry::{progress_dummy, progress_print, Retry};
 pub use self::sha256::{Sha256, ShaVerifyError};
-
-/// A tri-state for checking if we should do things.
-#[derive(
-    Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Copy, Clone,
-)]
-#[serde(rename_all = "lowercase")]
-pub enum NeverAlwaysAuto {
-    /// Never do the thing.
-    Never,
-
-    /// Always do the thing.
-    Always,
-
-    /// Only do the thing under certain circumstances.
-    Auto,
-}
-
-impl Default for NeverAlwaysAuto {
-    /// Never do the thing by default.
-    fn default() -> Self {
-        NeverAlwaysAuto::Never
-    }
-}

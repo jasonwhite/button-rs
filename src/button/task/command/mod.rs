@@ -33,7 +33,7 @@ use serde::ser::{Serialize, SerializeStruct, Serializer};
 
 use error::Error;
 use res;
-use util::{progress_dummy, NeverAlwaysAuto, Process, Retry};
+use util::{progress_dummy, Process, Retry};
 
 use super::traits::{Detected, Task};
 
@@ -45,20 +45,6 @@ const DEV_NULL: &str = "/dev/null";
 pub struct Command {
     /// Settings specific to spawning a process.
     process: Process,
-
-    /// Response file creation.
-    ///
-    /// If `Never`, never creates a response file. If the command line length
-    /// exceeds the operating system limits, the command will fail.
-    ///
-    /// If `Always`, creates a temporary response file with all the command
-    /// line arguments and passes that as the first command line argument
-    /// instead. This is useful for very long command lines that exceed
-    /// operating system limits.
-    ///
-    /// If `Auto`, creates a temporary response file only if the size of the
-    /// arguments exceeds the operating system limits.
-    pub response_file: NeverAlwaysAuto,
 
     /// String to display when executing the task. If `None`, the command
     /// arguments are displayed in full instead.
@@ -188,7 +174,6 @@ impl Serialize for Command {
         state.serialize_field("stdin", &self.process.stdin)?;
         state.serialize_field("stdout", &self.process.stdout)?;
         state.serialize_field("stderr", &self.process.stderr)?;
-        state.serialize_field("response-file", &self.response_file)?;
         state.serialize_field("display", &self.display)?;
         state.serialize_field("retry", &self.retry)?;
         state.serialize_field("detect", &self.detect)?;
@@ -213,7 +198,6 @@ impl<'de> Deserialize<'de> for Command {
             Stdin,
             Stdout,
             Stderr,
-            ResponseFile,
             Display,
             Retry,
             Detect,
@@ -227,7 +211,6 @@ impl<'de> Deserialize<'de> for Command {
             "stdin",
             "stdout",
             "stderr",
-            "response-file",
             "display",
             "retry",
             "detect",
@@ -274,8 +257,6 @@ impl<'de> Deserialize<'de> for Command {
                     .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(6, &self))?;
 
-                let response_file = seq.next_element()?.unwrap_or_default();
-
                 let display = seq
                     .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(8, &self))?;
@@ -296,7 +277,6 @@ impl<'de> Deserialize<'de> for Command {
                         stdout,
                         stderr,
                     },
-                    response_file,
                     display,
                     retry,
                     detect,
@@ -314,7 +294,6 @@ impl<'de> Deserialize<'de> for Command {
                 let mut stdin = None;
                 let mut stdout = None;
                 let mut stderr = None;
-                let mut response_file = None;
                 let mut display = None;
                 let mut retry = None;
                 let mut detect = None;
@@ -376,15 +355,6 @@ impl<'de> Deserialize<'de> for Command {
 
                             stderr = Some(map.next_value()?);
                         }
-                        Field::ResponseFile => {
-                            if response_file.is_some() {
-                                return Err(de::Error::duplicate_field(
-                                    "response-file",
-                                ));
-                            }
-
-                            response_file = Some(map.next_value()?);
-                        }
                         Field::Display => {
                             if display.is_some() {
                                 return Err(de::Error::duplicate_field(
@@ -417,7 +387,6 @@ impl<'de> Deserialize<'de> for Command {
                     .ok_or_else(|| de::Error::missing_field("program"))?;
                 let args =
                     args.ok_or_else(|| de::Error::missing_field("args"))?;
-                let response_file = response_file.unwrap_or_default();
 
                 Ok(Command {
                     process: Process {
@@ -429,7 +398,6 @@ impl<'de> Deserialize<'de> for Command {
                         stdout,
                         stderr,
                     },
-                    response_file,
                     display,
                     retry,
                     detect,
