@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+use std::iter;
 use std::cmp;
 use std::collections::HashMap;
 use std::hash::{BuildHasher, Hash};
@@ -194,6 +195,8 @@ where
     G: Visitable<bool>,
     E: Send,
 {
+    pub threads: usize,
+
     // List of errors that occurred during the traversal.
     pub errors: Mutex<Vec<(usize, E)>>,
 
@@ -216,7 +219,7 @@ where
     G: Visitable<bool> + Algo<'a>,
     E: Send,
 {
-    pub fn new(graph: &'a G, reverse: bool) -> TraversalState<G, E> {
+    pub fn new(graph: &'a G, reverse: bool, threads: usize) -> TraversalState<G, E> {
         let queue = Queue::new();
 
         let active = if reverse {
@@ -226,11 +229,18 @@ where
         };
 
         TraversalState {
+            threads,
             errors: Mutex::new(Vec::new()),
             visited: Mutex::new(graph.visit_map()),
             queue,
             active: AtomicUsize::new(active),
         }
+    }
+
+    /// Signals all threads to stop their work after they finish what they're
+    /// currently doing.
+    pub fn shutdown(&self) {
+        self.queue.push_many(iter::repeat(None).take(self.threads));
     }
 }
 
@@ -391,7 +401,7 @@ where
     {
         let threads = cmp::max(threads, 1);
 
-        let state = TraversalState::new(self, reverse);
+        let state = TraversalState::new(self, reverse, threads);
 
         crossbeam::scope(|scope| {
             let state = &state;
@@ -399,7 +409,7 @@ where
 
             for tid in 0..threads {
                 scope.spawn(move || {
-                    traversal_worker(self, tid, threads, state, visit, reverse)
+                    traversal_worker(self, tid, state, visit, reverse)
                 });
             }
         });
@@ -427,7 +437,6 @@ where
 fn traversal_worker<'a, G, F, Error>(
     g: &'a G,
     tid: usize,
-    threads: usize,
     state: &TraversalState<G, Error>,
     visit: &F,
     reverse: bool,
@@ -436,8 +445,6 @@ fn traversal_worker<'a, G, F, Error>(
     F: Fn(usize, usize, &G::Node) -> Result<bool, Error> + Sync,
     Error: Send,
 {
-    use std::iter::repeat;
-
     while let Some(index) = state.queue.pop() {
         // Only call the visitor function if:
         //  1. This node has no incoming edges, or
@@ -473,7 +480,7 @@ fn traversal_worker<'a, G, F, Error>(
                 // If we're the last node to be processed, shutdown all
                 // threads.
                 if state.active.fetch_sub(1, Ordering::Relaxed) == 1 {
-                    state.queue.push_many(repeat(None).take(threads));
+                    state.shutdown();
                 }
 
                 // In case of error, do not traverse child nodes. Nothing
@@ -496,7 +503,7 @@ fn traversal_worker<'a, G, F, Error>(
 
         // If we're the last node to be processed, shutdown all threads.
         if state.active.fetch_sub(1, Ordering::Relaxed) == 1 {
-            state.queue.push_many(repeat(None).take(threads));
+            state.shutdown();
         }
     }
 }
