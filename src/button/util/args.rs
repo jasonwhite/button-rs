@@ -195,15 +195,18 @@ impl fmt::Display for ArgBuf {
 
 /// A list of arguments.
 #[derive(
-    Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Debug,
+    Serialize,
+    Deserialize,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+    Hash,
+    Clone,
+    Debug,
+    Default,
 )]
 pub struct Arguments(Vec<ArgBuf>);
-
-impl Default for Arguments {
-    fn default() -> Arguments {
-        Arguments(Vec::new())
-    }
-}
 
 impl Arguments {
     pub fn new() -> Arguments {

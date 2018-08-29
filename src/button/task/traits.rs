@@ -30,19 +30,10 @@ use serde::Serialize;
 use res;
 
 /// The sets of detected inputs and outputs of a process.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Detected {
     inputs: BTreeSet<res::Any>,
     outputs: BTreeSet<res::Any>,
-}
-
-impl Default for Detected {
-    fn default() -> Detected {
-        Detected {
-            inputs: BTreeSet::new(),
-            outputs: BTreeSet::new(),
-        }
-    }
 }
 
 impl Detected {

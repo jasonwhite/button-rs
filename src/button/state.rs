@@ -96,8 +96,8 @@ impl BuildState {
         bincode::serialize_into(writer, &self)
     }
 
-    /// Writes the state to a file. Note that the file is atomically updated
-    /// using a temporary file.
+    /// Writes the state to a file. The file is atomically updated using
+    /// a temporary file.
     pub fn write_to_path<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
         let path = path.as_ref();
 
