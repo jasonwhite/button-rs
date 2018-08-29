@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::collections::BTreeSet;
+use std::collections::HashSet;
 use std::fmt;
 use std::hash::Hash;
 use std::io;
@@ -32,8 +32,8 @@ use res;
 /// The sets of detected inputs and outputs of a process.
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Detected {
-    inputs: BTreeSet<res::Any>,
-    outputs: BTreeSet<res::Any>,
+    inputs: HashSet<res::Any>,
+    outputs: HashSet<res::Any>,
 }
 
 impl Detected {
