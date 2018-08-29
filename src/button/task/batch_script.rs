@@ -20,10 +20,9 @@
 
 use std::collections::BTreeMap;
 use std::fmt;
-use std::io;
 use std::io::Write as IoWrite;
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
-use std::process;
 
 use tempfile;
 
@@ -31,7 +30,7 @@ use error::Error;
 
 use super::traits::{Detected, Task};
 
-use util::{progress_dummy, Retry};
+use util::{progress_dummy, Arguments, Process, Retry};
 
 /// A task to create a directory.
 #[derive(
@@ -66,54 +65,44 @@ impl BatchScript {
         root: &Path,
         log: &mut io::Write,
     ) -> Result<Detected, Error> {
-        let mut cmd = process::Command::new("cmd.exe");
-
-        // Don't allow user input.
-        cmd.stdin(process::Stdio::null());
-
-        if let Some(ref cwd) = self.cwd {
-            cmd.current_dir(root.join(cwd));
-        } else {
-            cmd.current_dir(root);
-        }
-
-        if let Some(ref env) = self.env {
-            cmd.envs(env);
-        }
-
-        // Write the script contents to a temporary file for execution.
+        // Write the script contents to a temporary file for execution. This
+        // temporary file must outlive the spawned process.
         let temppath = {
             let mut tmp = tempfile::Builder::new().suffix(".bat").tempfile()?;
             tmp.as_file_mut().write_all(self.contents.as_bytes())?;
             tmp.into_temp_path()
         };
 
+        let mut args = Arguments::new();
+
         if self.quiet {
-            cmd.arg("/Q");
+            args.push("/Q".into());
         }
 
-        cmd.args(&["/c", "call", temppath.to_str().unwrap()]);
+        args.push("/c".into());
+        args.push("call".into());
+        args.push(temppath.to_str().unwrap().into());
 
-        let output = cmd.output()?;
+        let mut process = Process::new(PathBuf::from("cmd.exe"), args);
+        process.env = self.env.clone();
 
-        // TODO: Interleave stdout and stderr.
-        log.write_all(&output.stdout)?;
-        log.write_all(&output.stderr)?;
+        let (mut reader, child) = process.spawn(root)?;
 
-        if output.status.success() {
-            Ok(Detected::new())
-        } else {
-            match output.status.code() {
-                Some(code) => Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("Process exited with error code {}", code),
-                ).into()),
-                None => Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "Process terminated by signal",
-                ).into()),
+        let mut buf = [0u8; 4096];
+        loop {
+            let n = reader.read(&mut buf)?;
+            if n == 0 {
+                break;
             }
+
+            log.write_all(&buf[0..n])?;
         }
+
+        child.wait()?;
+
+        // Don't do dependency detection for now. We may want to use generic
+        // dependency detection in this case.
+        Ok(Detected::new())
     }
 }
 

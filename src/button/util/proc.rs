@@ -32,8 +32,6 @@ use super::args::{Arg, Arguments};
 
 use error::{Error, ResultExt};
 
-const DEV_NULL: &str = "/dev/null";
-
 #[derive(
     Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Debug,
 )]
@@ -67,6 +65,10 @@ pub struct Process {
 }
 
 impl Process {
+    /// If this path is given for stdin, stdout, or stderr, then I/O is
+    /// redirected to a cross-platform blackhole.
+    pub const DEV_NULL: &'static str = "/dev/null";
+
     pub fn new(program: PathBuf, args: Arguments) -> Process {
         Process {
             program,
@@ -97,6 +99,14 @@ impl Process {
         Ok(temp)
     }
 
+    /// Spawns the process.
+    ///
+    /// The I/O pipes are handled in special ways:
+    ///
+    ///  - `stdin` is always redirected from `/dev/null` (or platform-specific
+    ///    equivalent) unless a file path is given.
+    ///  - `stderr` and `stdout` are always interleaved unless one (or both) are
+    ///    redirected to a file path.
     pub fn spawn(
         &self,
         root: &Path,
@@ -104,7 +114,7 @@ impl Process {
         let mut child = process::Command::new(&self.program);
 
         if let Some(ref path) = self.stdin {
-            if path == Path::new(DEV_NULL) {
+            if path == Path::new(Self::DEV_NULL) {
                 child.stdin(process::Stdio::null());
             } else {
                 child.stdin(fs::File::open(path)?);
@@ -124,7 +134,7 @@ impl Process {
             let writer = writer;
 
             if let Some(ref path) = self.stdout {
-                if path == Path::new(DEV_NULL) {
+                if path == Path::new(Self::DEV_NULL) {
                     // Use cross-platform method.
                     child.stdout(process::Stdio::null());
                 } else {
@@ -135,7 +145,7 @@ impl Process {
             }
 
             if let Some(ref path) = self.stderr {
-                if path == Path::new(DEV_NULL) {
+                if path == Path::new(Self::DEV_NULL) {
                     // Use cross-platform method.
                     child.stderr(process::Stdio::null());
                 } else {
