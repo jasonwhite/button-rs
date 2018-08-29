@@ -18,11 +18,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::iter;
 use std::cmp;
 use std::collections::HashMap;
 use std::hash::{BuildHasher, Hash};
 use std::io;
+use std::iter;
 use std::mem;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
@@ -219,7 +219,11 @@ where
     G: Visitable<bool> + Algo<'a>,
     E: Send,
 {
-    pub fn new(graph: &'a G, reverse: bool, threads: usize) -> TraversalState<G, E> {
+    pub fn new(
+        graph: &'a G,
+        reverse: bool,
+        threads: usize,
+    ) -> TraversalState<G, E> {
         let queue = Queue::new();
 
         let active = if reverse {

@@ -24,7 +24,7 @@ use self::detect::Detect;
 
 use std::fmt;
 use std::io;
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 
 use serde::de::{
     self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor,
@@ -33,7 +33,7 @@ use serde::ser::{Serialize, SerializeStruct, Serializer};
 
 use error::Error;
 use res;
-use util::{Arguments, progress_dummy, Process, Retry};
+use util::{progress_dummy, Arguments, Process, Retry};
 
 use super::traits::{Detected, Task};
 
@@ -427,10 +427,7 @@ mod tests {
                 "{}",
                 Command::new(
                     PathBuf::from("foo"),
-                    vec![
-                        "bar".into(),
-                        "baz".into()
-                    ].into_iter().collect()
+                    vec!["bar".into(), "baz".into()].into_iter().collect()
                 )
             ),
             "foo bar baz"
@@ -485,10 +482,9 @@ mod tests {
                 "{:?}",
                 Command::new(
                     PathBuf::from("foo/bar/baz"),
-                    vec![
-                        "some argument".into(),
-                        "with spaces".into()
-                    ].into_iter().collect()
+                    vec!["some argument".into(), "with spaces".into()]
+                        .into_iter()
+                        .collect()
                 ).display(String::from("display this"))
             ),
             "foo/bar/baz \"some argument\" \"with spaces\""

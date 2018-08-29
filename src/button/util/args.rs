@@ -327,8 +327,7 @@ impl From<Vec<ArgBuf>> for Arguments {
     }
 }
 
-impl iter::FromIterator<ArgBuf> for Arguments
-{
+impl iter::FromIterator<ArgBuf> for Arguments {
     fn from_iter<I>(iter: I) -> Self
     where
         I: IntoIterator<Item = ArgBuf>,
@@ -339,8 +338,7 @@ impl iter::FromIterator<ArgBuf> for Arguments
     }
 }
 
-impl iter::Extend<ArgBuf> for Arguments
-{
+impl iter::Extend<ArgBuf> for Arguments {
     fn extend<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = ArgBuf>,
