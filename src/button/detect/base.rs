@@ -18,43 +18,54 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::io;
+use std::borrow::Cow;
+use std::io::{self, Read};
+use std::path::Path;
 
-use detect::Detected;
-use error::Error;
+use error::{Error, ResultExt};
+use util::Process;
 
-use res;
-use task;
+use super::detected::Detected;
 
-/// A log result represents the result of the logging operation itself. For
-/// example, events should use this to propagate errors relating to IO.
-pub type LogResult<T> = Result<T, Error>;
+pub fn run(
+    root: &Path,
+    process: &Process,
+    log: &mut io::Write,
+) -> Result<Detected, Error> {
+    let mut process = Cow::Borrowed(process);
 
-pub trait TaskLogger: io::Write {
-    /// Finishes the task.
-    fn finish(self, result: &Result<Detected, Error>) -> LogResult<()>;
-}
+    // Generate a response file if necessary.
+    let response_file = if process.args.too_large() {
+        Some(
+            process
+                .to_mut()
+                .response_file()
+                .context("Failed generating response file")?,
+        )
+    } else {
+        None
+    };
 
-/// An event logger.
-///
-/// Build events get sent to the logger and the logger decides how to display
-/// them.
-pub trait EventLogger: Send + Sync {
-    type TaskLogger: TaskLogger;
+    let (mut reader, child) = process.spawn(root)?;
 
-    /// Called when the build has started.
-    fn begin_build(&mut self, threads: usize) -> LogResult<()>;
+    // Read the combined stdout/stderr.
+    let mut buf = [0u8; 4096];
+    loop {
+        let n = reader.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
 
-    /// Called when the build has finished.
-    fn end_build(&mut self, result: &Result<(), Error>) -> LogResult<()>;
+        log.write_all(&buf[0..n])?;
+    }
 
-    /// Called when a task is about to be executed.
-    fn start_task(
-        &self,
-        thread: usize,
-        task: &task::Any,
-    ) -> Result<Self::TaskLogger, Error>;
+    child.wait()?;
 
-    /// Called when a resource is deleted.
-    fn delete(&self, thread: usize, resource: &res::Any) -> LogResult<()>;
+    if let Some(response_file) = response_file {
+        response_file
+            .close()
+            .context("Failed deleting response file")?;
+    }
+
+    Ok(Detected::new())
 }

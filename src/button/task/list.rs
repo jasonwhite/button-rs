@@ -26,7 +26,8 @@ use std::path::Path;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::any::Any;
-use super::traits::{Detected, Task};
+use super::traits::Task;
+use detect::Detected;
 use error::Error;
 
 use res;

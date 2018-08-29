@@ -33,6 +33,7 @@ pub use self::console::{Console, ConsoleTask};
 pub use self::events::{log_from_path, log_from_reader, LogEvent};
 pub use self::traits::{EventLogger, LogResult, TaskLogger};
 
+use detect::Detected;
 use error::{Error, ResultExt};
 use res;
 use task;
@@ -116,7 +117,7 @@ impl io::Write for AnyTaskLogger {
 }
 
 impl TaskLogger for AnyTaskLogger {
-    fn finish(self, result: &Result<task::Detected, Error>) -> LogResult<()> {
+    fn finish(self, result: &Result<Detected, Error>) -> LogResult<()> {
         match self {
             AnyTaskLogger::Console(l) => l.finish(result),
             AnyTaskLogger::BinaryFile(l) => l.finish(result),
@@ -212,7 +213,7 @@ impl<T> TaskLogger for TaskLoggerList<T>
 where
     T: TaskLogger,
 {
-    fn finish(self, result: &Result<task::Detected, Error>) -> LogResult<()> {
+    fn finish(self, result: &Result<Detected, Error>) -> LogResult<()> {
         for logger in self.inner {
             logger.finish(result)?;
         }

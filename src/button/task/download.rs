@@ -26,7 +26,8 @@ use std::time;
 use reqwest;
 use tempfile::NamedTempFile;
 
-use super::traits::{Detected, Task};
+use super::traits::Task;
+use detect::Detected;
 use error::{Error, ResultExt};
 
 use res;

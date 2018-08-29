@@ -22,6 +22,7 @@ use std::io::{self, Write};
 use std::sync::Arc;
 use std::time::Instant;
 
+use detect::Detected;
 use res;
 use task;
 
@@ -80,7 +81,7 @@ impl io::Write for ConsoleTask {
 }
 
 impl TaskLogger for ConsoleTask {
-    fn finish(self, result: &Result<task::Detected, Error>) -> LogResult<()> {
+    fn finish(self, result: &Result<Detected, Error>) -> LogResult<()> {
         let ConsoleTask {
             verbose,
             bufwriter,

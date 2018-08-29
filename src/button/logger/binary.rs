@@ -24,6 +24,7 @@ use std::sync::{Arc, Mutex};
 
 use super::traits::{EventLogger, LogResult, TaskLogger};
 
+use detect::Detected;
 use res;
 use task;
 
@@ -66,7 +67,7 @@ impl<W> TaskLogger for BinaryTask<W>
 where
     W: io::Write,
 {
-    fn finish(self, result: &LogResult<task::Detected>) -> LogResult<()> {
+    fn finish(self, result: &LogResult<Detected>) -> LogResult<()> {
         let result = match result {
             Ok(x) => Ok(x.clone()),
             Err(err) => Err(SerError::new(err)),

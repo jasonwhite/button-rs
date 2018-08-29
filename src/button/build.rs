@@ -26,6 +26,7 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use build_graph::{BuildGraph, FromRules, Node};
+use detect::Detected;
 use logger::{EventLogger, TaskLogger};
 use res::{self, Resource, ResourceState};
 use rules::Rules;
@@ -501,7 +502,7 @@ where
         let mut task_logger = logger.start_task(tid, &task)?;
 
         if context.dryrun {
-            task_logger.finish(&Ok(task::Detected::new()))?;
+            task_logger.finish(&Ok(Detected::new()))?;
         } else {
             let result = task.execute(context.root, &mut task_logger);
 

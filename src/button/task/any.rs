@@ -28,7 +28,8 @@ use super::copy::Copy;
 use super::download::Download;
 use super::makedir::MakeDir;
 
-use super::traits::{Detected, Task};
+use super::traits::Task;
+use detect::Detected;
 use error::Error;
 
 use res;

@@ -18,10 +18,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-mod detect;
-
-use self::detect::Detect;
-
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -35,7 +31,8 @@ use error::Error;
 use res;
 use util::{progress_dummy, Arguments, Process, Retry};
 
-use super::traits::{Detected, Task};
+use super::traits::Task;
+use detect::{Detect, Detected};
 
 const DEV_NULL: &str = "/dev/null";
 

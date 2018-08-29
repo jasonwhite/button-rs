@@ -39,6 +39,7 @@ extern crate termcolor;
 
 mod build;
 pub mod build_graph;
+mod detect;
 pub mod error;
 pub mod graph;
 pub mod logger;

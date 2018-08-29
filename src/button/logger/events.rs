@@ -27,6 +27,7 @@ use bincode;
 use chrono::{DateTime, Utc};
 use error::SerError;
 
+use detect::Detected;
 use res;
 use task;
 
@@ -57,7 +58,7 @@ pub struct WriteTask {
 #[derive(Serialize, Deserialize)]
 pub struct FinishTask {
     pub thread: usize,
-    pub result: Result<task::Detected, SerError>,
+    pub result: Result<Detected, SerError>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

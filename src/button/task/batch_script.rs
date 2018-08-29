@@ -28,7 +28,8 @@ use tempfile;
 
 use error::Error;
 
-use super::traits::{Detected, Task};
+use super::traits::Task;
+use detect::Detected;
 
 use util::{progress_dummy, Arguments, Process, Retry};
 

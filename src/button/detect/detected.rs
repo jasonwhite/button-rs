@@ -17,21 +17,41 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+use std::collections::HashSet;
 
-mod any;
-mod batch_script;
-mod command;
-mod copy;
-mod download;
-mod list;
-mod makedir;
-mod traits;
+use res;
 
-pub use self::any::Any;
-pub use self::batch_script::BatchScript;
-pub use self::command::Command;
-pub use self::copy::Copy;
-pub use self::download::Download;
-pub use self::list::List;
-pub use self::makedir::MakeDir;
-pub use self::traits::Task;
+/// The sets of detected inputs and outputs of a process.
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct Detected {
+    inputs: HashSet<res::Any>,
+    outputs: HashSet<res::Any>,
+}
+
+impl Detected {
+    pub fn new() -> Detected {
+        Detected::default()
+    }
+
+    pub fn inputs(&self) -> impl Iterator<Item = &res::Any> {
+        self.inputs.iter()
+    }
+
+    pub fn outputs(&self) -> impl Iterator<Item = &res::Any> {
+        self.outputs.iter()
+    }
+
+    pub fn add_input(&mut self, r: res::Any) {
+        self.inputs.insert(r);
+    }
+
+    #[allow(dead_code)]
+    pub fn add_output(&mut self, r: res::Any) {
+        self.outputs.insert(r);
+    }
+
+    pub fn add(&mut self, other: Detected) {
+        self.inputs.extend(other.inputs);
+        self.outputs.extend(other.outputs);
+    }
+}

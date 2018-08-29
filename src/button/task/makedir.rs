@@ -23,7 +23,8 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use super::traits::{Detected, Task};
+use super::traits::Task;
+use detect::Detected;
 use error::Error;
 
 use res;
