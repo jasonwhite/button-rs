@@ -166,7 +166,7 @@ mod tests {
 
         let outputs = vec![FilePath::from("foo.o").into()];
         let tasks = vec![
-            Command::new(PathBuf::from("gcc"), vec!["foo.c"].iter().collect())
+            Command::new(PathBuf::from("gcc"), vec!["foo.c".into()].into_iter().collect())
                 .into(),
         ];
 

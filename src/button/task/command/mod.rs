@@ -24,7 +24,7 @@ use self::detect::Detect;
 
 use std::fmt;
 use std::io;
-use std::path::Path;
+use std::path::{PathBuf, Path};
 
 use serde::de::{
     self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor,
@@ -33,7 +33,7 @@ use serde::ser::{Serialize, SerializeStruct, Serializer};
 
 use error::Error;
 use res;
-use util::{progress_dummy, Process, Retry};
+use util::{Arguments, progress_dummy, Process, Retry};
 
 use super::traits::{Detected, Task};
 
@@ -59,6 +59,20 @@ pub struct Command {
 }
 
 impl Command {
+    pub fn new(program: PathBuf, args: Arguments) -> Command {
+        Command {
+            process: Process::new(program, args),
+            display: None,
+            retry: None,
+            detect: None,
+        }
+    }
+
+    pub fn display(&mut self, display: String) -> &mut Command {
+        self.display = Some(display);
+        self
+    }
+
     fn execute_impl(
         &self,
         root: &Path,
@@ -413,7 +427,10 @@ mod tests {
                 "{}",
                 Command::new(
                     PathBuf::from("foo"),
-                    vec!["bar", "baz"].iter().collect()
+                    vec![
+                        "bar".into(),
+                        "baz".into()
+                    ].into_iter().collect()
                 )
             ),
             "foo bar baz"
@@ -424,7 +441,7 @@ mod tests {
                 "{}",
                 Command::new(
                     PathBuf::from("foo bar"),
-                    vec!["baz"].iter().collect()
+                    vec!["baz".into()].into_iter().collect()
                 )
             ),
             "\"foo bar\" baz"
@@ -435,7 +452,7 @@ mod tests {
                 "{}",
                 Command::new(
                     PathBuf::from("foo/bar/baz"),
-                    vec!["some argument"].iter().collect()
+                    vec!["some argument".into()].into_iter().collect()
                 ).display(String::from("display this"))
             ),
             "display this"
@@ -446,10 +463,10 @@ mod tests {
                 "{:?}",
                 Command::new(
                     PathBuf::from("foo"),
-                    vec!["bar", "baz"].iter().collect()
+                    vec!["bar".into(), "baz".into()].into_iter().collect()
                 )
             ),
-            "\"foo bar baz\""
+            "foo bar baz"
         );
 
         assert_eq!(
@@ -457,10 +474,10 @@ mod tests {
                 "{:?}",
                 Command::new(
                     PathBuf::from("foo bar"),
-                    vec!["baz"].iter().collect()
+                    vec!["baz".into()].into_iter().collect()
                 )
             ),
-            "\"\"foo bar\" baz\""
+            "\"foo bar\" baz"
         );
 
         assert_eq!(
@@ -468,10 +485,13 @@ mod tests {
                 "{:?}",
                 Command::new(
                     PathBuf::from("foo/bar/baz"),
-                    vec!["some argument"].iter().collect()
+                    vec![
+                        "some argument".into(),
+                        "with spaces".into()
+                    ].into_iter().collect()
                 ).display(String::from("display this"))
             ),
-            "\"foo/bar/baz \"some argument\"\""
+            "foo/bar/baz \"some argument\" \"with spaces\""
         );
     }
 }

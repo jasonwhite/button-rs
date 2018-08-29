@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 use std::ffi::OsStr;
-use std::fmt;
+use std::fmt::{self, Write as FmtWrite};
 use std::io::{self, Write};
 use std::iter;
 use std::ops;
@@ -26,79 +26,12 @@ use std::ops;
 use tempfile::{NamedTempFile, TempPath};
 
 /// Helper type for formatting command line arguments.
-#[derive(Ord, Eq, PartialOrd, PartialEq, Hash)]
+#[derive(Ord, Eq, PartialOrd, PartialEq, Hash, Debug)]
 pub struct Arg(str);
 
 impl Arg {
     pub fn new<S: AsRef<str> + ?Sized>(arg: &S) -> &Arg {
         unsafe { &*(arg.as_ref() as *const str as *const Arg) }
-    }
-
-    /// Quotes the argument such that it is safe to pass to the shell.
-    #[cfg(windows)]
-    pub fn quote(&self, writer: &mut fmt::Write) -> fmt::Result {
-        let quote =
-            self.0.chars().any(|c| c == ' ' || c == '\t') || self.0.is_empty();
-
-        if quote {
-            writer.write_char('"')?;
-        }
-
-        let mut backslashes: usize = 0;
-
-        for x in self.0.chars() {
-            if x == '\\' {
-                backslashes += 1;
-            } else {
-                // Dump backslashes if we hit a quotation mark.
-                if x == '"' {
-                    // We need 2n+1 backslashes to escape a quote.
-                    for _ in 0..(backslashes + 1) {
-                        writer.write_char('\\')?;
-                    }
-                }
-
-                backslashes = 0;
-            }
-
-            writer.write_char(x)?;
-        }
-
-        if quote {
-            // Escape any trailing backslashes.
-            for _ in 0..backslashes {
-                writer.write_char('\\')?;
-            }
-
-            writer.write_char('"')?;
-        }
-
-        Ok(())
-    }
-
-    #[cfg(unix)]
-    pub fn quote(&self, writer: &mut fmt::Write) -> fmt::Result {
-        let quote = self.0.chars().any(|c| " \n\t#<>'&|".contains(c))
-            || self.0.is_empty();
-
-        if quote {
-            writer.write_char('"')?;
-        }
-
-        for c in self.0.chars() {
-            // Escape special characters.
-            if "\\\"$~".contains(c) {
-                writer.write_char('\\')?;
-            }
-
-            writer.write_char(c)?;
-        }
-
-        if quote {
-            writer.write_char('"')?;
-        }
-
-        Ok(())
     }
 }
 
@@ -111,10 +44,72 @@ impl ops::Deref for Arg {
 }
 
 impl fmt::Display for Arg {
-    /// Converts an argument such that it is safe to append to a command line
-    /// string.
+    /// Quotes the argument such that it is safe to pass to the shell.
+    #[cfg(windows)]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.quote(f)
+        let quote =
+            self.0.chars().any(|c| c == ' ' || c == '\t') || self.0.is_empty();
+
+        if quote {
+            f.write_char('"')?;
+        }
+
+        let mut backslashes: usize = 0;
+
+        for x in self.0.chars() {
+            if x == '\\' {
+                backslashes += 1;
+            } else {
+                // Dump backslashes if we hit a quotation mark.
+                if x == '"' {
+                    // We need 2n+1 backslashes to escape a quote.
+                    for _ in 0..(backslashes + 1) {
+                        f.write_char('\\')?;
+                    }
+                }
+
+                backslashes = 0;
+            }
+
+            f.write_char(x)?;
+        }
+
+        if quote {
+            // Escape any trailing backslashes.
+            for _ in 0..backslashes {
+                f.write_char('\\')?;
+            }
+
+            f.write_char('"')?;
+        }
+
+        Ok(())
+    }
+
+    /// Quotes the argument such that it is safe to pass to the shell.
+    #[cfg(unix)]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let quote = self.0.chars().any(|c| " \n\t#<>'&|".contains(c))
+            || self.0.is_empty();
+
+        if quote {
+            f.write_char('"')?;
+        }
+
+        for c in self.0.chars() {
+            // Escape special characters.
+            if "\\\"$~".contains(c) {
+                f.write_char('\\')?;
+            }
+
+            f.write_char(c)?;
+        }
+
+        if quote {
+            f.write_char('"')?;
+        }
+
+        Ok(())
     }
 }
 
@@ -200,7 +195,7 @@ impl fmt::Display for ArgBuf {
 
 /// A list of arguments.
 #[derive(
-    Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone,
+    Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Debug,
 )]
 pub struct Arguments(Vec<ArgBuf>);
 
@@ -310,19 +305,33 @@ impl Arguments {
     }
 }
 
+impl fmt::Display for Arguments {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut iter = self.iter();
+
+        if let Some(arg) = iter.next() {
+            write!(f, "{}", arg)?;
+        }
+
+        for arg in iter {
+            write!(f, " {}", arg)?;
+        }
+
+        Ok(())
+    }
+}
+
 impl From<Vec<ArgBuf>> for Arguments {
     fn from(args: Vec<ArgBuf>) -> Arguments {
         Arguments(args)
     }
 }
 
-impl<A> iter::FromIterator<A> for Arguments
-where
-    A: AsRef<Arg>,
+impl iter::FromIterator<ArgBuf> for Arguments
 {
     fn from_iter<I>(iter: I) -> Self
     where
-        I: IntoIterator<Item = A>,
+        I: IntoIterator<Item = ArgBuf>,
     {
         let mut args = Arguments::new();
         args.extend(iter);
@@ -330,16 +339,14 @@ where
     }
 }
 
-impl<A> iter::Extend<A> for Arguments
-where
-    A: AsRef<Arg>,
+impl iter::Extend<ArgBuf> for Arguments
 {
     fn extend<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item = A>,
+        I: IntoIterator<Item = ArgBuf>,
     {
         for a in iter {
-            self.push(a.as_ref().into())
+            self.push(a)
         }
     }
 }
@@ -416,5 +423,7 @@ mod tests {
         assert_eq!(format!("{}", Arg::new(r"foo&bar")), "\"foo&bar\"");
         assert_eq!(format!("{}", Arg::new(r"~")), r"\~");
         assert_eq!(format!("{}", Arg::new(r"foo|bar")), "\"foo|bar\"");
+
+        assert_eq!(format!("{}", ArgBuf::from(r"foo bar")), "\"foo bar\"");
     }
 }

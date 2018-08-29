@@ -35,7 +35,7 @@ use error::{Error, ResultExt};
 const DEV_NULL: &str = "/dev/null";
 
 #[derive(
-    Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone,
+    Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Debug,
 )]
 pub struct Process {
     /// Program name.
@@ -67,6 +67,18 @@ pub struct Process {
 }
 
 impl Process {
+    pub fn new(program: PathBuf, args: Arguments) -> Process {
+        Process {
+            program,
+            args,
+            cwd: None,
+            env: None,
+            stdin: None,
+            stdout: None,
+            stderr: None,
+        }
+    }
+
     /// Replaces the arguments with a temporary response file and returns the
     /// temporary path.
     pub fn response_file(&mut self) -> Result<TempPath, io::Error> {
