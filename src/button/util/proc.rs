@@ -25,7 +25,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::process;
 
-use os_pipe;
+use os_pipe::{pipe, PipeReader};
 use tempfile::TempPath;
 
 use super::args::{Arg, Arguments};
@@ -99,18 +99,11 @@ impl Process {
         Ok(temp)
     }
 
-    /// Spawns the process.
-    ///
-    /// The I/O pipes are handled in special ways:
-    ///
-    ///  - `stdin` is always redirected from `/dev/null` (or platform-specific
-    ///    equivalent) unless a file path is given.
-    ///  - `stderr` and `stdout` are always interleaved unless one (or both) are
-    ///    redirected to a file path.
-    pub fn spawn(
+    /// Creates the child process data structure, but does not spawn it.
+    fn child(
         &self,
         root: &Path,
-    ) -> Result<(os_pipe::PipeReader, Child), Error> {
+    ) -> Result<(PipeReader, process::Command), io::Error> {
         let mut child = process::Command::new(&self.program);
 
         if let Some(ref path) = self.stdin {
@@ -125,7 +118,7 @@ impl Process {
             child.stdin(process::Stdio::null());
         }
 
-        let (reader, writer) = os_pipe::pipe()?;
+        let (reader, writer) = pipe()?;
 
         {
             // Make sure the writer is dropped even if it isn't used below.
@@ -167,6 +160,20 @@ impl Process {
         }
 
         child.args(&self.args);
+
+        Ok((reader, child))
+    }
+
+    /// Creates and spawns the child process.
+    ///
+    /// The I/O pipes are handled in special ways:
+    ///
+    ///  - `stdin` is always redirected from `/dev/null` (or platform-specific
+    ///    equivalent) unless a file path is given.
+    ///  - `stderr` and `stdout` are always interleaved unless one (or both) are
+    ///    redirected to a file path.
+    pub fn spawn(&self, root: &Path) -> Result<(PipeReader, Child), Error> {
+        let (reader, mut child) = self.child(root)?;
 
         let handle = child.spawn().context("Failed to spawn process")?;
 
