@@ -5,6 +5,18 @@ fmt_task:
   install_script: rustup component add rustfmt-preview
   check_script: cargo fmt -- --check
 
+# Run clippy.
+clippy_task:
+  container:
+    image: rustlang/rust:nightly
+  cargo_cache:
+    folder: $CARGO_HOME/registry
+    fingerprint_script: cat Cargo.lock
+  install_script: rustup component add clippy-preview
+  check_script: cargo clippy
+  before_cache_script: rm -rf $CARGO_HOME/registry/index
+
+# Build and test.
 test_task:
   matrix:
     - container:
