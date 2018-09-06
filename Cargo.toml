@@ -17,7 +17,7 @@ chrono = { version = "0.4", features = ["serde"] }
 crossbeam = "0.2"
 failure = "0.1"
 failure_derive = "0.1"
-generic-array = { version = "0.9", features = ["serde"] }
+generic-array = { version = "0.12", features = ["serde"] }
 hex = "0.3"
 indexmap = { version = "1", features = ["serde-1"] }
 num_cpus = "1"
