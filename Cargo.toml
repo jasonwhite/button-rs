@@ -14,7 +14,7 @@ path = "src/button/lib.rs"
 atty = "0.2"
 bincode = "1"
 chrono = { version = "0.4", features = ["serde"] }
-crossbeam = "0.2"
+crossbeam = "0.4"
 failure = "0.1"
 failure_derive = "0.1"
 generic-array = { version = "0.9", features = ["serde"] }
