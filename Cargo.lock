@@ -104,7 +104,7 @@ dependencies = [
  "failure_derive 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "generic-array 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "indexmap 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "holyhashmap 0.1.0 (git+https://github.com/jasonwhite/holyhashmap)",
  "num_cpus 1.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "os_pipe 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -401,6 +401,14 @@ version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "holyhashmap"
+version = "0.1.0"
+source = "git+https://github.com/jasonwhite/holyhashmap#b9a1021b20e39ef120b52251158779994eb10b8a"
+dependencies = [
+ "serde 1.0.79 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "http"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -466,9 +474,6 @@ dependencies = [
 name = "indexmap"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "serde 1.0.79 (registry+https://github.com/rust-lang/crates.io-index)",
-]
 
 [[package]]
 name = "iovec"
@@ -1479,6 +1484,7 @@ dependencies = [
 "checksum generic-array 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ef25c5683767570c2bbd7deba372926a55eaae9982d7726ee2a1050239d45b9d"
 "checksum h2 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)" = "a27e7ed946e8335bdf9a191bc1b9b14a03ba822d013d2f58437f4fabcbd7fc2c"
 "checksum hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "805026a5d0141ffc30abb3be3173848ad46a1b1664fe632428479619a3644d77"
+"checksum holyhashmap 0.1.0 (git+https://github.com/jasonwhite/holyhashmap)" = "<none>"
 "checksum http 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)" = "24f58e8c2d8e886055c3ead7b28793e1455270b5fb39650984c224bc538ba581"
 "checksum httparse 1.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "e8734b0cfd3bc3e101ec59100e101c2eecd19282202e87808b3037b442777a83"
 "checksum hyper 0.12.11 (registry+https://github.com/rust-lang/crates.io-index)" = "78d50abbd1790e0f4c74cb1d4a2211b439bac661d54107ad5564c55e77906762"

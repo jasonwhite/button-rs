@@ -18,13 +18,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 use std::hash::Hash;
-use std::ops;
 use std::slice;
+use std::collections::HashMap;
 
-use indexmap::map::{self, IndexMap};
+use holyhashmap::{self, HolyHashMap};
 
 use super::traits::{
-    Algo, Edges, GraphBase, Neighbors, NodeIndexable, Nodes, Visitable,
+    Algo, Edges, GraphBase, Neighbors, NodeIndexable, NodeIndex, Nodes, Visitable,
 };
 
 pub trait NodeTrait: Ord + Hash {}
@@ -36,15 +36,13 @@ impl<N> NodeTrait for N where N: Ord + Hash {}
     Default,
     Debug,
     Clone,
-    Ord,
-    PartialOrd,
     Eq,
     PartialEq,
     Hash,
 )]
 pub struct NodeNeighbors {
-    pub incoming: Vec<usize>,
-    pub outgoing: Vec<usize>,
+    pub incoming: Vec<NodeIndex>,
+    pub outgoing: Vec<NodeIndex>,
 }
 
 impl NodeNeighbors {
@@ -62,8 +60,8 @@ pub struct Graph<N, E>
 where
     N: NodeTrait,
 {
-    nodes: IndexMap<N, NodeNeighbors>,
-    edges: IndexMap<(usize, usize), E>,
+    nodes: HolyHashMap<N, NodeNeighbors>,
+    edges: HolyHashMap<(NodeIndex, NodeIndex), E>,
 }
 
 impl<N, E> GraphBase for Graph<N, E>
@@ -82,12 +80,12 @@ impl<'a, N, E> NodeIndexable<'a> for Graph<N, E>
 where
     N: NodeTrait + 'a,
 {
-    fn from_index(&'a self, index: usize) -> &'a Self::Node {
-        self.nodes.get_index(index).unwrap().0
+    fn from_index(&'a self, index: NodeIndex) -> &'a Self::Node {
+        self.nodes.from_index(index).unwrap().0
     }
 
-    fn to_index(&self, node: &Self::Node) -> Option<usize> {
-        self.nodes.get_full(node).map(|x| x.0)
+    fn to_index(&self, node: &Self::Node) -> Option<NodeIndex> {
+        self.nodes.to_index(node)
     }
 }
 
@@ -95,10 +93,10 @@ impl<'a, N, E> Nodes<'a> for Graph<N, E>
 where
     N: NodeTrait + 'a,
 {
-    type Iter = ops::Range<usize>;
+    type Iter = holyhashmap::Indices<'a, N, NodeNeighbors>;
 
     fn nodes(&'a self) -> Self::Iter {
-        (0..self.node_count())
+        self.nodes.indices()
     }
 }
 
@@ -122,15 +120,15 @@ where
 {
     type Neighbors = NeighborsIter<'a>;
 
-    fn incoming(&'a self, node: usize) -> Self::Neighbors {
+    fn incoming(&'a self, node: NodeIndex) -> Self::Neighbors {
         NeighborsIter {
-            iter: self.nodes.get_index(node).unwrap().1.incoming.iter(),
+            iter: self.nodes.from_index(node).unwrap().1.incoming.iter(),
         }
     }
 
-    fn outgoing(&'a self, node: usize) -> Self::Neighbors {
+    fn outgoing(&'a self, node: NodeIndex) -> Self::Neighbors {
         NeighborsIter {
-            iter: self.nodes.get_index(node).unwrap().1.outgoing.iter(),
+            iter: self.nodes.from_index(node).unwrap().1.outgoing.iter(),
         }
     }
 }
@@ -147,16 +145,10 @@ impl<N, E, T> Visitable<T> for Graph<N, E>
 where
     N: NodeTrait,
 {
-    type Map = Vec<Option<T>>;
+    type Map = HashMap<NodeIndex, T>;
 
     fn visit_map(&self) -> Self::Map {
-        let mut map = Vec::with_capacity(self.node_count());
-
-        for _ in 0..self.node_count() {
-            map.push(None)
-        }
-
-        map
+        HashMap::with_capacity(self.node_count())
     }
 }
 
@@ -172,33 +164,33 @@ where
     /// Creates a new `Graph` with an estimated capacity.
     pub fn with_capacity(nodes: usize, edges: usize) -> Self {
         Graph {
-            nodes: IndexMap::with_capacity(nodes),
-            edges: IndexMap::with_capacity(edges),
+            nodes: HolyHashMap::with_capacity(nodes),
+            edges: HolyHashMap::with_capacity(edges),
         }
     }
 
     /// Add node `n` to the graph. Returns the index of the node.
-    pub fn add_node(&mut self, n: N) -> usize {
+    pub fn add_node(&mut self, n: N) -> NodeIndex {
         let entry = self.nodes.entry(n);
         let index = entry.index();
-        entry.or_insert(NodeNeighbors::new());
+        entry.or_default();
         index
     }
 
     /// Adds an edge to the graph. Returns the old weight of the edge if it
     /// already existed.
-    pub fn add_edge(&mut self, a: usize, b: usize, weight: E) -> Option<E> {
+    pub fn add_edge(&mut self, a: NodeIndex, b: NodeIndex, weight: E) -> Option<E> {
         let old = self.edges.insert((a, b), weight);
         if old.is_some() {
             old
         } else {
             // New edge. It needs to be inserted into the node
-            if let Some((_, v)) = self.nodes.get_index_mut(a) {
+            if let Some((_, v)) = self.nodes.from_index_mut(a) {
                 v.outgoing.push(b);
             }
 
             if a != b {
-                if let Some((_, v)) = self.nodes.get_index_mut(b) {
+                if let Some((_, v)) = self.nodes.from_index_mut(b) {
                     v.incoming.push(a);
                 }
             }
@@ -213,9 +205,9 @@ where
     /// Pancis if the index does not exist in this graph.
     pub fn translate_index(
         &self,
-        index: usize,
+        index: NodeIndex,
         other: &Graph<N, E>,
-    ) -> Option<usize> {
+    ) -> Option<NodeIndex> {
         other.to_index(self.from_index(index))
     }
 }
@@ -235,14 +227,14 @@ pub struct EdgesIter<'a, E>
 where
     E: 'a,
 {
-    iter: map::Iter<'a, (usize, usize), E>,
+    iter: holyhashmap::Iter<'a, (NodeIndex, NodeIndex), E>,
 }
 
 impl<'a, E> Iterator for EdgesIter<'a, E>
 where
     E: 'a,
 {
-    type Item = (usize, usize, &'a E);
+    type Item = (NodeIndex, NodeIndex, &'a E);
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.iter.next() {
@@ -269,11 +261,11 @@ where
 }
 
 pub struct NeighborsIter<'a> {
-    iter: slice::Iter<'a, usize>,
+    iter: slice::Iter<'a, NodeIndex>,
 }
 
 impl<'a> Iterator for NeighborsIter<'a> {
-    type Item = usize;
+    type Item = NodeIndex;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().cloned()
@@ -305,8 +297,8 @@ mod tests {
         let mut g = Graph::new();
         let a = g.add_node("a");
         let b = g.add_node("b");
-        assert_eq!(a, 0);
-        assert_eq!(b, 1);
+        assert_eq!(a, 0.into());
+        assert_eq!(b, 1.into());
         assert_eq!(g.node_count(), 2);
 
         assert_eq!(g.add_edge(a, b, 42), None);
@@ -353,9 +345,9 @@ mod tests {
         let sccs = graph.tarjan_scc();
         assert_eq!(sccs.len(), 4);
 
-        assert_eq!(sccs[0], vec![1, 4, 0]);
-        assert_eq!(sccs[1], vec![3, 2]);
-        assert_eq!(sccs[2], vec![6, 5]);
-        assert_eq!(sccs[3], vec![7]);
+        assert_eq!(sccs[0], vec![1.into(), 4.into(), 0.into()]);
+        assert_eq!(sccs[1], vec![3.into(), 2.into()]);
+        assert_eq!(sccs[2], vec![6.into(), 5.into()]);
+        assert_eq!(sccs[3], vec![7.into()]);
     }
 }

@@ -26,7 +26,7 @@ use std::path::Path;
 
 use build_graph::BuildGraph;
 use error::Error;
-use graph::{Algo, NodeIndexable, Nodes};
+use graph::{Algo, NodeIndexable, Nodes, NodeIndex};
 use res::ResourceState;
 
 use bincode;
@@ -41,14 +41,14 @@ pub struct BuildState {
     /// A persistent queue of node indices that should be visited. Duplicate
     /// nodes don't matter here since nodes are only ever visited once when
     /// traversing the graph.
-    pub queue: Vec<usize>,
+    pub queue: Vec<NodeIndex>,
 
     /// Resource state. This is used to detect changes to resources. If the
     /// resource does not exist in this map, then we don't yet know anything
     /// about this resource and it should not be considered "owned" by the
     /// build system. That is, the build system should never delete it if
     /// it doesn't "own" it.
-    pub checksums: HashMap<usize, ResourceState>,
+    pub checksums: HashMap<NodeIndex, ResourceState>,
 }
 
 impl BuildState {
@@ -117,7 +117,7 @@ impl BuildState {
     /// Returns the old build state and the list of non-root nodes that have
     /// been removed from the graph. This information can be used to delete
     /// resources in reverse topological order.
-    pub fn update(&mut self, graph: BuildGraph) -> (BuildState, Vec<usize>) {
+    pub fn update(&mut self, graph: BuildGraph) -> (BuildState, Vec<NodeIndex>) {
         let mut removed = Vec::new();
 
         // Fix the indices in the queue.

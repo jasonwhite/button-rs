@@ -21,7 +21,7 @@ use std::collections::{hash_set, HashMap, HashSet};
 use std::iter;
 
 use super::traits::{
-    Algo, GraphBase, Neighbors, NodeIndexable, Nodes, Visitable,
+    Algo, GraphBase, Neighbors, NodeIndexable, NodeIndex, Nodes, Visitable,
 };
 
 /// A graph with a subset of nodes of the parent graph.
@@ -30,7 +30,7 @@ where
     G: 'a,
 {
     parent: &'a G,
-    nodes: HashSet<usize>,
+    nodes: HashSet<NodeIndex>,
 }
 
 impl<'a, G> GraphBase for Subgraph<'a, G>
@@ -49,12 +49,12 @@ impl<'a, G> NodeIndexable<'a> for Subgraph<'a, G>
 where
     G: NodeIndexable<'a>,
 {
-    fn from_index(&'a self, index: usize) -> &'a Self::Node {
-        assert!(self.nodes.contains(&index));
+    fn from_index(&'a self, index: NodeIndex) -> &'a Self::Node {
+        debug_assert!(self.nodes.contains(&index));
         self.parent.from_index(index)
     }
 
-    fn to_index(&self, node: &Self::Node) -> Option<usize> {
+    fn to_index(&self, node: &Self::Node) -> Option<NodeIndex> {
         if let Some(index) = self.parent.to_index(node) {
             if self.nodes.contains(&index) {
                 return Some(index);
@@ -69,7 +69,7 @@ impl<'a, G> Nodes<'a> for Subgraph<'a, G>
 where
     G: GraphBase + 'a,
 {
-    type Iter = iter::Cloned<hash_set::Iter<'a, usize>>;
+    type Iter = iter::Cloned<hash_set::Iter<'a, NodeIndex>>;
 
     fn nodes(&'a self) -> Self::Iter {
         self.nodes.iter().cloned()
@@ -82,14 +82,14 @@ where
 {
     type Neighbors = NeighborsIter<'a, G>;
 
-    fn incoming(&'a self, node: usize) -> Self::Neighbors {
+    fn incoming(&'a self, node: NodeIndex) -> Self::Neighbors {
         NeighborsIter {
             nodes: &self.nodes,
             iter: self.parent.incoming(node),
         }
     }
 
-    fn outgoing(&'a self, node: usize) -> Self::Neighbors {
+    fn outgoing(&'a self, node: NodeIndex) -> Self::Neighbors {
         NeighborsIter {
             nodes: &self.nodes,
             iter: self.parent.outgoing(node),
@@ -101,7 +101,7 @@ pub struct NeighborsIter<'a, G>
 where
     G: Neighbors<'a> + 'a,
 {
-    nodes: &'a HashSet<usize>,
+    nodes: &'a HashSet<NodeIndex>,
     iter: G::Neighbors,
 }
 
@@ -109,7 +109,7 @@ impl<'a, G> Iterator for NeighborsIter<'a, G>
 where
     G: Neighbors<'a> + 'a,
 {
-    type Item = usize;
+    type Item = NodeIndex;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(i) = self.iter.next() {
@@ -132,7 +132,7 @@ where
 {
     /// We have to use a HashMap for the visit map because the node indices may
     /// be sparse.
-    type Map = HashMap<usize, T>;
+    type Map = HashMap<NodeIndex, T>;
 
     fn visit_map(&self) -> Self::Map {
         HashMap::with_capacity(self.node_count())
@@ -143,7 +143,7 @@ impl<'a, G> Subgraph<'a, G> {
     /// Creates a new subgraph with the given set of nodes.
     pub fn new<I>(parent: &'a G, nodes: I) -> Self
     where
-        I: Iterator<Item = usize>,
+        I: Iterator<Item = NodeIndex>,
     {
         Subgraph {
             parent,

@@ -23,13 +23,14 @@ use std::collections::HashMap;
 use std::hash::{BuildHasher, Hash};
 use std::io;
 use std::iter;
-use std::mem;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 
 use crossbeam;
 
 use util;
+
+pub use holyhashmap::EntryIndex as NodeIndex;
 
 // Use a random queue. On average, this seems to have better CPU utilization.
 type Queue<T> = util::RandomQueue<Option<T>>;
@@ -57,12 +58,12 @@ where
     /// Convert an index to a node.
     ///
     /// Panics if the index is out of bounds.
-    fn from_index(&'a self, index: usize) -> &'a Self::Node;
+    fn from_index(&'a self, index: NodeIndex) -> &'a Self::Node;
 
     /// Convert a node to an index if it exists.
     ///
     /// Returns `None` if the node does not exist in the graph.
-    fn to_index(&self, node: &Self::Node) -> Option<usize>;
+    fn to_index(&self, node: &Self::Node) -> Option<NodeIndex>;
 
     /// Returns `true` if the node exists in the graph.
     fn contains_node(&self, n: &Self::Node) -> bool {
@@ -72,19 +73,19 @@ where
 
 /// Trait for iterating over the neighbors of nodes.
 pub trait Neighbors<'a>: GraphBase {
-    type Neighbors: Iterator<Item = usize>;
+    type Neighbors: Iterator<Item = NodeIndex>;
 
     /// Returns an iterator over all the incoming edges for the given node.
     ///
     /// Panics if the index does not exist.
-    fn incoming(&'a self, node: usize) -> Self::Neighbors;
+    fn incoming(&'a self, node: NodeIndex) -> Self::Neighbors;
 
     /// Returns an iterator over all the outgoing edges for the given node.
     ///
     /// Panics if the index does not exist.
-    fn outgoing(&'a self, node: usize) -> Self::Neighbors;
+    fn outgoing(&'a self, node: NodeIndex) -> Self::Neighbors;
 
-    fn neighbors(&'a self, node: usize, reverse: bool) -> Self::Neighbors {
+    fn neighbors(&'a self, node: NodeIndex, reverse: bool) -> Self::Neighbors {
         if reverse {
             self.incoming(node)
         } else {
@@ -94,13 +95,13 @@ pub trait Neighbors<'a>: GraphBase {
 
     /// Returns true if the given node is a root node (i.e., it has no incoming
     /// edges).
-    fn is_root_node(&'a self, node: usize) -> bool {
+    fn is_root_node(&'a self, node: NodeIndex) -> bool {
         self.incoming(node).next().is_none()
     }
 
     /// Returns true if the given node is a terminal node (i.e., it has no
     /// outgoing edges).
-    fn is_terminal_node(&'a self, node: usize) -> bool {
+    fn is_terminal_node(&'a self, node: NodeIndex) -> bool {
         self.outgoing(node).next().is_none()
     }
 }
@@ -110,7 +111,7 @@ pub trait Nodes<'a>: GraphBase
 where
     Self::Node: 'a,
 {
-    type Iter: Iterator<Item = usize>;
+    type Iter: Iterator<Item = NodeIndex>;
 
     /// Returns an iterator over the nodes in the graph.
     fn nodes(&'a self) -> Self::Iter;
@@ -121,7 +122,7 @@ pub trait Edges<'a>: GraphBase
 where
     Self::Edge: 'a,
 {
-    type Iter: Iterator<Item = (usize, usize, &'a Self::Edge)>;
+    type Iter: Iterator<Item = (NodeIndex, NodeIndex, &'a Self::Edge)>;
 
     /// Returns an iterator over the edges in the graph.
     fn edges(&'a self) -> Self::Iter;
@@ -158,32 +159,9 @@ where
     }
 }
 
-impl<T> VisitMap<usize, T> for Vec<Option<T>> {
-    fn visit(&mut self, node: usize, value: T) -> Option<T> {
-        mem::replace(&mut self[node], Some(value))
-    }
-
-    fn is_visited(&self, node: &usize) -> Option<&T> {
-        match &self[*node] {
-            Some(x) => Some(&x),
-            None => None,
-        }
-    }
-
-    fn clear(&mut self) {
-        let len = self.len();
-
-        Vec::clear(self);
-
-        for _ in 0..len {
-            self.push(None);
-        }
-    }
-}
-
 /// A graph that can track the visited status of its nodes.
 pub trait Visitable<T> {
-    type Map: VisitMap<usize, T>;
+    type Map: VisitMap<NodeIndex, T>;
 
     /// Creates a new visit map.
     fn visit_map(&self) -> Self::Map;
@@ -198,7 +176,7 @@ where
     pub threads: usize,
 
     // List of errors that occurred during the traversal.
-    pub errors: Mutex<Vec<(usize, E)>>,
+    pub errors: Mutex<Vec<(NodeIndex, E)>>,
 
     // Nodes that have been visited. The value in this map indicates
     // whether or not the visitor function was called on it.
@@ -206,7 +184,7 @@ where
 
     // Queue of node indices. All the items in the queue have the property of
     // not depending on each other.
-    pub queue: Queue<usize>,
+    pub queue: Queue<NodeIndex>,
 
     // Keeps a count of the number of nodes being processed (or waiting to
     // be processed). When this reaches 0, we know there is no more
@@ -275,111 +253,14 @@ where
 
     /// Returns the strongly connected components in the graph using Tarjan's
     /// algorithm for strongly connected components.
-    fn tarjan_scc(&'a self) -> Vec<Vec<usize>> {
+    fn tarjan_scc(&'a self) -> Vec<Vec<NodeIndex>>
+    where
+        Self: Visitable<()>,
+    {
         // TODO: Don't do this recursively and use an iterative version of this
         // algorithm instead. There may be cases where the graph is too deep and
         // overflows the stack.
-
-        /// Bookkeeping data for each node.
-        #[derive(Copy, Clone, Debug)]
-        struct NodeData {
-            index: Option<usize>,
-
-            /// The smallest index of any node known to be reachable from this
-            /// node. If this value is equal to the index of this node, then it
-            /// is the root of the strongly connected component.
-            lowlink: usize,
-
-            /// `true` if this vertex is currently on the depth-first search
-            /// stack.
-            on_stack: bool,
-        }
-
-        #[derive(Debug)]
-        struct Data<'a> {
-            index: usize,
-            nodes: Vec<NodeData>,
-            stack: Vec<usize>,
-            sccs: &'a mut Vec<Vec<usize>>,
-        }
-
-        fn scc_visit<'a, 'b, G>(v: usize, g: &'a G, data: &'b mut Data)
-        where
-            G: Neighbors<'a> + 'a,
-        {
-            if data.nodes[v].index.is_some() {
-                // already visited
-                return;
-            }
-
-            let v_index = data.index;
-            data.nodes[v].index = Some(v_index);
-            data.nodes[v].lowlink = v_index;
-            data.nodes[v].on_stack = true;
-            data.stack.push(v);
-            data.index += 1;
-
-            for w in g.outgoing(v) {
-                match data.nodes[w].index {
-                    None => {
-                        scc_visit(w, g, data);
-                        data.nodes[v].lowlink = cmp::min(
-                            data.nodes[v].lowlink,
-                            data.nodes[w].lowlink,
-                        );
-                    }
-                    Some(w_index) => {
-                        if data.nodes[w].on_stack {
-                            // Successor w is in stack S and hence in the
-                            // current SCC
-                            let v_lowlink = &mut data.nodes[v].lowlink;
-                            *v_lowlink = cmp::min(*v_lowlink, w_index);
-                        }
-                    }
-                }
-            }
-
-            // If v is a root node, pop the stack and generate an SCC
-            if let Some(v_index) = data.nodes[v].index {
-                if data.nodes[v].lowlink == v_index {
-                    let mut cur_scc = Vec::new();
-                    loop {
-                        let w = data.stack.pop().unwrap();
-                        data.nodes[w].on_stack = false;
-                        cur_scc.push(w);
-                        if w == v {
-                            break;
-                        }
-                    }
-                    data.sccs.push(cur_scc);
-                }
-            }
-        }
-
-        let mut sccs = Vec::new();
-        {
-            let map = vec![
-                NodeData {
-                    index: None,
-                    lowlink: !0,
-                    on_stack: false
-                };
-                self.node_count()
-            ];
-
-            let mut data = Data {
-                index: 0,
-                nodes: map,
-                stack: Vec::new(),
-                sccs: &mut sccs,
-            };
-
-            for i in 0..self.node_count() {
-                scc_visit(i, self, &mut data);
-            }
-        }
-
-        sccs
+        Vec::new()
     }
 
     /// Traverses the graph in topological order.
@@ -394,13 +275,13 @@ where
         visit: F,
         threads: usize,
         reverse: bool,
-    ) -> Result<(), Vec<(usize, Error)>>
+    ) -> Result<(), Vec<(NodeIndex, Error)>>
     where
         Self: Sync + Visitable<bool> + NodeIndexable<'a>,
         Self::Node: Sync,
         Self::Edge: Sync,
         Self::Map: Send + Sync,
-        F: Fn(usize, usize, &Self::Node) -> Result<bool, Error> + Send + Sync,
+        F: Fn(usize, NodeIndex, &Self::Node) -> Result<bool, Error> + Send + Sync,
         Error: Send,
     {
         let threads = cmp::max(threads, 1);
@@ -430,7 +311,7 @@ where
     /// Returns an iterator over the nodes in the graph, depth first.
     fn dfs<I>(&'a self, roots: I) -> DepthFirstSearch<'a, Self>
     where
-        I: Iterator<Item = usize>,
+        I: Iterator<Item = NodeIndex>,
         Self: Visitable<()>,
     {
         DepthFirstSearch::new(self, roots)
@@ -446,7 +327,7 @@ fn traversal_worker<'a, G, F, Error>(
     reverse: bool,
 ) where
     G: Neighbors<'a> + NodeIndexable<'a> + Visitable<bool> + Algo<'a>,
-    F: Fn(usize, usize, &G::Node) -> Result<bool, Error> + Sync,
+    F: Fn(usize, NodeIndex, &G::Node) -> Result<bool, Error> + Sync,
     Error: Send,
 {
     while let Some(index) = state.queue.pop() {
@@ -536,7 +417,7 @@ impl<'a, G> Iterator for RootNodes<'a, G>
 where
     G: Nodes<'a> + Neighbors<'a> + 'a,
 {
-    type Item = usize;
+    type Item = NodeIndex;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(i) = self.nodes.next() {
@@ -573,7 +454,7 @@ impl<'a, G> Iterator for NonRootNodes<'a, G>
 where
     G: Nodes<'a> + Neighbors<'a> + 'a,
 {
-    type Item = usize;
+    type Item = NodeIndex;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(i) = self.nodes.next() {
@@ -610,7 +491,7 @@ impl<'a, G> Iterator for TerminalNodes<'a, G>
 where
     G: Nodes<'a> + Neighbors<'a> + 'a,
 {
-    type Item = usize;
+    type Item = NodeIndex;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(i) = self.nodes.next() {
@@ -647,7 +528,7 @@ impl<'a, G> Iterator for NonTerminalNodes<'a, G>
 where
     G: Nodes<'a> + Neighbors<'a> + 'a,
 {
-    type Item = usize;
+    type Item = NodeIndex;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(i) = self.nodes.next() {
@@ -665,7 +546,7 @@ where
     G: Visitable<()> + 'a,
 {
     graph: &'a G,
-    stack: Vec<usize>,
+    stack: Vec<NodeIndex>,
     visited: G::Map,
 }
 
@@ -675,7 +556,7 @@ where
 {
     pub fn new<I>(graph: &'a G, roots: I) -> DepthFirstSearch<'a, G>
     where
-        I: Iterator<Item = usize>,
+        I: Iterator<Item = NodeIndex>,
     {
         DepthFirstSearch {
             graph,
@@ -689,7 +570,7 @@ impl<'a, G> Iterator for DepthFirstSearch<'a, G>
 where
     G: Neighbors<'a> + Visitable<()> + 'a,
 {
-    type Item = usize;
+    type Item = NodeIndex;
 
     fn next(&mut self) -> Option<Self::Item> {
         let node = self.stack.pop()?;

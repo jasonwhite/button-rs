@@ -19,7 +19,6 @@ failure = "0.1"
 failure_derive = "0.1"
 generic-array = { version = "0.9", features = ["serde"] }
 hex = "0.3"
-indexmap = { version = "1", features = ["serde-1"] }
 num_cpus = "1"
 os_pipe = "0.7"
 rand = "0.5"
@@ -31,3 +30,8 @@ sha2 = "0.7"
 structopt = "0.2"
 tempfile = "3"
 termcolor = "1"
+
+[dependencies.holyhashmap]
+git = "https://github.com/jasonwhite/holyhashmap"
+branch = "master"
+features = ["serde"]

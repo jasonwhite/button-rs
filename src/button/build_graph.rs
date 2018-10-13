@@ -23,7 +23,7 @@ use std::fmt;
 use std::io;
 
 use graph::{
-    Algo, Edges, Graph, Graphviz, Neighbors, NodeIndexable, NodeTrait, Nodes,
+    Algo, Edges, Graph, Graphviz, Neighbors, NodeIndexable, NodeTrait, Nodes, NodeIndex,
 };
 
 use res;
@@ -56,7 +56,7 @@ where
     N: NodeTrait,
 {
     pub graph: Graph<N, E>,
-    pub cycles: Vec<Vec<usize>>,
+    pub cycles: Vec<Vec<NodeIndex>>,
 }
 
 impl<N, E> CyclesError<N, E>
@@ -65,7 +65,7 @@ where
 {
     pub fn new(
         graph: Graph<N, E>,
-        cycles: Vec<Vec<usize>>,
+        cycles: Vec<Vec<NodeIndex>>,
     ) -> CyclesError<N, E> {
         CyclesError { graph, cycles }
     }

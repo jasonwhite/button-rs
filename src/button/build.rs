@@ -33,7 +33,7 @@ use rules::Rules;
 use state::BuildState;
 use task::{self, Task};
 
-use graph::{Algo, Neighbors, NodeIndexable, Nodes, Subgraph};
+use graph::{Algo, Neighbors, NodeIndexable, NodeIndex, Nodes, Subgraph};
 
 use error::{Error, ResultExt};
 
@@ -41,11 +41,11 @@ use error::{Error, ResultExt};
 /// associated error.
 #[derive(Fail, Debug)]
 pub struct BuildFailure {
-    errors: Vec<(usize, Error)>,
+    errors: Vec<(NodeIndex, Error)>,
 }
 
 impl BuildFailure {
-    pub fn new(errors: Vec<(usize, Error)>) -> BuildFailure {
+    pub fn new(errors: Vec<(NodeIndex, Error)>) -> BuildFailure {
         BuildFailure { errors }
     }
 }
@@ -63,7 +63,7 @@ impl fmt::Display for BuildFailure {
 struct BuildContext<'a> {
     root: &'a Path,
     dryrun: bool,
-    checksums: Mutex<HashMap<usize, ResourceState>>,
+    checksums: Mutex<HashMap<NodeIndex, ResourceState>>,
 }
 
 /// For a list of nodes, delete them in reverse topological order.
@@ -75,7 +75,7 @@ fn delete_nodes<I, L>(
     logger: &L,
 ) -> Result<(), Error>
 where
-    I: Iterator<Item = usize>,
+    I: Iterator<Item = NodeIndex>,
     L: EventLogger,
 {
     let removed: HashSet<_> = nodes.collect();
@@ -128,14 +128,14 @@ struct DirtyNodes<'a> {
     root: &'a Path,
     graph: &'a BuildGraph,
     nodes: <BuildGraph as Nodes<'a>>::Iter,
-    checksums: &'a HashMap<usize, ResourceState>,
+    checksums: &'a HashMap<NodeIndex, ResourceState>,
 }
 
 impl<'a> DirtyNodes<'a> {
     pub fn new(
         root: &'a Path,
         graph: &'a BuildGraph,
-        checksums: &'a HashMap<usize, ResourceState>,
+        checksums: &'a HashMap<NodeIndex, ResourceState>,
     ) -> DirtyNodes<'a> {
         DirtyNodes {
             root,
@@ -147,7 +147,7 @@ impl<'a> DirtyNodes<'a> {
 }
 
 impl<'a> Iterator for DirtyNodes<'a> {
-    type Item = usize;
+    type Item = NodeIndex;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(index) = self.nodes.next() {
@@ -451,7 +451,7 @@ impl<'a> Build<'a> {
 fn build_node<L>(
     context: &BuildContext,
     tid: usize,
-    index: usize,
+    index: NodeIndex,
     node: &Node,
     logger: &L,
 ) -> Result<bool, Error>
@@ -467,7 +467,7 @@ where
 fn build_resource(
     context: &BuildContext,
     _tid: usize,
-    index: usize,
+    index: NodeIndex,
     node: &res::Any,
 ) -> Result<bool, Error> {
     let state = node.state(context.root)?;
@@ -491,7 +491,7 @@ fn build_resource(
 fn build_task<L>(
     context: &BuildContext,
     tid: usize,
-    _index: usize,
+    _index: NodeIndex,
     node: &task::List,
     logger: &L,
 ) -> Result<bool, Error>
