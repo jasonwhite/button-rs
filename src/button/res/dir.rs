@@ -45,6 +45,7 @@ impl Dir {
 
     fn delete_impl(&self, root: &Path) -> Result<(), Error> {
         let path = root.join(&self.path);
+
         match fs::remove_dir(&path) {
             Ok(()) => Ok(()),
             Err(err) => {
@@ -135,9 +136,9 @@ impl Resource for Dir {
         use util::{progress_dummy, Retry};
 
         // Retry directory deletions. On Windows, directory deletions can fail
-        // spuriously.
+        // spuriously, but usually only for a very short time.
         let retry = Retry::new()
-            .with_retries(10)
+            .with_retries(4)
             .with_delay(Duration::from_millis(50));
 
         retry.call(|| self.delete_impl(root), progress_dummy)
