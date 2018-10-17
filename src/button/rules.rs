@@ -65,22 +65,6 @@ pub struct Rule {
     pub tasks: task::List,
 }
 
-/// A group of rules.
-///
-/// Partitions are used to group tasks together to be cached or distributed
-/// to another machine.
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Partition {
-    /// The set of inputs for all tasks in the partition. These are used to
-    /// calculate the cache key and are also sent to another machine for
-    /// distributed builds.
-    #[serde(default)]
-    inputs: res::Set,
-
-    /// List of rules that are in this partition.
-    rules: Vec<Rule>,
-}
-
 #[derive(Debug, PartialEq)]
 pub struct Rules(Vec<Rule>);
 

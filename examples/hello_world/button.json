@@ -23,8 +23,7 @@
         ],
         "outputs": [
             {"file": "obj/foo.o"}
-        ],
-        "partition": "foobar"
+        ]
     },
     {
         "inputs": [
@@ -41,8 +40,7 @@
         ],
         "outputs": [
             {"file": "obj/bar.o"}
-        ],
-        "partition": "foobar"
+        ]
     },
     {
         "inputs": [
@@ -59,8 +57,7 @@
         ],
         "outputs": [
             {"file": "foobar"}
-        ],
-        "partition": "foobar"
+        ]
     },
     {
         "tasks": [
