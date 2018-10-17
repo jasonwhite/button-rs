@@ -24,7 +24,7 @@ use std::path::{Path, PathBuf};
 use error::Error;
 
 use super::dir::Dir;
-use super::filepath::FilePath;
+use super::file::File;
 use super::traits::{Resource, ResourceState};
 use std::collections::BTreeSet;
 
@@ -38,7 +38,7 @@ pub type Set = BTreeSet<Any>;
 )]
 #[serde(rename_all = "lowercase")]
 pub enum Any {
-    File(FilePath),
+    File(File),
     Dir(Dir),
 }
 
@@ -62,12 +62,12 @@ impl fmt::Debug for Any {
 
 impl From<PathBuf> for Any {
     fn from(res: PathBuf) -> Self {
-        Any::File(FilePath::new(&res))
+        Any::File(File::new(&res))
     }
 }
 
-impl From<FilePath> for Any {
-    fn from(res: FilePath) -> Self {
+impl From<File> for Any {
+    fn from(res: File) -> Self {
         Any::File(res)
     }
 }

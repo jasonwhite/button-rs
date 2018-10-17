@@ -416,7 +416,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use res::FilePath;
+    use res::File;
 
     #[test]
     fn test_good_graph() {
@@ -509,8 +509,8 @@ mod tests {
 
         let graph = BuildGraph::from_rules(rules);
 
-        let foo = FilePath::from("foo.o").into();
-        let bar = FilePath::from("bar.o").into();
+        let foo = File::from("foo.o").into();
+        let bar = File::from("bar.o").into();
 
         let races = vec![Race::new(bar, 2), Race::new(foo, 2)];
 

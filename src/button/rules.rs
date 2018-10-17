@@ -122,7 +122,7 @@ impl IntoIterator for Rules {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use res::FilePath;
+    use res::File;
     use std::path::PathBuf;
     use task::Command;
 
@@ -144,11 +144,11 @@ mod tests {
         let rules = Rules::from_str(&data).unwrap();
 
         let inputs = vec![
-            FilePath::from("foo.c").into(),
-            FilePath::from("foo.h").into(),
+            File::from("foo.c").into(),
+            File::from("foo.h").into(),
         ];
 
-        let outputs = vec![FilePath::from("foo.o").into()];
+        let outputs = vec![File::from("foo.o").into()];
         let tasks = vec![
             Command::new(
                 PathBuf::from("gcc"),

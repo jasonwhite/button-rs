@@ -20,10 +20,10 @@
 
 mod any;
 mod dir;
-mod filepath;
+mod file;
 mod traits;
 
 pub use self::any::{Any, Set};
 pub use self::dir::Dir;
-pub use self::filepath::FilePath;
+pub use self::file::File;
 pub use self::traits::{Checksum, Resource, ResourceState};

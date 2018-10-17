@@ -41,13 +41,13 @@ use util::{self, PathExt};
 /// TODO: Split the directory portion out into a "glob" resource whose state
 /// changes when the list of matched files changes.
 #[derive(Eq, Clone)]
-pub struct FilePath {
+pub struct File {
     path: PathBuf,
 }
 
-impl FilePath {
-    pub fn new<P: AsRef<Path>>(path: P) -> FilePath {
-        FilePath {
+impl File {
+    pub fn new<P: AsRef<Path>>(path: P) -> File {
+        File {
             path: path.as_ref().normalize(),
         }
     }
@@ -97,33 +97,33 @@ impl FilePath {
     }
 }
 
-impl<'a, T: ?Sized + AsRef<OsStr>> From<&'a T> for FilePath {
-    fn from(s: &'a T) -> FilePath {
-        FilePath::new(&Path::new(s.as_ref()))
+impl<'a, T: ?Sized + AsRef<OsStr>> From<&'a T> for File {
+    fn from(s: &'a T) -> File {
+        File::new(&Path::new(s.as_ref()))
     }
 }
 
-impl FromStr for FilePath {
+impl FromStr for File {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(FilePath::new(&Path::new(s)))
+        Ok(File::new(&Path::new(s)))
     }
 }
 
-impl fmt::Display for FilePath {
+impl fmt::Display for File {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.path)
     }
 }
 
-impl fmt::Debug for FilePath {
+impl fmt::Debug for File {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.path)
     }
 }
 
-impl Serialize for FilePath {
+impl Serialize for File {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -137,7 +137,7 @@ impl Serialize for FilePath {
     }
 }
 
-impl<'de> Deserialize<'de> for FilePath {
+impl<'de> Deserialize<'de> for File {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -147,7 +147,7 @@ impl<'de> Deserialize<'de> for FilePath {
     }
 }
 
-impl Resource for FilePath {
+impl Resource for File {
     /// If a file, the checksum is of the contents of the file. If a directory,
     /// the checksum is of the sorted list of directory entries. Thus, if a file
     /// is added or removed from a directory, the checksum changes.
@@ -194,7 +194,7 @@ impl Resource for FilePath {
     }
 }
 
-impl Hash for FilePath {
+impl Hash for File {
     #[cfg(windows)]
     fn hash<H>(&self, state: &mut H)
     where
@@ -222,9 +222,9 @@ impl Hash for FilePath {
     }
 }
 
-impl Ord for FilePath {
+impl Ord for File {
     #[cfg(windows)]
-    fn cmp(&self, other: &FilePath) -> Ordering {
+    fn cmp(&self, other: &File) -> Ordering {
         // The Ord implementation for `std::path::Path` is case-sensitive. It's
         // important that path comparisons on Windows are case-insensitive. The
         // nodes in the build graph don't link up correctly when file paths only
@@ -245,20 +245,20 @@ impl Ord for FilePath {
     }
 
     #[cfg(unix)]
-    fn cmp(&self, other: &FilePath) -> Ordering {
+    fn cmp(&self, other: &File) -> Ordering {
         // File paths are case sensitive on non-Windows platforms.
         self.path.cmp(&other.path)
     }
 }
 
-impl PartialOrd for FilePath {
-    fn partial_cmp(&self, other: &FilePath) -> Option<Ordering> {
+impl PartialOrd for File {
+    fn partial_cmp(&self, other: &File) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl PartialEq for FilePath {
-    fn eq(&self, other: &FilePath) -> bool {
+impl PartialEq for File {
+    fn eq(&self, other: &File) -> bool {
         self.cmp(other) == Ordering::Equal
     }
 }
@@ -270,24 +270,24 @@ mod tests {
     #[test]
     fn test_normalized() {
         assert_eq!(
-            FilePath::new(&Path::new("./foo/..//bar/")),
-            FilePath::new(&Path::new("bar"))
+            File::new(&Path::new("./foo/..//bar/")),
+            File::new(&Path::new("bar"))
         );
     }
 
     #[test]
     #[cfg(windows)]
     fn test_comparison() {
-        assert_eq!(FilePath::from("foobar/baz"), FilePath::from("foobar/baz"));
-        assert_ne!(FilePath::from("doobar/baz"), FilePath::from("foobar/baz"));
+        assert_eq!(File::from("foobar/baz"), File::from("foobar/baz"));
+        assert_ne!(File::from("doobar/baz"), File::from("foobar/baz"));
 
-        assert!(FilePath::from("abc") < FilePath::from("abd"));
-        assert!(FilePath::from("abc") < FilePath::from("abcd"));
+        assert!(File::from("abc") < File::from("abd"));
+        assert!(File::from("abc") < File::from("abcd"));
 
         // Case insensitive comparison
-        assert_eq!(FilePath::from("foobar/baz"), FilePath::from("FooBar/Baz"));
-        assert_eq!(FilePath::from("foobar/baz"), FilePath::from(r"FooBar\Baz"));
-        assert_ne!(FilePath::from("foobar/baz"), FilePath::from("FooBar/Bazz"));
-        assert!(FilePath::from("foobar/baz") < FilePath::from("FooBar/Bazz"));
+        assert_eq!(File::from("foobar/baz"), File::from("FooBar/Baz"));
+        assert_eq!(File::from("foobar/baz"), File::from(r"FooBar\Baz"));
+        assert_ne!(File::from("foobar/baz"), File::from("FooBar/Bazz"));
+        assert!(File::from("foobar/baz") < File::from("FooBar/Bazz"));
     }
 }
