@@ -135,7 +135,15 @@ pub trait VisitMap<N, T> {
 
     /// Returns `Some(&T)` if this node has been visited. Returns `None` if it
     /// hasn't been visited.
-    fn is_visited(&self, node: &N) -> Option<&T>;
+    fn get(&self, node: &N) -> Option<&T>;
+
+    /// Returns a mutable reference to the node if it has been visited. Returns
+    /// `None` if it hasn't been visited.
+    fn get_mut(&mut self, node: &N) -> Option<&mut T>;
+
+    fn is_visited(&self, node: &N) -> bool {
+        self.get(node).is_some()
+    }
 
     /// Marks all nodes as unvisited.
     fn clear(&mut self);
@@ -150,8 +158,12 @@ where
         self.insert(node, value)
     }
 
-    fn is_visited(&self, node: &N) -> Option<&T> {
+    fn get(&self, node: &N) -> Option<&T> {
         self.get(node)
+    }
+
+    fn get_mut(&mut self, node: &N) -> Option<&mut T> {
+        self.get_mut(node)
     }
 
     fn clear(&mut self) {
@@ -226,6 +238,20 @@ where
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct TarjanNodeData {
+    index: usize,
+
+    /// The smallest index of any node known to be reachable from this
+    /// node. If this value is equal to the index of this node, then it
+    /// is the root of the strongly connected component.
+    lowlink: usize,
+
+    /// `true` if this vertex is currently on the depth-first search
+    /// stack.
+    on_stack: bool,
+}
+
 pub trait Algo<'a>: Nodes<'a> + Neighbors<'a>
 where
     Self: Sized + 'a,
@@ -255,12 +281,95 @@ where
     /// algorithm for strongly connected components.
     fn tarjan_scc(&'a self) -> Vec<Vec<NodeIndex>>
     where
-        Self: Visitable<()>,
+        Self: Visitable<TarjanNodeData>,
     {
         // TODO: Don't do this recursively and use an iterative version of this
         // algorithm instead. There may be cases where the graph is too deep and
         // overflows the stack.
-        Vec::new()
+
+        #[derive(Debug)]
+        struct Data<'a, M> {
+            index: usize,
+            nodes: M,
+            stack: Vec<NodeIndex>,
+            sccs: &'a mut Vec<Vec<NodeIndex>>,
+        }
+
+        fn scc_visit<'a, 'b, G>(v: NodeIndex, g: &'a G, data: &'b mut Data<G::Map>)
+        where
+            G: Neighbors<'a> + Visitable<TarjanNodeData> + 'a,
+        {
+            if data.nodes.is_visited(&v) {
+                return;
+            }
+
+            let v_index = data.index;
+
+            data.nodes.visit(v, TarjanNodeData {
+                index: v_index,
+                lowlink: v_index,
+                on_stack: true,
+            });
+
+            data.stack.push(v);
+            data.index += 1;
+
+            for w in g.outgoing(v) {
+                match data.nodes.get(&w).map(|n| n.index) {
+                    None => {
+                        scc_visit(w, g, data);
+
+                        data.nodes.get_mut(&v).unwrap().lowlink = cmp::min(
+                            data.nodes.get(&v).unwrap().lowlink,
+                            data.nodes.get(&w).unwrap().lowlink,
+                        );
+                    }
+                    Some(w_index) => {
+                        if data.nodes.get(&w).unwrap().on_stack {
+                            // Successor w is in stack and hence in the current
+                            // SCC.
+                            let v_lowlink = &mut data.nodes.get_mut(&v).unwrap().lowlink;
+                            *v_lowlink = cmp::min(*v_lowlink, w_index);
+                        }
+                    }
+                }
+            }
+
+            if let Some(v_index) = data.nodes.get(&v).map(|n| n.index) {
+                if data.nodes.get(&v).unwrap().lowlink == v_index {
+                    let mut cur_scc = Vec::new();
+
+                    loop {
+                        let w = data.stack.pop().unwrap();
+                        data.nodes.get_mut(&w).unwrap().on_stack = false;
+                        cur_scc.push(w);
+
+                        if w == v {
+                            break;
+                        }
+                    }
+
+                    data.sccs.push(cur_scc);
+                }
+            }
+        }
+
+        let mut sccs = Vec::new();
+
+        {
+            let mut data = Data {
+                index: 0,
+                nodes: self.visit_map(),
+                stack: Vec::new(),
+                sccs: &mut sccs,
+            };
+
+            for node in self.nodes() {
+                scc_visit(node, self, &mut data);
+            }
+        }
+
+        sccs
     }
 
     /// Traverses the graph in topological order.
@@ -343,7 +452,7 @@ fn traversal_worker<'a, G, F, Error>(
             let mut incoming = g.neighbors(index, !reverse);
             let visited = state.visited.lock().unwrap();
             util::empty_or_any(&mut incoming, |p| {
-                visited.is_visited(&p) == Some(&true)
+                visited.get(&p) == Some(&true)
             })
         };
 
@@ -377,9 +486,9 @@ fn traversal_worker<'a, G, F, Error>(
         // Only visit a node if that node's incoming nodes have all been
         // visited. There might be more efficient ways to do this.
         for neigh in g.neighbors(index, reverse) {
-            if visited.is_visited(&neigh).is_none() && g
+            if !visited.is_visited(&neigh) && g
                 .neighbors(neigh, !reverse)
-                .all(|p| visited.is_visited(&p).is_some())
+                .all(|p| visited.is_visited(&p))
             {
                 state.active.fetch_add(1, Ordering::Relaxed);
                 state.queue.push(Some(neigh));
