@@ -72,9 +72,12 @@ impl fmt::Debug for Download {
 impl Task for Download {
     fn execute(
         &self,
-        _root: &Path,
+        root: &Path,
         log: &mut io::Write,
     ) -> Result<Detected, Error> {
+
+        let path = root.join(&self.path);
+
         writeln!(log, "Downloading \"{}\" to {:?}", self.url, self.path)?;
 
         // Retry the download if necessary.
@@ -84,7 +87,7 @@ impl Task for Download {
         )?;
 
         // Download to a temporary file that sits next to the desired path.
-        let dir = self.path.parent().unwrap_or_else(|| Path::new("."));
+        let dir = path.parent().unwrap_or_else(|| Path::new("."));
         let mut temp = NamedTempFile::new_in(dir)?;
 
         response.copy_to(&mut io::BufWriter::new(&mut temp))?;
@@ -102,7 +105,7 @@ impl Task for Download {
             ))?;
         }
 
-        temp.persist(&self.path)?;
+        temp.persist(&path)?;
 
         Ok(Detected::new())
     }
