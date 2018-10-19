@@ -49,6 +49,23 @@ impl fmt::Display for Node {
     }
 }
 
+#[derive(
+    Serialize, Deserialize, Clone, Ord, Eq, PartialOrd, PartialEq, Hash, Debug,
+)]
+pub enum Edge {
+    Implicit,
+    Explicit,
+}
+
+impl fmt::Display for Edge {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Edge::Implicit => write!(f, "implicit"),
+            Edge::Explicit => write!(f, "explicit"),
+        }
+    }
+}
+
 /// Error for when one or more cycles are detected in the build graph.
 #[derive(Eq, PartialEq)]
 pub struct CyclesError<N, E>
@@ -217,7 +234,7 @@ impl error::Error for RaceError {
 #[derive(Debug, Eq, PartialEq)]
 pub enum Error {
     Races(RaceError),
-    Cycles(CyclesError<Node, ()>),
+    Cycles(CyclesError<Node, Edge>),
 }
 
 impl From<RaceError> for Error {
@@ -226,8 +243,8 @@ impl From<RaceError> for Error {
     }
 }
 
-impl From<CyclesError<Node, ()>> for Error {
-    fn from(err: CyclesError<Node, ()>) -> Error {
+impl From<CyclesError<Node, Edge>> for Error {
+    fn from(err: CyclesError<Node, Edge>) -> Error {
         Error::Cycles(err)
     }
 }
@@ -257,9 +274,7 @@ impl error::Error for Error {
     }
 }
 
-pub type BuildGraph = Graph<Node, ()>;
-
-pub type SuperBuildGraph = Graph<Graph<Node, ()>, ()>;
+pub type BuildGraph = Graph<Node, Edge>;
 
 /// The build graph.
 ///
@@ -288,12 +303,12 @@ impl FromRules for BuildGraph {
 
             for r in inputs {
                 let node = g.add_node(Node::Resource(r));
-                g.add_edge(node, task, ());
+                g.add_edge(node, task, Edge::Explicit);
             }
 
             for r in outputs {
                 let node = g.add_node(Node::Resource(r));
-                g.add_edge(task, node, ());
+                g.add_edge(task, node, Edge::Explicit);
             }
         }
 
@@ -364,7 +379,7 @@ impl Graphviz for BuildGraph {
 /// more parents. In such a case where two tasks output the same resource,
 /// depending on the order in which they get executed, they could be overwriting
 /// each other's output.
-fn check_races(graph: Graph<Node, ()>) -> Result<Graph<Node, ()>, RaceError> {
+fn check_races(graph: BuildGraph) -> Result<BuildGraph, RaceError> {
     let mut races = Vec::new();
 
     for i in graph.nodes() {

@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 extern crate bincode;
+extern crate bit_set;
 extern crate chrono;
 #[macro_use]
 extern crate serde_derive;

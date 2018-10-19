@@ -64,6 +64,9 @@ struct BuildContext<'a> {
     root: &'a Path,
     dryrun: bool,
     checksums: Mutex<HashMap<NodeIndex, ResourceState>>,
+
+    // Detected inputs/outputs during the build.
+    detected: Mutex<Vec<(NodeIndex, Detected)>>,
 }
 
 /// For a list of nodes, delete them in reverse topological order.
@@ -402,6 +405,7 @@ impl<'a> Build<'a> {
             root: self.root,
             dryrun,
             checksums: Mutex::new(checksums),
+            detected: Mutex::new(Vec::new()),
         };
 
         let result = {
@@ -427,6 +431,11 @@ impl<'a> Build<'a> {
                 Vec::new()
             }
         };
+
+        // TODO: Add the detected inputs/outputs to the build graph. We must not
+        // modify the build order when adding new edges to the graph. That is,
+        // we can only add edges to *root* nodes. If we attempt to do otherwise,
+        // then the build state shouldn't be committed.
 
         // Serialize the state. This must be the last thing that we do. If
         // anything fails above (e.g., failing to delete a resource), the state
@@ -491,7 +500,7 @@ fn build_resource(
 fn build_task<L>(
     context: &BuildContext,
     tid: usize,
-    _index: NodeIndex,
+    index: NodeIndex,
     node: &task::List,
     logger: &L,
 ) -> Result<bool, Error>
@@ -506,11 +515,12 @@ where
         } else {
             let result = task.execute(context.root, &mut task_logger);
 
-            // TODO: Save the detected inputs/outputs in the state.
-
             task_logger.finish(&result)?;
 
-            result?;
+            // Accumulate the detected inputs/outputs such that we can add them
+            // to the implicit resources to the graph later. (We cannot modify
+            // the build graph while traversing it.)
+            context.detected.lock().unwrap().push((index, result?));
         }
     }
 

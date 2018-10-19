@@ -17,8 +17,8 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-use std::collections::{hash_set, HashMap, HashSet};
-use std::iter;
+use std::collections::HashMap;
+use bit_set::{self, BitSet};
 
 use super::traits::{
     Algo, GraphBase, Neighbors, NodeIndexable, NodeIndex, Nodes, Visitable,
@@ -30,7 +30,7 @@ where
     G: 'a,
 {
     parent: &'a G,
-    nodes: HashSet<NodeIndex>,
+    nodes: BitSet<usize>,
 }
 
 impl<'a, G> GraphBase for Subgraph<'a, G>
@@ -50,13 +50,13 @@ where
     G: NodeIndexable<'a>,
 {
     fn from_index(&'a self, index: NodeIndex) -> &'a Self::Node {
-        debug_assert!(self.nodes.contains(&index));
+        debug_assert!(self.nodes.contains(index.into()));
         self.parent.from_index(index)
     }
 
     fn to_index(&self, node: &Self::Node) -> Option<NodeIndex> {
         if let Some(index) = self.parent.to_index(node) {
-            if self.nodes.contains(&index) {
+            if self.nodes.contains(index.into()) {
                 return Some(index);
             }
         }
@@ -69,10 +69,24 @@ impl<'a, G> Nodes<'a> for Subgraph<'a, G>
 where
     G: GraphBase + 'a,
 {
-    type Iter = iter::Cloned<hash_set::Iter<'a, NodeIndex>>;
+    type Iter = Iter<'a>;
 
     fn nodes(&'a self) -> Self::Iter {
-        self.nodes.iter().cloned()
+        Iter {
+            iter: self.nodes.iter()
+        }
+    }
+}
+
+pub struct Iter<'a> {
+    iter: bit_set::Iter<'a, usize>,
+}
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = NodeIndex;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(NodeIndex::from)
     }
 }
 
@@ -101,7 +115,7 @@ pub struct NeighborsIter<'a, G>
 where
     G: Neighbors<'a> + 'a,
 {
-    nodes: &'a HashSet<NodeIndex>,
+    nodes: &'a BitSet<usize>,
     iter: G::Neighbors,
 }
 
@@ -114,7 +128,7 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(i) = self.iter.next() {
             // Only include neighbors that are in the subgraph.
-            if self.nodes.contains(&i) {
+            if self.nodes.contains(i.into()) {
                 return Some(i);
             }
         }
@@ -147,7 +161,7 @@ impl<'a, G> Subgraph<'a, G> {
     {
         Subgraph {
             parent,
-            nodes: nodes.collect(),
+            nodes: nodes.map(NodeIndex::into).collect(),
         }
     }
 }

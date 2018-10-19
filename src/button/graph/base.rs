@@ -27,8 +27,8 @@ use super::traits::{
     Algo, Edges, GraphBase, Neighbors, NodeIndexable, NodeIndex, Nodes, Visitable,
 };
 
-pub trait NodeTrait: Ord + Hash {}
-impl<N> NodeTrait for N where N: Ord + Hash {}
+pub trait NodeTrait: Eq + Hash {}
+impl<N> NodeTrait for N where N: Eq + Hash {}
 
 #[derive(
     Serialize,
