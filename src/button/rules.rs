@@ -143,17 +143,16 @@ mod tests {
 
         let rules = Rules::from_str(&data).unwrap();
 
-        let inputs = vec![
-            File::from("foo.c").into(),
-            File::from("foo.h").into(),
-        ];
+        let inputs =
+            vec![File::from("foo.c").into(), File::from("foo.h").into()];
 
         let outputs = vec![File::from("foo.o").into()];
         let tasks = vec![
             Command::new(
                 PathBuf::from("gcc"),
                 vec!["foo.c".into()].into_iter().collect(),
-            ).into(),
+            )
+            .into(),
         ];
 
         assert_eq!(

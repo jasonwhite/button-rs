@@ -75,7 +75,6 @@ impl Task for Download {
         root: &Path,
         log: &mut io::Write,
     ) -> Result<Detected, Error> {
-
         let path = root.join(&self.path);
 
         writeln!(log, "Downloading \"{}\" to {:?}", self.url, self.path)?;

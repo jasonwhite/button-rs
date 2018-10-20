@@ -49,7 +49,8 @@ where
             WriteTask {
                 thread: self.thread,
                 data: buf.to_vec(),
-            }.into(),
+            }
+            .into(),
         ) {
             Ok(()) => Ok(buf.len()),
             Err(err) => {
@@ -78,7 +79,8 @@ where
             FinishTask {
                 thread: self.thread,
                 result,
-            }.into(),
+            }
+            .into(),
         )?;
         Ok(())
     }
@@ -159,7 +161,8 @@ where
             StartTask {
                 thread,
                 task: task.clone(),
-            }.into(),
+            }
+            .into(),
         )?;
 
         Ok(BinaryTask {
@@ -174,7 +177,8 @@ where
             Delete {
                 thread,
                 resource: resource.clone(),
-            }.into(),
+            }
+            .into(),
         )?;
 
         Ok(())

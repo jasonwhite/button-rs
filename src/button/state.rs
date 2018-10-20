@@ -26,7 +26,7 @@ use std::path::Path;
 
 use build_graph::BuildGraph;
 use error::Error;
-use graph::{Algo, NodeIndexable, Nodes, NodeIndex};
+use graph::{Algo, NodeIndex, NodeIndexable, Nodes};
 use res::ResourceState;
 
 use bincode;
@@ -117,7 +117,10 @@ impl BuildState {
     /// Returns the old build state and the list of non-root nodes that have
     /// been removed from the graph. This information can be used to delete
     /// resources in reverse topological order.
-    pub fn update(&mut self, graph: BuildGraph) -> (BuildState, Vec<NodeIndex>) {
+    pub fn update(
+        &mut self,
+        graph: BuildGraph,
+    ) -> (BuildState, Vec<NodeIndex>) {
         let mut removed = Vec::new();
 
         // Fix the indices in the queue.

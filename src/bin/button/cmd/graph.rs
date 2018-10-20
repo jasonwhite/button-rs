@@ -77,7 +77,8 @@ impl Graph {
             let mut stdout = io::stdout();
             build_graph.graphviz(&mut stdout.lock())?;
             stdout.flush() // Flush to catch write errors
-        }.context("Failed writing GraphViz DOT file")?;
+        }
+        .context("Failed writing GraphViz DOT file")?;
 
         Ok(())
     }

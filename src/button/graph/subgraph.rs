@@ -17,11 +17,10 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-use std::collections::HashMap;
 use bit_set::{self, BitSet};
 
 use super::traits::{
-    Algo, GraphBase, Neighbors, NodeIndexable, NodeIndex, Nodes, Visitable,
+    Algo, GraphBase, Neighbors, NodeIndex, NodeIndexable, Nodes, Visitable,
 };
 
 /// A graph with a subset of nodes of the parent graph.
@@ -30,7 +29,7 @@ where
     G: 'a,
 {
     parent: &'a G,
-    nodes: BitSet<usize>,
+    nodes: BitSet,
 }
 
 impl<'a, G> GraphBase for Subgraph<'a, G>
@@ -73,13 +72,13 @@ where
 
     fn nodes(&'a self) -> Self::Iter {
         Iter {
-            iter: self.nodes.iter()
+            iter: self.nodes.iter(),
         }
     }
 }
 
 pub struct Iter<'a> {
-    iter: bit_set::Iter<'a, usize>,
+    iter: bit_set::Iter<'a, u32>,
 }
 
 impl<'a> Iterator for Iter<'a> {
@@ -115,7 +114,7 @@ pub struct NeighborsIter<'a, G>
 where
     G: Neighbors<'a> + 'a,
 {
-    nodes: &'a BitSet<usize>,
+    nodes: &'a BitSet,
     iter: G::Neighbors,
 }
 
@@ -146,10 +145,10 @@ where
 {
     /// We have to use a HashMap for the visit map because the node indices may
     /// be sparse.
-    type Map = HashMap<NodeIndex, T>;
+    type Map = Vec<Option<T>>;
 
     fn visit_map(&self) -> Self::Map {
-        HashMap::with_capacity(self.node_count())
+        Vec::with_capacity(self.node_count())
     }
 }
 

@@ -23,6 +23,7 @@ use std::collections::HashMap;
 use std::hash::{BuildHasher, Hash};
 use std::io;
 use std::iter;
+use std::mem;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 
@@ -31,6 +32,8 @@ use crossbeam;
 use util;
 
 pub use holyhashmap::EntryIndex as NodeIndex;
+
+use bit_set::BitSet;
 
 // Use a random queue. On average, this seems to have better CPU utilization.
 type Queue<T> = util::RandomQueue<Option<T>>;
@@ -171,6 +174,68 @@ where
     }
 }
 
+impl<T> VisitMap<NodeIndex, T> for Vec<Option<T>> {
+    fn visit(&mut self, node: NodeIndex, value: T) -> Option<T> {
+        let i: usize = node.into();
+
+        // Ensure the vector is large enough.
+        let mut j = self.len();
+        while j <= i {
+            self.push(None);
+            j += 1;
+        }
+
+        mem::replace(&mut self[i], Some(value))
+    }
+
+    fn get(&self, node: &NodeIndex) -> Option<&T> {
+        let i: usize = (*node).into();
+        <[Option<T>]>::get(self.as_slice(), i).and_then(|v| v.as_ref())
+    }
+
+    fn get_mut(&mut self, node: &NodeIndex) -> Option<&mut T> {
+        let i: usize = (*node).into();
+        <[Option<T>]>::get_mut(self.as_mut_slice(), i).and_then(|v| v.as_mut())
+    }
+
+    fn clear(&mut self) {
+        let len = self.len();
+
+        Vec::clear(self);
+
+        for _ in 0..len {
+            self.push(None);
+        }
+    }
+}
+
+/// A mapping for storing visited status.
+pub trait VisitSet<N> {
+    /// Marks the node as visited. Returns true if the node hasn't been visited
+    /// before.
+    fn visit(&mut self, node: N) -> bool;
+
+    /// Returns true if the node has been visited.
+    fn is_visited(&self, node: &N) -> bool;
+
+    /// Marks all nodes as unvisited.
+    fn clear(&mut self);
+}
+
+impl VisitSet<NodeIndex> for BitSet {
+    fn visit(&mut self, node: NodeIndex) -> bool {
+        self.insert(node.into())
+    }
+
+    fn is_visited(&self, node: &NodeIndex) -> bool {
+        self.contains((*node).into())
+    }
+
+    fn clear(&mut self) {
+        BitSet::clear(self)
+    }
+}
+
 /// A graph that can track the visited status of its nodes.
 pub trait Visitable<T> {
     type Map: VisitMap<NodeIndex, T>;
@@ -295,8 +360,11 @@ where
             sccs: &'a mut Vec<Vec<NodeIndex>>,
         }
 
-        fn scc_visit<'a, 'b, G>(v: NodeIndex, g: &'a G, data: &'b mut Data<G::Map>)
-        where
+        fn scc_visit<'a, 'b, G>(
+            v: NodeIndex,
+            g: &'a G,
+            data: &'b mut Data<G::Map>,
+        ) where
             G: Neighbors<'a> + Visitable<TarjanNodeData> + 'a,
         {
             if data.nodes.is_visited(&v) {
@@ -305,11 +373,14 @@ where
 
             let v_index = data.index;
 
-            data.nodes.visit(v, TarjanNodeData {
-                index: v_index,
-                lowlink: v_index,
-                on_stack: true,
-            });
+            data.nodes.visit(
+                v,
+                TarjanNodeData {
+                    index: v_index,
+                    lowlink: v_index,
+                    on_stack: true,
+                },
+            );
 
             data.stack.push(v);
             data.index += 1;
@@ -328,7 +399,8 @@ where
                         if data.nodes.get(&w).unwrap().on_stack {
                             // Successor w is in stack and hence in the current
                             // SCC.
-                            let v_lowlink = &mut data.nodes.get_mut(&v).unwrap().lowlink;
+                            let v_lowlink =
+                                &mut data.nodes.get_mut(&v).unwrap().lowlink;
                             *v_lowlink = cmp::min(*v_lowlink, w_index);
                         }
                     }
@@ -390,7 +462,9 @@ where
         Self::Node: Sync,
         Self::Edge: Sync,
         Self::Map: Send + Sync,
-        F: Fn(usize, NodeIndex, &Self::Node) -> Result<bool, Error> + Send + Sync,
+        F: Fn(usize, NodeIndex, &Self::Node) -> Result<bool, Error>
+            + Send
+            + Sync,
         Error: Send,
     {
         let threads = cmp::max(threads, 1);
@@ -421,7 +495,6 @@ where
     fn dfs<I>(&'a self, roots: I) -> DepthFirstSearch<'a, Self>
     where
         I: Iterator<Item = NodeIndex>,
-        Self: Visitable<()>,
     {
         DepthFirstSearch::new(self, roots)
     }
@@ -486,9 +559,8 @@ fn traversal_worker<'a, G, F, Error>(
         // Only visit a node if that node's incoming nodes have all been
         // visited. There might be more efficient ways to do this.
         for neigh in g.neighbors(index, reverse) {
-            if !visited.is_visited(&neigh) && g
-                .neighbors(neigh, !reverse)
-                .all(|p| visited.is_visited(&p))
+            if !visited.is_visited(&neigh)
+                && g.neighbors(neigh, !reverse).all(|p| visited.is_visited(&p))
             {
                 state.active.fetch_add(1, Ordering::Relaxed);
                 state.queue.push(Some(neigh));
@@ -650,19 +722,13 @@ where
     }
 }
 
-pub struct DepthFirstSearch<'a, G>
-where
-    G: Visitable<()> + 'a,
-{
+pub struct DepthFirstSearch<'a, G: 'a> {
     graph: &'a G,
     stack: Vec<NodeIndex>,
-    visited: G::Map,
+    visited: BitSet,
 }
 
-impl<'a, G> DepthFirstSearch<'a, G>
-where
-    G: Visitable<()> + 'a,
-{
+impl<'a, G: 'a> DepthFirstSearch<'a, G> {
     pub fn new<I>(graph: &'a G, roots: I) -> DepthFirstSearch<'a, G>
     where
         I: Iterator<Item = NodeIndex>,
@@ -670,14 +736,14 @@ where
         DepthFirstSearch {
             graph,
             stack: roots.collect(),
-            visited: graph.visit_map(),
+            visited: BitSet::new(),
         }
     }
 }
 
 impl<'a, G> Iterator for DepthFirstSearch<'a, G>
 where
-    G: Neighbors<'a> + Visitable<()> + 'a,
+    G: Neighbors<'a> + 'a,
 {
     type Item = NodeIndex;
 
@@ -685,7 +751,7 @@ where
         let node = self.stack.pop()?;
 
         for succ in self.graph.outgoing(node) {
-            if self.visited.visit(succ, ()).is_none() {
+            if self.visited.visit(succ) {
                 self.stack.push(succ);
             }
         }

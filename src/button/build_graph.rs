@@ -23,7 +23,8 @@ use std::fmt;
 use std::io;
 
 use graph::{
-    Algo, Edges, Graph, Graphviz, Neighbors, NodeIndexable, NodeTrait, Nodes, NodeIndex,
+    Algo, Edges, Graph, Graphviz, Neighbors, NodeIndex, NodeIndexable,
+    NodeTrait, Nodes,
 };
 
 use res;
@@ -581,7 +582,8 @@ mod tests {
             match graph.err().unwrap() {
                 Error::Cycles(CyclesError { graph: _, cycles }) => cycles,
                 _ => panic!(),
-            }.len(),
+            }
+            .len(),
             1
         );
     }

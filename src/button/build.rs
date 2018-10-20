@@ -33,7 +33,7 @@ use rules::Rules;
 use state::BuildState;
 use task::{self, Task};
 
-use graph::{Algo, Neighbors, NodeIndexable, NodeIndex, Nodes, Subgraph};
+use graph::{Algo, Neighbors, NodeIndex, NodeIndexable, Nodes, Subgraph};
 
 use error::{Error, ResultExt};
 
@@ -105,7 +105,8 @@ where
             },
             threads,
             true,
-        ).map_err(BuildFailure::new)?; // TODO: Return a ResourceDeletion error.
+        )
+        .map_err(BuildFailure::new)?; // TODO: Return a ResourceDeletion error.
 
     Ok(())
 }
@@ -270,7 +271,8 @@ impl<'a> Build<'a> {
                 },
                 threads,
                 true,
-            ).map_err(BuildFailure::new)?;
+            )
+            .map_err(BuildFailure::new)?;
         // TODO: Return a ResourceDeletion error.
 
         // Delete the build state
@@ -375,7 +377,8 @@ impl<'a> Build<'a> {
                             removed.into_iter(),
                             threads,
                             logger,
-                        ).context("Failed deleting resources")?;
+                        )
+                        .context("Failed deleting resources")?;
                     }
 
                     state
@@ -446,7 +449,8 @@ impl<'a> Build<'a> {
             graph,
             queue,
             checksums: context.checksums.into_inner().unwrap(),
-        }.write_to_path(self.state)
+        }
+        .write_to_path(self.state)
         .with_context(|_| {
             format!("Failed writing build state to {:?}", self.state)
         })?;

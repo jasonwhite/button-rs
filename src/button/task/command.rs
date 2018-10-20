@@ -447,7 +447,8 @@ mod tests {
                 Command::new(
                     PathBuf::from("foo/bar/baz"),
                     vec!["some argument".into()].into_iter().collect()
-                ).display(String::from("display this"))
+                )
+                .display(String::from("display this"))
             ),
             "display this"
         );
@@ -482,7 +483,8 @@ mod tests {
                     vec!["some argument".into(), "with spaces".into()]
                         .into_iter()
                         .collect()
-                ).display(String::from("display this"))
+                )
+                .display(String::from("display this"))
             ),
             "foo/bar/baz \"some argument\" \"with spaces\""
         );

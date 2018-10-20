@@ -17,29 +17,21 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+use std::collections::HashMap;
 use std::hash::Hash;
 use std::slice;
-use std::collections::HashMap;
 
 use holyhashmap::{self, HolyHashMap};
 
 use super::traits::{
-    Algo, Edges, GraphBase, Neighbors, NodeIndexable, NodeIndex, Nodes, Visitable,
+    Algo, Edges, GraphBase, Neighbors, NodeIndex, NodeIndexable, Nodes,
+    Visitable,
 };
 
 pub trait NodeTrait: Eq + Hash {}
 impl<N> NodeTrait for N where N: Eq + Hash {}
 
-#[derive(
-    Serialize,
-    Deserialize,
-    Default,
-    Debug,
-    Clone,
-    Eq,
-    PartialEq,
-    Hash,
-)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct NodeNeighbors {
     pub incoming: Vec<NodeIndex>,
     pub outgoing: Vec<NodeIndex>,
@@ -179,7 +171,12 @@ where
 
     /// Adds an edge to the graph. Returns the old weight of the edge if it
     /// already existed.
-    pub fn add_edge(&mut self, a: NodeIndex, b: NodeIndex, weight: E) -> Option<E> {
+    pub fn add_edge(
+        &mut self,
+        a: NodeIndex,
+        b: NodeIndex,
+        weight: E,
+    ) -> Option<E> {
         let old = self.edges.insert((a, b), weight);
         if old.is_some() {
             old
