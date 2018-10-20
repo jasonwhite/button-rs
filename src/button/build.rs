@@ -33,7 +33,7 @@ use rules::Rules;
 use state::BuildState;
 use task::{self, Task};
 
-use graph::{Algo, Neighbors, NodeIndex, NodeIndexable, Nodes, Subgraph};
+use graph::{Algo, Neighbors, NodeIndex, Indexable, Nodes, Subgraph};
 
 use error::{Error, ResultExt};
 
@@ -155,13 +155,13 @@ impl<'a> Iterator for DirtyNodes<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(index) = self.nodes.next() {
-            if let Node::Resource(r) = self.graph.from_index(index) {
+            if let Node::Resource(r) = self.graph.node_from_index(index) {
                 match self.checksums.get(&index) {
                     Some(stored_state) => {
                         // Compute the current state and see if they differ.
                         if let Ok(current_state) = r.state(self.root) {
                             if stored_state != &current_state {
-                                if let Some(parent) =
+                                if let Some((parent, _)) =
                                     self.graph.incoming(index).next()
                                 {
                                     // If this is a non-root node, return
@@ -172,7 +172,7 @@ impl<'a> Iterator for DirtyNodes<'a> {
                                     return Some(index);
                                 }
                             }
-                        } else if let Some(parent) =
+                        } else if let Some((parent, _)) =
                             self.graph.incoming(index).next()
                         {
                             // If this is a non-root node, return

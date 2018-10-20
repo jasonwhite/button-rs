@@ -24,26 +24,24 @@ use std::slice;
 use holyhashmap::{self, HolyHashMap};
 
 use super::traits::{
-    Algo, Edges, GraphBase, Neighbors, NodeIndex, NodeIndexable, Nodes,
-    Visitable,
+    Algo, Edges, GraphBase, Neighbors, NodeIndex, EdgeIndex, Indexable,
+    Nodes, Visitable,
 };
 
 pub trait NodeTrait: Eq + Hash {}
 impl<N> NodeTrait for N where N: Eq + Hash {}
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone, Eq, PartialEq, Hash)]
-pub struct NodeNeighbors {
-    pub incoming: Vec<NodeIndex>,
-    pub outgoing: Vec<NodeIndex>,
-}
+struct NodeNeighbors {
+    /// Incoming edges. We store the index of the edge such that we can more
+    /// easily access the edge data. It also simplifies the subgraph
+    /// implementation.
+    incoming: Vec<(NodeIndex, EdgeIndex)>,
 
-impl NodeNeighbors {
-    pub fn new() -> NodeNeighbors {
-        NodeNeighbors {
-            incoming: Vec::new(),
-            outgoing: Vec::new(),
-        }
-    }
+    /// Outgoing edges. We store the index of the edge such that we can more
+    /// easily access the edge data. It also simplifies the subgraph
+    /// implementation.
+    outgoing: Vec<(NodeIndex, EdgeIndex)>,
 }
 
 /// Directed graph.
@@ -66,18 +64,35 @@ where
     fn node_count(&self) -> usize {
         self.nodes.len()
     }
+
+    fn edge_count(&self) -> usize {
+        self.edges.len()
+    }
 }
 
-impl<'a, N, E> NodeIndexable<'a> for Graph<N, E>
+impl<'a, N, E> Indexable<'a> for Graph<N, E>
 where
     N: NodeTrait + 'a,
 {
-    fn from_index(&'a self, index: NodeIndex) -> &'a Self::Node {
-        self.nodes.from_index(index).unwrap().0
+    fn node_from_index(&'a self, index: NodeIndex) -> &'a Self::Node {
+        self.nodes.from_index(index.into()).unwrap().0
     }
 
-    fn to_index(&self, node: &Self::Node) -> Option<NodeIndex> {
-        self.nodes.to_index(node)
+    fn node_to_index(&self, node: &Self::Node) -> Option<NodeIndex> {
+        self.nodes.to_index(node).map(NodeIndex::from)
+    }
+
+    fn edge_from_index(&'a self, index: EdgeIndex)
+        -> ((NodeIndex, NodeIndex), &'a Self::Edge)
+    {
+        let (edge, weight) = self.edges.from_index(index.into()).unwrap();
+        (*edge, weight)
+    }
+
+    fn edge_to_index(&self, edge: &(NodeIndex, NodeIndex))
+        -> Option<EdgeIndex>
+    {
+        self.edges.to_index(edge).map(EdgeIndex::from)
     }
 }
 
@@ -85,10 +100,40 @@ impl<'a, N, E> Nodes<'a> for Graph<N, E>
 where
     N: NodeTrait + 'a,
 {
-    type Iter = holyhashmap::Indices<'a, N, NodeNeighbors>;
+    type Iter = NodesIter<'a, N>;
 
     fn nodes(&'a self) -> Self::Iter {
-        self.nodes.indices()
+        NodesIter {
+            iter: self.nodes.indices()
+        }
+    }
+}
+
+pub struct NodesIter<'a, N: 'a> {
+    iter: holyhashmap::Indices<'a, N, NodeNeighbors>,
+}
+
+impl<'a, N> Iterator for NodesIter<'a, N> {
+    type Item = NodeIndex;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(NodeIndex::from)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+
+    fn count(self) -> usize {
+        self.iter.count()
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.iter.nth(n).map(NodeIndex::from)
+    }
+
+    fn last(self) -> Option<Self::Item> {
+        self.iter.last().map(NodeIndex::from)
     }
 }
 
@@ -101,7 +146,7 @@ where
 
     fn edges(&'a self) -> Self::Iter {
         EdgesIter {
-            iter: self.edges.iter(),
+            iter: self.edges.indices(),
         }
     }
 }
@@ -114,13 +159,13 @@ where
 
     fn incoming(&'a self, node: NodeIndex) -> Self::Neighbors {
         NeighborsIter {
-            iter: self.nodes.from_index(node).unwrap().1.incoming.iter(),
+            iter: self.nodes.from_index(node.into()).unwrap().1.incoming.iter(),
         }
     }
 
     fn outgoing(&'a self, node: NodeIndex) -> Self::Neighbors {
         NeighborsIter {
-            iter: self.nodes.from_index(node).unwrap().1.outgoing.iter(),
+            iter: self.nodes.from_index(node.into()).unwrap().1.outgoing.iter(),
         }
     }
 }
@@ -166,34 +211,34 @@ where
         let entry = self.nodes.entry(n);
         let index = entry.index();
         entry.or_default();
-        index
+        index.into()
     }
 
-    /// Adds an edge to the graph. Returns the old weight of the edge if it
-    /// already existed.
+    /// Adds an edge to the graph. Returns the index of the edge.
     pub fn add_edge(
         &mut self,
         a: NodeIndex,
         b: NodeIndex,
         weight: E,
-    ) -> Option<E> {
-        let old = self.edges.insert((a, b), weight);
-        if old.is_some() {
-            old
-        } else {
+    ) -> EdgeIndex {
+        let (edge, old) = self.edges.insert_full((a, b), weight);
+
+        let edge: EdgeIndex = edge.into();
+
+        if old.is_none() {
             // New edge. It needs to be inserted into the node
-            if let Some((_, v)) = self.nodes.from_index_mut(a) {
-                v.outgoing.push(b);
+            if let Some((_, v)) = self.nodes.from_index_mut(a.into()) {
+                v.outgoing.push((b, edge));
             }
 
             if a != b {
-                if let Some((_, v)) = self.nodes.from_index_mut(b) {
-                    v.incoming.push(a);
+                if let Some((_, v)) = self.nodes.from_index_mut(b.into()) {
+                    v.incoming.push((a, edge));
                 }
             }
-
-            None
         }
+
+        edge
     }
 
     /// Given an index, translate it to an index in the other graph. Returns
@@ -205,7 +250,7 @@ where
         index: NodeIndex,
         other: &Graph<N, E>,
     ) -> Option<NodeIndex> {
-        other.to_index(self.from_index(index))
+        other.node_to_index(self.node_from_index(index))
     }
 }
 
@@ -224,45 +269,47 @@ pub struct EdgesIter<'a, E>
 where
     E: 'a,
 {
-    iter: holyhashmap::Iter<'a, (NodeIndex, NodeIndex), E>,
+    iter: holyhashmap::Indices<'a, (NodeIndex, NodeIndex), E>,
 }
 
 impl<'a, E> Iterator for EdgesIter<'a, E>
 where
     E: 'a,
 {
-    type Item = (NodeIndex, NodeIndex, &'a E);
+    type Item = EdgeIndex;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        match self.iter.next() {
-            None => None,
-            Some((&(a, b), w)) => Some((a, b, w)),
-        }
+        self.iter.next().map(EdgeIndex::from)
     }
 
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
     }
 
+    #[inline]
     fn count(self) -> usize {
         self.iter.count()
     }
 
+    #[inline]
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        self.iter.nth(n).map(|(&(a, b), w)| (a, b, w))
+        self.iter.nth(n).map(EdgeIndex::from)
     }
 
+    #[inline]
     fn last(self) -> Option<Self::Item> {
-        self.iter.last().map(|(&(a, b), w)| (a, b, w))
+        self.iter.last().map(EdgeIndex::from)
     }
 }
 
 pub struct NeighborsIter<'a> {
-    iter: slice::Iter<'a, NodeIndex>,
+    iter: slice::Iter<'a, (NodeIndex, EdgeIndex)>,
 }
 
 impl<'a> Iterator for NeighborsIter<'a> {
-    type Item = NodeIndex;
+    type Item = (NodeIndex, EdgeIndex);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().cloned()
@@ -298,8 +345,10 @@ mod tests {
         assert_eq!(b, 1.into());
         assert_eq!(g.node_count(), 2);
 
-        assert_eq!(g.add_edge(a, b, 42), None);
-        assert_eq!(g.add_edge(a, b, 1), Some(42));
+        g.add_edge(a, b, 42);
+        g.add_edge(a, b, 1);
+
+        assert_eq!(g.edge_count(), 1);
     }
 
     #[test]

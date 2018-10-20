@@ -20,16 +20,22 @@
 use bit_set::{self, BitSet};
 
 use super::traits::{
-    Algo, GraphBase, Neighbors, NodeIndex, NodeIndexable, Nodes, Visitable,
+    Algo, GraphBase, Neighbors, NodeIndex, EdgeIndex, Indexable, Nodes, Edges,
+    Visitable,
 };
 
-/// A graph with a subset of nodes of the parent graph.
+/// A graph with a subset of nodes and edges.
 pub struct Subgraph<'a, G>
 where
     G: 'a,
 {
-    parent: &'a G,
+    graph: &'a G,
+
+    // Nodes that are in the graph.
     nodes: BitSet,
+
+    // Edges that are in the graph.
+    edges: BitSet,
 }
 
 impl<'a, G> GraphBase for Subgraph<'a, G>
@@ -42,20 +48,45 @@ where
     fn node_count(&self) -> usize {
         self.nodes.len()
     }
+
+    fn edge_count(&self) -> usize {
+        self.edges.len()
+    }
 }
 
-impl<'a, G> NodeIndexable<'a> for Subgraph<'a, G>
+impl<'a, G> Indexable<'a> for Subgraph<'a, G>
 where
-    G: NodeIndexable<'a>,
+    G: Indexable<'a>,
 {
-    fn from_index(&'a self, index: NodeIndex) -> &'a Self::Node {
-        debug_assert!(self.nodes.contains(index.into()));
-        self.parent.from_index(index)
+    fn node_from_index(&'a self, index: NodeIndex) -> &'a Self::Node {
+        assert!(self.nodes.contains(index.into()),
+                "subgraph does not contain node");
+        self.graph.node_from_index(index)
     }
 
-    fn to_index(&self, node: &Self::Node) -> Option<NodeIndex> {
-        if let Some(index) = self.parent.to_index(node) {
+    fn node_to_index(&self, node: &Self::Node) -> Option<NodeIndex> {
+        if let Some(index) = self.graph.node_to_index(node) {
             if self.nodes.contains(index.into()) {
+                return Some(index);
+            }
+        }
+
+        None
+    }
+
+    fn edge_from_index(&'a self, index: EdgeIndex)
+        -> ((NodeIndex, NodeIndex), &'a Self::Edge)
+    {
+        assert!(self.edges.contains(index.into()),
+                "subgraph does not contain edge");
+        self.graph.edge_from_index(index)
+    }
+
+    fn edge_to_index(&self, edge: &(NodeIndex, NodeIndex))
+        -> Option<EdgeIndex>
+    {
+        if let Some(index) = self.graph.edge_to_index(edge) {
+            if self.edges.contains(index.into()) {
                 return Some(index);
             }
         }
@@ -68,24 +99,49 @@ impl<'a, G> Nodes<'a> for Subgraph<'a, G>
 where
     G: GraphBase + 'a,
 {
-    type Iter = Iter<'a>;
+    type Iter = NodesIter<'a>;
 
     fn nodes(&'a self) -> Self::Iter {
-        Iter {
+        NodesIter {
             iter: self.nodes.iter(),
         }
     }
 }
 
-pub struct Iter<'a> {
+pub struct NodesIter<'a> {
     iter: bit_set::Iter<'a, u32>,
 }
 
-impl<'a> Iterator for Iter<'a> {
+impl<'a> Iterator for NodesIter<'a> {
     type Item = NodeIndex;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(NodeIndex::from)
+    }
+}
+
+impl<'a, G> Edges<'a> for Subgraph<'a, G>
+where
+    G: GraphBase + 'a,
+{
+    type Iter = EdgesIter<'a>;
+
+    fn edges(&'a self) -> Self::Iter {
+        EdgesIter {
+            iter: self.edges.iter(),
+        }
+    }
+}
+
+pub struct EdgesIter<'a> {
+    iter: bit_set::Iter<'a, u32>,
+}
+
+impl<'a> Iterator for EdgesIter<'a> {
+    type Item = EdgeIndex;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(EdgeIndex::from)
     }
 }
 
@@ -97,15 +153,17 @@ where
 
     fn incoming(&'a self, node: NodeIndex) -> Self::Neighbors {
         NeighborsIter {
+            iter: self.graph.incoming(node),
             nodes: &self.nodes,
-            iter: self.parent.incoming(node),
+            edges: &self.edges,
         }
     }
 
     fn outgoing(&'a self, node: NodeIndex) -> Self::Neighbors {
         NeighborsIter {
+            iter: self.graph.outgoing(node),
             nodes: &self.nodes,
-            iter: self.parent.outgoing(node),
+            edges: &self.edges,
         }
     }
 }
@@ -114,21 +172,24 @@ pub struct NeighborsIter<'a, G>
 where
     G: Neighbors<'a> + 'a,
 {
-    nodes: &'a BitSet,
     iter: G::Neighbors,
+    nodes: &'a BitSet,
+    edges: &'a BitSet,
 }
 
 impl<'a, G> Iterator for NeighborsIter<'a, G>
 where
     G: Neighbors<'a> + 'a,
 {
-    type Item = NodeIndex;
+    type Item = (NodeIndex, EdgeIndex);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(i) = self.iter.next() {
-            // Only include neighbors that are in the subgraph.
-            if self.nodes.contains(i.into()) {
-                return Some(i);
+        while let Some((node, edge)) = self.iter.next() {
+            // Only include neighbors that are in the subgraph and only include
+            // edges to neighbors that are in the subgraph.
+            if self.nodes.contains(node.into()) &&
+               self.edges.contains(edge.into()) {
+                return Some((node, edge));
             }
         }
 
@@ -154,13 +215,14 @@ where
 
 impl<'a, G> Subgraph<'a, G> {
     /// Creates a new subgraph with the given set of nodes.
-    pub fn new<I>(parent: &'a G, nodes: I) -> Self
+    pub fn new<I>(graph: &'a G, nodes: I) -> Self
     where
         I: Iterator<Item = NodeIndex>,
     {
         Subgraph {
-            parent,
+            graph,
             nodes: nodes.map(NodeIndex::into).collect(),
+            edges: BitSet::new(),
         }
     }
 }

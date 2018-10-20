@@ -23,7 +23,7 @@ use std::fmt;
 use std::io;
 
 use graph::{
-    Algo, Edges, Graph, Graphviz, Neighbors, NodeIndex, NodeIndexable,
+    Algo, Edges, Graph, Graphviz, Neighbors, NodeIndex, Indexable,
     NodeTrait, Nodes,
 };
 
@@ -98,7 +98,7 @@ where
     N: NodeTrait + fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use graph::NodeIndexable;
+        use graph::Indexable;
 
         writeln!(
             f,
@@ -115,7 +115,7 @@ where
             let mut it = cycle
                 .iter()
                 .rev()
-                .map(|index| self.graph.from_index(*index));
+                .map(|index| self.graph.node_from_index(*index));
 
             // Unwrapping because there must always be at least one node in a
             // cycle. If this panics, then the code creating the
@@ -335,7 +335,7 @@ impl Graphviz for BuildGraph {
              style=filled];"
         )?;
         for i in self.nodes() {
-            let node = self.from_index(i);
+            let node = self.node_from_index(i);
             match node {
                 Node::Resource(ref resource) => {
                     writeln!(f, "        N{} [label={}];", i, resource)?;
@@ -351,15 +351,15 @@ impl Graphviz for BuildGraph {
             f,
             "        node [shape=box, fillcolor=gray91, style=filled];"
         )?;
-        for i in self.nodes() {
-            let node = self.from_index(i);
+        for index in self.nodes() {
+            let node = self.node_from_index(index);
             match node {
                 Node::Resource(_) => {}
                 Node::Task(ref task) => {
                     writeln!(
                         f,
                         "        N{} [label=\"{}\"];",
-                        i,
+                        index,
                         escape_label(&format!("{}", task))
                     )?;
                 }
@@ -368,8 +368,9 @@ impl Graphviz for BuildGraph {
         writeln!(f, "    }}")?;
 
         // Edges
-        for (from, to, _weight) in self.edges() {
-            writeln!(f, "    N{} -> N{};", from, to)?;
+        for index in self.edges() {
+            let (edge, _) = self.edge_from_index(index);
+            writeln!(f, "    N{} -> N{};", edge.0, edge.1)?;
         }
 
         writeln!(f, "}}")
@@ -384,7 +385,7 @@ fn check_races(graph: BuildGraph) -> Result<BuildGraph, RaceError> {
     let mut races = Vec::new();
 
     for i in graph.nodes() {
-        let node = graph.from_index(i);
+        let node = graph.node_from_index(i);
         match node {
             Node::Resource(ref r) => {
                 let incoming = graph.incoming(i).count();

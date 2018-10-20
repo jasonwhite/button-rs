@@ -26,14 +26,82 @@ use std::iter;
 use std::mem;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
+use std::fmt;
 
 use crossbeam;
 
 use util;
 
-pub use holyhashmap::EntryIndex as NodeIndex;
-
+use holyhashmap::EntryIndex;
 use bit_set::BitSet;
+
+/// A type-safe node index.
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct NodeIndex(EntryIndex);
+
+impl From<EntryIndex> for NodeIndex {
+    fn from(index: EntryIndex) -> Self {
+        NodeIndex(index)
+    }
+}
+
+impl From<usize> for NodeIndex {
+    fn from(index: usize) -> Self {
+        NodeIndex(index.into())
+    }
+}
+
+impl Into<EntryIndex> for NodeIndex {
+    fn into(self) -> EntryIndex {
+        self.0
+    }
+}
+
+impl Into<usize> for NodeIndex {
+    fn into(self) -> usize {
+        self.0.into()
+    }
+}
+
+impl fmt::Display for NodeIndex {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+/// A type-safe edge index.
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct EdgeIndex(EntryIndex);
+
+impl From<EntryIndex> for EdgeIndex {
+    fn from(index: EntryIndex) -> Self {
+        EdgeIndex(index)
+    }
+}
+
+impl From<usize> for EdgeIndex {
+    fn from(index: usize) -> Self {
+        EdgeIndex(index.into())
+    }
+}
+
+impl Into<EntryIndex> for EdgeIndex {
+    fn into(self) -> EntryIndex {
+        self.0
+    }
+}
+
+impl Into<usize> for EdgeIndex {
+    fn into(self) -> usize {
+        self.0.into()
+    }
+}
+
+impl fmt::Display for EdgeIndex {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 // Use a random queue. On average, this seems to have better CPU utilization.
 type Queue<T> = util::RandomQueue<Option<T>>;
@@ -51,43 +119,68 @@ pub trait GraphBase {
 
     /// Returns the number of nodes in the graph.
     fn node_count(&self) -> usize;
+
+    /// Returns the number of edges in the graph.
+    fn edge_count(&self) -> usize;
 }
 
 /// A graph that is indexable.
-pub trait NodeIndexable<'a>: GraphBase
+pub trait Indexable<'a>: GraphBase
 where
     Self::Node: 'a,
 {
-    /// Convert an index to a node.
+    /// Converts a node index into a node.
     ///
-    /// Panics if the index is out of bounds.
-    fn from_index(&'a self, index: NodeIndex) -> &'a Self::Node;
+    /// Panics if the index does not exist.
+    fn node_from_index(&'a self, index: NodeIndex) -> &'a Self::Node;
 
-    /// Convert a node to an index if it exists.
+    /// Converts a node to an index if it exists.
     ///
     /// Returns `None` if the node does not exist in the graph.
-    fn to_index(&self, node: &Self::Node) -> Option<NodeIndex>;
+    fn node_to_index(&self, node: &Self::Node) -> Option<NodeIndex>;
+
+    /// Converts an edge index into a pair.
+    ///
+    /// Panics if the index does not exist.
+    fn edge_from_index(&'a self, index: EdgeIndex)
+        -> ((NodeIndex, NodeIndex), &'a Self::Edge);
+
+    /// Converts an edge index into a pair.
+    ///
+    /// Returns `None` if the edge does not exist in the graph.
+    fn edge_to_index(&self, edge: &(NodeIndex, NodeIndex))
+        -> Option<EdgeIndex>;
 
     /// Returns `true` if the node exists in the graph.
     fn contains_node(&self, n: &Self::Node) -> bool {
-        self.to_index(n).is_some()
+        self.node_to_index(n).is_some()
+    }
+
+    /// Returns `true` if the edge exists in the graph.
+    fn contains_egde(&self, e: &(NodeIndex, NodeIndex)) -> bool {
+        self.edge_to_index(e).is_some()
     }
 }
 
 /// Trait for iterating over the neighbors of nodes.
 pub trait Neighbors<'a>: GraphBase {
-    type Neighbors: Iterator<Item = NodeIndex>;
+    type Neighbors: Iterator<Item = (NodeIndex, EdgeIndex)>;
 
     /// Returns an iterator over all the incoming edges for the given node.
     ///
-    /// Panics if the index does not exist.
+    /// Panics if the node index does not exist.
     fn incoming(&'a self, node: NodeIndex) -> Self::Neighbors;
 
     /// Returns an iterator over all the outgoing edges for the given node.
     ///
-    /// Panics if the index does not exist.
+    /// Panics if the node index does not exist.
     fn outgoing(&'a self, node: NodeIndex) -> Self::Neighbors;
 
+    /// Returns the neighbors. If `reverse` is `false`, returns the outgoing
+    /// neighbors. Otherwise, if `reverse` is `true`, returns the incoming
+    /// neighbors.
+    ///
+    /// Panics if the node index does not exist.
     fn neighbors(&'a self, node: NodeIndex, reverse: bool) -> Self::Neighbors {
         if reverse {
             self.incoming(node)
@@ -98,12 +191,16 @@ pub trait Neighbors<'a>: GraphBase {
 
     /// Returns true if the given node is a root node (i.e., it has no incoming
     /// edges).
+    ///
+    /// Panics if the node index does not exist.
     fn is_root_node(&'a self, node: NodeIndex) -> bool {
         self.incoming(node).next().is_none()
     }
 
     /// Returns true if the given node is a terminal node (i.e., it has no
     /// outgoing edges).
+    ///
+    /// Panics if the node index does not exist.
     fn is_terminal_node(&'a self, node: NodeIndex) -> bool {
         self.outgoing(node).next().is_none()
     }
@@ -125,7 +222,7 @@ pub trait Edges<'a>: GraphBase
 where
     Self::Edge: 'a,
 {
-    type Iter: Iterator<Item = (NodeIndex, NodeIndex, &'a Self::Edge)>;
+    type Iter: Iterator<Item = EdgeIndex>;
 
     /// Returns an iterator over the edges in the graph.
     fn edges(&'a self) -> Self::Iter;
@@ -385,7 +482,7 @@ where
             data.stack.push(v);
             data.index += 1;
 
-            for w in g.outgoing(v) {
+            for (w, _) in g.outgoing(v) {
                 match data.nodes.get(&w).map(|n| n.index) {
                     None => {
                         scc_visit(w, g, data);
@@ -458,7 +555,7 @@ where
         reverse: bool,
     ) -> Result<(), Vec<(NodeIndex, Error)>>
     where
-        Self: Sync + Visitable<bool> + NodeIndexable<'a>,
+        Self: Sync + Visitable<bool> + Indexable<'a>,
         Self::Node: Sync,
         Self::Edge: Sync,
         Self::Map: Send + Sync,
@@ -508,7 +605,7 @@ fn traversal_worker<'a, G, F, Error>(
     visit: &F,
     reverse: bool,
 ) where
-    G: Neighbors<'a> + NodeIndexable<'a> + Visitable<bool> + Algo<'a>,
+    G: Neighbors<'a> + Indexable<'a> + Visitable<bool> + Algo<'a>,
     F: Fn(usize, NodeIndex, &G::Node) -> Result<bool, Error> + Sync,
     Error: Send,
 {
@@ -524,13 +621,13 @@ fn traversal_worker<'a, G, F, Error>(
         let do_visit = {
             let mut incoming = g.neighbors(index, !reverse);
             let visited = state.visited.lock().unwrap();
-            util::empty_or_any(&mut incoming, |p| {
+            util::empty_or_any(&mut incoming, |(p, _)| {
                 visited.get(&p) == Some(&true)
             })
         };
 
         let keep_going = if do_visit {
-            visit(tid, index, g.from_index(index))
+            visit(tid, index, g.node_from_index(index))
         } else {
             Ok(false)
         };
@@ -558,9 +655,9 @@ fn traversal_worker<'a, G, F, Error>(
 
         // Only visit a node if that node's incoming nodes have all been
         // visited. There might be more efficient ways to do this.
-        for neigh in g.neighbors(index, reverse) {
+        for (neigh, _) in g.neighbors(index, reverse) {
             if !visited.is_visited(&neigh)
-                && g.neighbors(neigh, !reverse).all(|p| visited.is_visited(&p))
+                && g.neighbors(neigh, !reverse).all(|(p, _)| visited.is_visited(&p))
             {
                 state.active.fetch_add(1, Ordering::Relaxed);
                 state.queue.push(Some(neigh));
@@ -602,7 +699,7 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(i) = self.nodes.next() {
-            if self.graph.incoming(i).next().is_none() {
+            if self.graph.is_root_node(i) {
                 return Some(i);
             }
         }
@@ -639,7 +736,7 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(i) = self.nodes.next() {
-            if self.graph.incoming(i).next().is_some() {
+            if !self.graph.is_root_node(i) {
                 return Some(i);
             }
         }
@@ -676,7 +773,7 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(i) = self.nodes.next() {
-            if self.graph.outgoing(i).next().is_none() {
+            if self.graph.is_terminal_node(i) {
                 return Some(i);
             }
         }
@@ -713,7 +810,7 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(i) = self.nodes.next() {
-            if self.graph.outgoing(i).next().is_some() {
+            if !self.graph.is_terminal_node(i) {
                 return Some(i);
             }
         }
@@ -750,7 +847,7 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         let node = self.stack.pop()?;
 
-        for succ in self.graph.outgoing(node) {
+        for (succ, _) in self.graph.outgoing(node) {
             if self.visited.visit(succ) {
                 self.stack.push(succ);
             }

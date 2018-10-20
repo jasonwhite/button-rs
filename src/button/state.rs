@@ -26,7 +26,7 @@ use std::path::Path;
 
 use build_graph::BuildGraph;
 use error::Error;
-use graph::{Algo, NodeIndex, NodeIndexable, Nodes};
+use graph::{Algo, NodeIndex, Indexable, Nodes};
 use res::ResourceState;
 
 use bincode;
@@ -132,16 +132,16 @@ impl BuildState {
 
         // Find removed output nodes.
         for index in self.graph.non_root_nodes() {
-            if !graph.contains_node(self.graph.from_index(index)) {
+            if !graph.contains_node(self.graph.node_from_index(index)) {
                 removed.push(index);
             }
         }
 
         // Add new nodes to the queue.
         for i in graph.nodes() {
-            let node = graph.from_index(i);
+            let node = graph.node_from_index(i);
             if !self.graph.contains_node(node) {
-                if let Some(index) = graph.to_index(node) {
+                if let Some(index) = graph.node_to_index(node) {
                     queue.push(index);
                 }
             }
