@@ -33,7 +33,7 @@ use rules::Rules;
 use state::BuildState;
 use task::{self, Task};
 
-use graph::{Algo, Indexable, Neighbors, NodeIndex, Nodes, Subgraph};
+use graph::{Algo, Edges, Indexable, Neighbors, NodeIndex, Nodes, Subgraph};
 
 use error::{Error, ResultExt};
 
@@ -413,7 +413,11 @@ impl<'a> Build<'a> {
 
         let result = {
             // Create the subgraph from the queued nodes.
-            let subgraph = Subgraph::new(&graph, graph.dfs(queue.into_iter()));
+            let subgraph = Subgraph::new(
+                &graph,
+                graph.dfs(queue.into_iter()),
+                graph.edges(),
+            );
 
             // Build the subgraph.
             subgraph.traverse(

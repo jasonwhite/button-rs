@@ -222,14 +222,15 @@ where
 
 impl<'a, G> Subgraph<'a, G> {
     /// Creates a new subgraph with the given set of nodes.
-    pub fn new<I>(graph: &'a G, nodes: I) -> Self
+    pub fn new<I, J>(graph: &'a G, nodes: I, edges: J) -> Self
     where
         I: Iterator<Item = NodeIndex>,
+        J: Iterator<Item = EdgeIndex>,
     {
         Subgraph {
             graph,
             nodes: nodes.map(NodeIndex::into).collect(),
-            edges: BitSet::new(),
+            edges: edges.map(EdgeIndex::into).collect(),
         }
     }
 }
