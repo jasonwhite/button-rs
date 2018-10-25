@@ -23,8 +23,8 @@ use std::fmt;
 use std::io;
 
 use graph::{
-    Algo, Edges, Graph, Graphviz, Neighbors, NodeIndex, Indexable,
-    NodeTrait, Nodes,
+    Algo, Edges, Graph, Graphviz, Indexable, Neighbors, NodeIndex, NodeTrait,
+    Nodes,
 };
 
 use res;

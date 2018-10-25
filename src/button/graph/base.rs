@@ -24,8 +24,8 @@ use std::slice;
 use holyhashmap::{self, HolyHashMap};
 
 use super::traits::{
-    Algo, Edges, GraphBase, Neighbors, NodeIndex, EdgeIndex, Indexable,
-    Nodes, Visitable,
+    Algo, EdgeIndex, Edges, GraphBase, Indexable, Neighbors, NodeIndex, Nodes,
+    Visitable,
 };
 
 pub trait NodeTrait: Eq + Hash {}
@@ -82,16 +82,18 @@ where
         self.nodes.to_index(node).map(NodeIndex::from)
     }
 
-    fn edge_from_index(&'a self, index: EdgeIndex)
-        -> ((NodeIndex, NodeIndex), &'a Self::Edge)
-    {
+    fn edge_from_index(
+        &'a self,
+        index: EdgeIndex,
+    ) -> ((NodeIndex, NodeIndex), &'a Self::Edge) {
         let (edge, weight) = self.edges.from_index(index.into()).unwrap();
         (*edge, weight)
     }
 
-    fn edge_to_index(&self, edge: &(NodeIndex, NodeIndex))
-        -> Option<EdgeIndex>
-    {
+    fn edge_to_index(
+        &self,
+        edge: &(NodeIndex, NodeIndex),
+    ) -> Option<EdgeIndex> {
         self.edges.to_index(edge).map(EdgeIndex::from)
     }
 }
@@ -104,7 +106,7 @@ where
 
     fn nodes(&'a self) -> Self::Iter {
         NodesIter {
-            iter: self.nodes.indices()
+            iter: self.nodes.indices(),
         }
     }
 }
@@ -159,13 +161,25 @@ where
 
     fn incoming(&'a self, node: NodeIndex) -> Self::Neighbors {
         NeighborsIter {
-            iter: self.nodes.from_index(node.into()).unwrap().1.incoming.iter(),
+            iter: self
+                .nodes
+                .from_index(node.into())
+                .unwrap()
+                .1
+                .incoming
+                .iter(),
         }
     }
 
     fn outgoing(&'a self, node: NodeIndex) -> Self::Neighbors {
         NeighborsIter {
-            iter: self.nodes.from_index(node.into()).unwrap().1.outgoing.iter(),
+            iter: self
+                .nodes
+                .from_index(node.into())
+                .unwrap()
+                .1
+                .outgoing
+                .iter(),
         }
     }
 }

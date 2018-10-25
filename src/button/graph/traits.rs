@@ -20,20 +20,20 @@
 
 use std::cmp;
 use std::collections::HashMap;
+use std::fmt;
 use std::hash::{BuildHasher, Hash};
 use std::io;
 use std::iter;
 use std::mem;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
-use std::fmt;
 
 use crossbeam;
 
 use util;
 
-use holyhashmap::EntryIndex;
 use bit_set::BitSet;
+use holyhashmap::EntryIndex;
 
 /// A type-safe node index.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -142,8 +142,10 @@ where
     /// Converts an edge index into a pair.
     ///
     /// Panics if the index does not exist.
-    fn edge_from_index(&'a self, index: EdgeIndex)
-        -> ((NodeIndex, NodeIndex), &'a Self::Edge);
+    fn edge_from_index(
+        &'a self,
+        index: EdgeIndex,
+    ) -> ((NodeIndex, NodeIndex), &'a Self::Edge);
 
     /// Converts an edge index into a pair.
     ///
@@ -656,8 +658,9 @@ fn traversal_worker<'a, G, F, Error>(
         // Only visit a node if that node's incoming nodes have all been
         // visited. There might be more efficient ways to do this.
         for (neigh, _) in g.neighbors(index, reverse) {
-            if !visited.is_visited(&neigh)
-                && g.neighbors(neigh, !reverse).all(|(p, _)| visited.is_visited(&p))
+            if !visited.is_visited(&neigh) && g
+                .neighbors(neigh, !reverse)
+                .all(|(p, _)| visited.is_visited(&p))
             {
                 state.active.fetch_add(1, Ordering::Relaxed);
                 state.queue.push(Some(neigh));

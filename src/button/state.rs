@@ -26,7 +26,7 @@ use std::path::Path;
 
 use build_graph::BuildGraph;
 use error::Error;
-use graph::{Algo, NodeIndex, Indexable, Nodes};
+use graph::{Algo, Indexable, NodeIndex, Nodes};
 use res::ResourceState;
 
 use bincode;

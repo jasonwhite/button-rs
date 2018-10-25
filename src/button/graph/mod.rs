@@ -25,6 +25,6 @@ mod traits;
 pub use self::base::{Graph, NodeTrait};
 pub use self::subgraph::Subgraph;
 pub use self::traits::{
-    Algo, Edges, GraphBase, Graphviz, Neighbors, NodeIndex, EdgeIndex,
-    Indexable, Nodes, VisitMap, Visitable,
+    Algo, EdgeIndex, Edges, GraphBase, Graphviz, Indexable, Neighbors,
+    NodeIndex, Nodes, VisitMap, Visitable,
 };

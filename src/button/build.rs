@@ -33,7 +33,7 @@ use rules::Rules;
 use state::BuildState;
 use task::{self, Task};
 
-use graph::{Algo, Neighbors, NodeIndex, Indexable, Nodes, Subgraph};
+use graph::{Algo, Indexable, Neighbors, NodeIndex, Nodes, Subgraph};
 
 use error::{Error, ResultExt};
 

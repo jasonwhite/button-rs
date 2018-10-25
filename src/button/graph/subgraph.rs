@@ -20,7 +20,7 @@
 use bit_set::{self, BitSet};
 
 use super::traits::{
-    Algo, GraphBase, Neighbors, NodeIndex, EdgeIndex, Indexable, Nodes, Edges,
+    Algo, EdgeIndex, Edges, GraphBase, Indexable, Neighbors, NodeIndex, Nodes,
     Visitable,
 };
 
@@ -59,8 +59,10 @@ where
     G: Indexable<'a>,
 {
     fn node_from_index(&'a self, index: NodeIndex) -> &'a Self::Node {
-        assert!(self.nodes.contains(index.into()),
-                "subgraph does not contain node");
+        assert!(
+            self.nodes.contains(index.into()),
+            "subgraph does not contain node"
+        );
         self.graph.node_from_index(index)
     }
 
@@ -74,17 +76,21 @@ where
         None
     }
 
-    fn edge_from_index(&'a self, index: EdgeIndex)
-        -> ((NodeIndex, NodeIndex), &'a Self::Edge)
-    {
-        assert!(self.edges.contains(index.into()),
-                "subgraph does not contain edge");
+    fn edge_from_index(
+        &'a self,
+        index: EdgeIndex,
+    ) -> ((NodeIndex, NodeIndex), &'a Self::Edge) {
+        assert!(
+            self.edges.contains(index.into()),
+            "subgraph does not contain edge"
+        );
         self.graph.edge_from_index(index)
     }
 
-    fn edge_to_index(&self, edge: &(NodeIndex, NodeIndex))
-        -> Option<EdgeIndex>
-    {
+    fn edge_to_index(
+        &self,
+        edge: &(NodeIndex, NodeIndex),
+    ) -> Option<EdgeIndex> {
         if let Some(index) = self.graph.edge_to_index(edge) {
             if self.edges.contains(index.into()) {
                 return Some(index);
@@ -187,8 +193,9 @@ where
         while let Some((node, edge)) = self.iter.next() {
             // Only include neighbors that are in the subgraph and only include
             // edges to neighbors that are in the subgraph.
-            if self.nodes.contains(node.into()) &&
-               self.edges.contains(edge.into()) {
+            if self.nodes.contains(node.into())
+                && self.edges.contains(edge.into())
+            {
                 return Some((node, edge));
             }
         }
