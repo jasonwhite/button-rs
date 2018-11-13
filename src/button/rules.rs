@@ -147,13 +147,11 @@ mod tests {
             vec![File::from("foo.c").into(), File::from("foo.h").into()];
 
         let outputs = vec![File::from("foo.o").into()];
-        let tasks = vec![
-            Command::new(
-                PathBuf::from("gcc"),
-                vec!["foo.c".into()].into_iter().collect(),
-            )
-            .into(),
-        ];
+        let tasks = vec![Command::new(
+            PathBuf::from("gcc"),
+            vec!["foo.c".into()].into_iter().collect(),
+        )
+        .into()];
 
         assert_eq!(
             rules,

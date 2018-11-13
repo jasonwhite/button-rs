@@ -658,9 +658,9 @@ fn traversal_worker<'a, G, F, Error>(
         // Only visit a node if that node's incoming nodes have all been
         // visited. There might be more efficient ways to do this.
         for (neigh, _) in g.neighbors(index, reverse) {
-            if !visited.is_visited(&neigh) && g
-                .neighbors(neigh, !reverse)
-                .all(|(p, _)| visited.is_visited(&p))
+            if !visited.is_visited(&neigh)
+                && g.neighbors(neigh, !reverse)
+                    .all(|(p, _)| visited.is_visited(&p))
             {
                 state.active.fetch_add(1, Ordering::Relaxed);
                 state.queue.push(Some(neigh));
