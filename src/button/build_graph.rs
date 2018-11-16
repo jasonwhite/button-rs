@@ -23,8 +23,8 @@ use std::fmt;
 use std::io;
 
 use graph::{
-    Algo, Edges, Graph, Graphviz, Indexable, Neighbors, NodeIndex, NodeTrait,
-    Nodes,
+    Algo, EdgeIndex, Edges, Graph, GraphBase, Graphviz, IndexSet, Indexable,
+    Neighbors, NodeIndex, NodeTrait, Nodes, Subgraph,
 };
 
 use res;
@@ -275,21 +275,21 @@ impl error::Error for Error {
     }
 }
 
-pub type BuildGraph = Graph<Node, Edge>;
-
 /// The build graph.
 ///
 /// This is the core data structure of the build system. It is a bi-partite
 /// acyclic graph. We guarantee that the graph is free of cycles and race
 /// conditions when constructing it from a set of rules.
+pub type BuildGraph = Graph<Node, Edge>;
+
 pub trait FromRules: Sized {
+    /// Creates a build graph from the given rules. If the graph would contain
+    /// race conditions or cycles, an error is returned. Thus, the returned
+    /// graph is guaranteed to be bipartite and acyclic.
     fn from_rules(rules: Rules) -> Result<Self, Error>;
 }
 
 impl FromRules for BuildGraph {
-    /// Creates a build graph from the given rules. If the graph would contain
-    /// race conditions or cycles, an error is returned. Thus, the returned
-    /// graph is guaranteed to be bipartite and acyclic.
     fn from_rules(rules: Rules) -> Result<BuildGraph, Error> {
         let mut g = Graph::new();
 
@@ -316,6 +316,91 @@ impl FromRules for BuildGraph {
         Ok(check_races(check_cycles(g)?)?)
     }
 }
+
+/// Functions that specifically operate on a graph whose nodes are of type
+/// `Node` and edges of type `Edge`. Thus, these can also be called on
+/// a subgraph.
+pub trait BuildGraphExt<'a>:
+    GraphBase<Node = Node, Edge = Edge>
+    + Nodes<'a>
+    + Edges<'a>
+    + Indexable<'a>
+    + Neighbors<'a>
+    + Sized
+{
+    /// Returns the "explicit" subgraph. That is, the subgraph that does not
+    /// contain any implicit edges or the nodes only reachable by implicit
+    /// edges.
+    fn explicit_subgraph(&'a self) -> Subgraph<'a, Self> {
+        // Only include resource nodes whose incoming or outgoing edges contain
+        // at least one explicit edge.
+        let nodes =
+            self.nodes()
+                .filter(|node| match self.node_from_index(*node) {
+                    Node::Resource(_) => {
+                        self.incoming(*node).any(|(_, edge)| {
+                            self.edge_from_index(edge).1 == &Edge::Explicit
+                        }) || self.outgoing(*node).any(|(_, edge)| {
+                            self.edge_from_index(edge).1 == &Edge::Explicit
+                        })
+                    }
+                    _ => true,
+                });
+
+        // Only include explicit edges.
+        let edges = self
+            .edges()
+            .filter(|index| self.edge_from_index(*index).1 == &Edge::Explicit);
+
+        Subgraph::new(self, nodes, edges)
+    }
+
+    /// Finds nodes that are only present in this graph, not the other.
+    ///
+    /// Computes in `O(|V|)` time.
+    fn distinct_nodes<G>(&'a self, other: &'a G) -> IndexSet<NodeIndex>
+    where
+        G: BuildGraphExt<'a>,
+    {
+        let mut nodes = IndexSet::new();
+
+        for index in self.nodes() {
+            if !other.contains_node(self.node_from_index(index)) {
+                nodes.insert(index);
+            }
+        }
+
+        nodes
+    }
+
+    /// Finds edges that are only present in this graph, not the other.
+    ///
+    /// Computes in `O(|E|)` time.
+    fn distinct_edges<G>(&'a self, other: &'a G) -> IndexSet<EdgeIndex>
+    where
+        G: BuildGraphExt<'a>,
+    {
+        let mut edges = IndexSet::new();
+
+        for index in self.edges() {
+            let (from, to) = self.edge_from_index(index).0;
+
+            // Translate to indices that the other graph understands.
+            let from = other.node_to_index(self.node_from_index(from));
+            let to = other.node_to_index(self.node_from_index(to));
+
+            if let (Some(from), Some(to)) = (from, to) {
+                if !other.contains_edge(&(from, to)) {
+                    edges.insert(index);
+                }
+            }
+        }
+
+        edges
+    }
+}
+
+impl<'a> BuildGraphExt<'a> for BuildGraph {}
 
 impl Graphviz for BuildGraph {
     fn graphviz(&self, f: &mut io::Write) -> Result<(), io::Error> {

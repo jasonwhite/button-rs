@@ -23,9 +23,9 @@ use std::slice;
 
 use holyhashmap::{self, HolyHashMap};
 
+use super::index::{EdgeIndex, NodeIndex};
 use super::traits::{
-    Algo, EdgeIndex, Edges, GraphBase, Indexable, Neighbors, NodeIndex, Nodes,
-    Visitable,
+    Algo, Edges, GraphBase, Indexable, Neighbors, Nodes, Visitable,
 };
 
 pub trait NodeTrait: Eq + Hash {}

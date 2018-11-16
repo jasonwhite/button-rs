@@ -19,12 +19,14 @@
 // THE SOFTWARE.
 
 mod base;
+mod index;
 mod subgraph;
 mod traits;
 
 pub use self::base::{Graph, NodeTrait};
+pub use self::index::{EdgeIndex, IndexSet, NodeIndex};
 pub use self::subgraph::Subgraph;
 pub use self::traits::{
-    Algo, EdgeIndex, Edges, GraphBase, Graphviz, Indexable, Neighbors,
-    NodeIndex, Nodes, VisitMap, Visitable,
+    Algo, Edges, GraphBase, Graphviz, Indexable, Neighbors, Nodes, VisitMap,
+    Visitable,
 };

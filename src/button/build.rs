@@ -357,6 +357,11 @@ impl<'a> Build<'a> {
         } = {
             match fs::File::open(self.state) {
                 Ok(f) => {
+                    // TODO:
+                    //  1. Find removed non-root nodes in the explicit subgraph.
+                    //  2. Delete them in reverse topological order.
+                    //  3. Remove them from the graph.
+                    //  4. Add new nodes to the graph.
                     let mut state =
                         BuildState::from_reader(io::BufReader::new(f))
                             .with_context(|_| {

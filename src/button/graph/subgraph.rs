@@ -17,12 +17,11 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-use bit_set::{self, BitSet};
-
 use super::traits::{
-    Algo, EdgeIndex, Edges, GraphBase, Indexable, Neighbors, NodeIndex, Nodes,
-    Visitable,
+    Algo, Edges, GraphBase, Indexable, Neighbors, Nodes, Visitable,
 };
+
+use super::index::{EdgeIndex, IndexSet, IndexSetIter, NodeIndex};
 
 /// A graph with a subset of nodes and edges.
 pub struct Subgraph<'a, G>
@@ -32,10 +31,25 @@ where
     graph: &'a G,
 
     // Nodes that are in the graph.
-    nodes: BitSet,
+    nodes: IndexSet<NodeIndex>,
 
     // Edges that are in the graph.
-    edges: BitSet,
+    edges: IndexSet<EdgeIndex>,
+}
+
+impl<'a, G> Subgraph<'a, G> {
+    /// Creates a new subgraph with the given set of nodes.
+    pub fn new<I, J>(graph: &'a G, nodes: I, edges: J) -> Self
+    where
+        I: Iterator<Item = NodeIndex>,
+        J: Iterator<Item = EdgeIndex>,
+    {
+        Subgraph {
+            graph,
+            nodes: nodes.collect(),
+            edges: edges.collect(),
+        }
+    }
 }
 
 impl<'a, G> GraphBase for Subgraph<'a, G>
@@ -60,7 +74,7 @@ where
 {
     fn node_from_index(&'a self, index: NodeIndex) -> &'a Self::Node {
         assert!(
-            self.nodes.contains(index.into()),
+            self.nodes.contains(&index),
             "subgraph does not contain node"
         );
         self.graph.node_from_index(index)
@@ -68,7 +82,7 @@ where
 
     fn node_to_index(&self, node: &Self::Node) -> Option<NodeIndex> {
         if let Some(index) = self.graph.node_to_index(node) {
-            if self.nodes.contains(index.into()) {
+            if self.nodes.contains(&index) {
                 return Some(index);
             }
         }
@@ -81,7 +95,7 @@ where
         index: EdgeIndex,
     ) -> ((NodeIndex, NodeIndex), &'a Self::Edge) {
         assert!(
-            self.edges.contains(index.into()),
+            self.edges.contains(&index),
             "subgraph does not contain edge"
         );
         self.graph.edge_from_index(index)
@@ -92,7 +106,7 @@ where
         edge: &(NodeIndex, NodeIndex),
     ) -> Option<EdgeIndex> {
         if let Some(index) = self.graph.edge_to_index(edge) {
-            if self.edges.contains(index.into()) {
+            if self.edges.contains(&index) {
                 return Some(index);
             }
         }
@@ -105,24 +119,10 @@ impl<'a, G> Nodes<'a> for Subgraph<'a, G>
 where
     G: GraphBase + 'a,
 {
-    type Iter = NodesIter<'a>;
+    type Iter = IndexSetIter<'a, NodeIndex>;
 
     fn nodes(&'a self) -> Self::Iter {
-        NodesIter {
-            iter: self.nodes.iter(),
-        }
-    }
-}
-
-pub struct NodesIter<'a> {
-    iter: bit_set::Iter<'a, u32>,
-}
-
-impl<'a> Iterator for NodesIter<'a> {
-    type Item = NodeIndex;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(NodeIndex::from)
+        self.nodes.iter()
     }
 }
 
@@ -130,24 +130,10 @@ impl<'a, G> Edges<'a> for Subgraph<'a, G>
 where
     G: GraphBase + 'a,
 {
-    type Iter = EdgesIter<'a>;
+    type Iter = IndexSetIter<'a, EdgeIndex>;
 
     fn edges(&'a self) -> Self::Iter {
-        EdgesIter {
-            iter: self.edges.iter(),
-        }
-    }
-}
-
-pub struct EdgesIter<'a> {
-    iter: bit_set::Iter<'a, u32>,
-}
-
-impl<'a> Iterator for EdgesIter<'a> {
-    type Item = EdgeIndex;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(EdgeIndex::from)
+        self.edges.iter()
     }
 }
 
@@ -179,8 +165,8 @@ where
     G: Neighbors<'a> + 'a,
 {
     iter: G::Neighbors,
-    nodes: &'a BitSet,
-    edges: &'a BitSet,
+    nodes: &'a IndexSet<NodeIndex>,
+    edges: &'a IndexSet<EdgeIndex>,
 }
 
 impl<'a, G> Iterator for NeighborsIter<'a, G>
@@ -193,9 +179,7 @@ where
         while let Some((node, edge)) = self.iter.next() {
             // Only include neighbors that are in the subgraph and only include
             // edges to neighbors that are in the subgraph.
-            if self.nodes.contains(node.into())
-                && self.edges.contains(edge.into())
-            {
+            if self.nodes.contains(&node) && self.edges.contains(&edge) {
                 return Some((node, edge));
             }
         }
@@ -217,20 +201,5 @@ where
 
     fn visit_map(&self) -> Self::Map {
         Vec::with_capacity(self.node_count())
-    }
-}
-
-impl<'a, G> Subgraph<'a, G> {
-    /// Creates a new subgraph with the given set of nodes.
-    pub fn new<I, J>(graph: &'a G, nodes: I, edges: J) -> Self
-    where
-        I: Iterator<Item = NodeIndex>,
-        J: Iterator<Item = EdgeIndex>,
-    {
-        Subgraph {
-            graph,
-            nodes: nodes.map(NodeIndex::into).collect(),
-            edges: edges.map(EdgeIndex::into).collect(),
-        }
     }
 }

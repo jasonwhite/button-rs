@@ -20,7 +20,6 @@
 
 use std::cmp;
 use std::collections::HashMap;
-use std::fmt;
 use std::hash::{BuildHasher, Hash};
 use std::io;
 use std::iter;
@@ -32,76 +31,7 @@ use crossbeam;
 
 use util;
 
-use bit_set::BitSet;
-use holyhashmap::EntryIndex;
-
-/// A type-safe node index.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct NodeIndex(EntryIndex);
-
-impl From<EntryIndex> for NodeIndex {
-    fn from(index: EntryIndex) -> Self {
-        NodeIndex(index)
-    }
-}
-
-impl From<usize> for NodeIndex {
-    fn from(index: usize) -> Self {
-        NodeIndex(index.into())
-    }
-}
-
-impl Into<EntryIndex> for NodeIndex {
-    fn into(self) -> EntryIndex {
-        self.0
-    }
-}
-
-impl Into<usize> for NodeIndex {
-    fn into(self) -> usize {
-        self.0.into()
-    }
-}
-
-impl fmt::Display for NodeIndex {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-/// A type-safe edge index.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct EdgeIndex(EntryIndex);
-
-impl From<EntryIndex> for EdgeIndex {
-    fn from(index: EntryIndex) -> Self {
-        EdgeIndex(index)
-    }
-}
-
-impl From<usize> for EdgeIndex {
-    fn from(index: usize) -> Self {
-        EdgeIndex(index.into())
-    }
-}
-
-impl Into<EntryIndex> for EdgeIndex {
-    fn into(self) -> EntryIndex {
-        self.0
-    }
-}
-
-impl Into<usize> for EdgeIndex {
-    fn into(self) -> usize {
-        self.0.into()
-    }
-}
-
-impl fmt::Display for EdgeIndex {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
+use super::index::{EdgeIndex, IndexSet, NodeIndex};
 
 // Use a random queue. On average, this seems to have better CPU utilization.
 type Queue<T> = util::RandomQueue<Option<T>>;
@@ -159,7 +89,7 @@ where
     }
 
     /// Returns `true` if the edge exists in the graph.
-    fn contains_egde(&self, e: &(NodeIndex, NodeIndex)) -> bool {
+    fn contains_edge(&self, e: &(NodeIndex, NodeIndex)) -> bool {
         self.edge_to_index(e).is_some()
     }
 }
@@ -321,17 +251,17 @@ pub trait VisitSet<N> {
     fn clear(&mut self);
 }
 
-impl VisitSet<NodeIndex> for BitSet {
+impl VisitSet<NodeIndex> for IndexSet<NodeIndex> {
     fn visit(&mut self, node: NodeIndex) -> bool {
-        self.insert(node.into())
+        self.insert(node)
     }
 
     fn is_visited(&self, node: &NodeIndex) -> bool {
-        self.contains((*node).into())
+        self.contains(node)
     }
 
     fn clear(&mut self) {
-        BitSet::clear(self)
+        IndexSet::clear(self)
     }
 }
 
@@ -597,6 +527,24 @@ where
     {
         DepthFirstSearch::new(self, roots)
     }
+
+    /// Returns an iterator over the nodes that exist in `self`, but not in
+    /// `other`.
+    fn removed_nodes<G>(&'a self, other: &'a G) -> Vec<NodeIndex>
+    where
+        Self: Indexable<'a>,
+        G: GraphBase<Node = Self::Node, Edge = Self::Edge> + Indexable<'a>,
+    {
+        let mut removed = Vec::new();
+
+        for index in self.non_root_nodes() {
+            if !other.contains_node(self.node_from_index(index)) {
+                removed.push(index);
+            }
+        }
+
+        removed
+    }
 }
 
 /// Graph traversal worker thread.
@@ -825,7 +773,7 @@ where
 pub struct DepthFirstSearch<'a, G: 'a> {
     graph: &'a G,
     stack: Vec<NodeIndex>,
-    visited: BitSet,
+    visited: IndexSet<NodeIndex>,
 }
 
 impl<'a, G: 'a> DepthFirstSearch<'a, G> {
@@ -836,7 +784,7 @@ impl<'a, G: 'a> DepthFirstSearch<'a, G> {
         DepthFirstSearch {
             graph,
             stack: roots.collect(),
-            visited: BitSet::new(),
+            visited: IndexSet::new(),
         }
     }
 }

@@ -121,7 +121,9 @@ impl BuildState {
         &mut self,
         graph: BuildGraph,
     ) -> (BuildState, Vec<NodeIndex>) {
-        let mut removed = Vec::new();
+        // TODO: Take the explicit subgraph and use that to compare with the new
+        // graph.
+        // let subgraph = self.graph.explicit_subgraph();
 
         // Fix the indices in the queue.
         let mut queue: Vec<_> = self
@@ -131,11 +133,7 @@ impl BuildState {
             .collect();
 
         // Find removed output nodes.
-        for index in self.graph.non_root_nodes() {
-            if !graph.contains_node(self.graph.node_from_index(index)) {
-                removed.push(index);
-            }
-        }
+        let removed = self.graph.removed_nodes(&graph);
 
         // Add new nodes to the queue.
         for i in graph.nodes() {
