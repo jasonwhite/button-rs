@@ -21,7 +21,7 @@ failure_derive = "0.1"
 generic-array = { version = "0.9", features = ["serde"] }
 hex = "0.3"
 num_cpus = "1"
-os_pipe = "0.7"
+os_pipe = "0.8"
 rand = "0.5"
 reqwest = "0.9"
 serde = "1"
