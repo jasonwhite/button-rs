@@ -17,9 +17,8 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-use std::collections::HashMap;
+use std::collections::{hash_map, HashMap};
 use std::hash::Hash;
-use std::slice;
 
 use holyhashmap::{self, HolyHashMap};
 
@@ -31,17 +30,17 @@ use super::traits::{
 pub trait NodeTrait: Eq + Hash {}
 impl<N> NodeTrait for N where N: Eq + Hash {}
 
-#[derive(Serialize, Deserialize, Default, Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone, Eq, PartialEq)]
 struct NodeNeighbors {
     /// Incoming edges. We store the index of the edge such that we can more
     /// easily access the edge data. It also simplifies the subgraph
     /// implementation.
-    incoming: Vec<(NodeIndex, EdgeIndex)>,
+    incoming: HashMap<NodeIndex, EdgeIndex>,
 
     /// Outgoing edges. We store the index of the edge such that we can more
     /// easily access the edge data. It also simplifies the subgraph
     /// implementation.
-    outgoing: Vec<(NodeIndex, EdgeIndex)>,
+    outgoing: HashMap<NodeIndex, EdgeIndex>,
 }
 
 /// Directed graph.
@@ -244,12 +243,12 @@ where
         if old.is_none() {
             // New edge. It needs to be inserted into the node
             if let Some((_, v)) = self.nodes.from_index_mut(a.into()) {
-                v.outgoing.push((b, edge));
+                v.outgoing.insert(b, edge);
             }
 
             if a != b {
                 if let Some((_, v)) = self.nodes.from_index_mut(b.into()) {
-                    v.incoming.push((a, edge));
+                    v.incoming.insert(a, edge);
                 }
             }
         }
@@ -261,12 +260,24 @@ where
     /// with it.
     pub fn remove_node(&mut self, index: NodeIndex) -> Option<N> {
         if let Some((k, neighbors)) = self.nodes.remove_index(index.into()) {
-            for (_, edge) in neighbors.incoming {
-                self.remove_edge(edge);
+            for (i, edge) in neighbors.incoming {
+                self.edges.remove_index(edge.into());
+                self.nodes
+                    .from_index_mut(i.into())
+                    .unwrap()
+                    .1
+                    .outgoing
+                    .remove(&index);
             }
 
-            for (_, edge) in neighbors.outgoing {
-                self.remove_edge(edge);
+            for (i, edge) in neighbors.outgoing {
+                self.edges.remove_index(edge.into());
+                self.nodes
+                    .from_index_mut(i.into())
+                    .unwrap()
+                    .1
+                    .incoming
+                    .remove(&index);
             }
 
             Some(k)
@@ -280,7 +291,25 @@ where
         &mut self,
         index: EdgeIndex,
     ) -> Option<((NodeIndex, NodeIndex), E)> {
-        self.edges.remove_index(index.into())
+        if let Some(((a, b), weight)) = self.edges.remove_index(index.into()) {
+            // Also remove the edge from the nodes table.
+            self.nodes
+                .from_index_mut(a.into())
+                .unwrap()
+                .1
+                .outgoing
+                .remove(&b);
+            self.nodes
+                .from_index_mut(b.into())
+                .unwrap()
+                .1
+                .incoming
+                .remove(&a);
+
+            Some(((a, b), weight))
+        } else {
+            None
+        }
     }
 
     /// Given an index, translate it to an index in the other graph. Returns
@@ -347,14 +376,14 @@ where
 }
 
 pub struct NeighborsIter<'a> {
-    iter: slice::Iter<'a, (NodeIndex, EdgeIndex)>,
+    iter: hash_map::Iter<'a, NodeIndex, EdgeIndex>,
 }
 
 impl<'a> Iterator for NeighborsIter<'a> {
     type Item = (NodeIndex, EdgeIndex);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().cloned()
+        self.iter.next().map(|(&a, &b)| (a, b))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -366,11 +395,11 @@ impl<'a> Iterator for NeighborsIter<'a> {
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        self.iter.nth(n).cloned()
+        self.iter.nth(n).map(|(&a, &b)| (a, b))
     }
 
     fn last(self) -> Option<Self::Item> {
-        self.iter.last().cloned()
+        self.iter.last().map(|(&a, &b)| (a, b))
     }
 }
 
@@ -445,7 +474,7 @@ mod tests {
         let g1_a = g1.add_node("a");
         let g1_b = g1.add_node("b");
         let g1_c = g1.add_node("c");
-        let g1_ab = g1.add_edge(g1_a, g1_b, ());
+        let _g1_ab = g1.add_edge(g1_a, g1_b, ());
         let g1_ac = g1.add_edge(g1_a, g1_c, ());
         let g1_bc = g1.add_edge(g1_b, g1_c, ());
 
@@ -453,7 +482,7 @@ mod tests {
         let g2_a = g2.add_node("a");
         let g2_b = g2.add_node("b");
         let g2_d = g2.add_node("d");
-        let g2_ab = g2.add_edge(g2_a, g2_b, ());
+        let _g2_ab = g2.add_edge(g2_a, g2_b, ());
         let g2_bd = g2.add_edge(g2_b, g2_d, ());
 
         let diff = g1.diff(&g2);

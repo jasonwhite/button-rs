@@ -599,6 +599,8 @@ where
                 if !other.contains_edge(&(from, to)) {
                     edges.insert(index);
                 }
+            } else {
+                edges.insert(index);
             }
         }
 

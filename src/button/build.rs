@@ -89,14 +89,16 @@ where
     // with the rules build graph.
     let diff = state.graph.explicit_subgraph().diff(graph);
 
-    let nodes_to_delete: IndexSet<_> = diff
+    let nodes_to_delete: Vec<_> = diff
         .left_only_edges
         .iter()
         .map(|index| {
-            let (_, b) = graph.edge_from_index(index).0;
+            let (_, b) = state.graph.edge_from_index(index).0;
             b
         })
         .collect();
+
+    let nodes_to_delete: IndexSet<_> = nodes_to_delete.into_iter().collect();
 
     // Delete the non-root resources in reverse-topological order that we own.
     delete_resources(state, &nodes_to_delete, root, threads, logger, dryrun)?;
@@ -104,7 +106,6 @@ where
     // Remove edges before removing nodes so that the node removal has less work
     // to do. (If a node has fewer neighbors, it has fewer edges to remove.)
     for index in diff.left_only_edges.iter() {
-        println!("Removed edge: {}", index);
         assert!(state.graph.remove_edge(index).is_some());
     }
 
@@ -112,7 +113,6 @@ where
     // contains any of the nodes being removed here. Thus, we need to fix the
     // queue after this removal.
     for index in diff.left_only_nodes.iter() {
-        println!("Removed node: {}", state.graph.node_from_index(index));
         assert!(state.graph.remove_node(index).is_some());
     }
 
@@ -130,7 +130,6 @@ where
         let node = graph.node_from_index(index);
         let index = state.graph.add_node(node.clone());
         queue.push(index);
-        println!("Added node: {} (id {})", node, index);
     }
 
     for index in diff.right_only_edges.iter() {
@@ -142,8 +141,6 @@ where
         let b = state.graph.node_to_index(graph.node_from_index(b)).unwrap();
 
         state.graph.add_edge(a, b, *weight);
-
-        println!("Added edge: {} -> {}", a, b);
     }
 
     state.queue = queue;
@@ -163,7 +160,6 @@ where
     L: EventLogger,
 {
     if to_remove.is_empty() {
-        println!("Nothing to delete!");
         return Ok(());
     }
 
@@ -174,8 +170,6 @@ where
         .traverse(
             |tid, index, node| {
                 if let Node::Resource(r) = node {
-                    println!("Maybe will remove: {}", r);
-
                     // Only delete the resource if its in our set of removed
                     // resources and if the state has been computed. A computed
                     // state indicates that the build system "owns" the
