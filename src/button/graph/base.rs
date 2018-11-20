@@ -74,20 +74,22 @@ impl<'a, N, E> Indexable<'a> for Graph<N, E>
 where
     N: NodeTrait + 'a,
 {
-    fn node_from_index(&'a self, index: NodeIndex) -> &'a Self::Node {
-        self.nodes.from_index(index.into()).unwrap().0
+    fn try_node_from_index(
+        &'a self,
+        index: NodeIndex,
+    ) -> Option<&'a Self::Node> {
+        self.nodes.from_index(index.into()).map(|x| x.0)
+    }
+
+    fn try_edge_from_index(
+        &'a self,
+        index: EdgeIndex,
+    ) -> Option<((NodeIndex, NodeIndex), &'a Self::Edge)> {
+        self.edges.from_index(index.into()).map(|(k, v)| (*k, v))
     }
 
     fn node_to_index(&self, node: &Self::Node) -> Option<NodeIndex> {
         self.nodes.to_index(node).map(NodeIndex::from)
-    }
-
-    fn edge_from_index(
-        &'a self,
-        index: EdgeIndex,
-    ) -> ((NodeIndex, NodeIndex), &'a Self::Edge) {
-        let (edge, weight) = self.edges.from_index(index.into()).unwrap();
-        (*edge, weight)
     }
 
     fn edge_to_index(
@@ -255,6 +257,32 @@ where
         edge
     }
 
+    /// Removes a node from the graph by index and all of the edges associated
+    /// with it.
+    pub fn remove_node(&mut self, index: NodeIndex) -> Option<N> {
+        if let Some((k, neighbors)) = self.nodes.remove_index(index.into()) {
+            for (_, edge) in neighbors.incoming {
+                self.remove_edge(edge);
+            }
+
+            for (_, edge) in neighbors.outgoing {
+                self.remove_edge(edge);
+            }
+
+            Some(k)
+        } else {
+            None
+        }
+    }
+
+    /// Removes an edge from the graph by index.
+    pub fn remove_edge(
+        &mut self,
+        index: EdgeIndex,
+    ) -> Option<((NodeIndex, NodeIndex), E)> {
+        self.edges.remove_index(index.into())
+    }
+
     /// Given an index, translate it to an index in the other graph. Returns
     /// `None` if the index does not exist in the other graph.
     ///
@@ -409,5 +437,39 @@ mod tests {
         assert_eq!(sccs[1], vec![3.into(), 2.into()]);
         assert_eq!(sccs[2], vec![6.into(), 5.into()]);
         assert_eq!(sccs[3], vec![7.into()]);
+    }
+
+    #[test]
+    fn diff() {
+        let mut g1 = Graph::new();
+        let g1_a = g1.add_node("a");
+        let g1_b = g1.add_node("b");
+        let g1_c = g1.add_node("c");
+        let g1_ab = g1.add_edge(g1_a, g1_b, ());
+        let g1_ac = g1.add_edge(g1_a, g1_c, ());
+        let g1_bc = g1.add_edge(g1_b, g1_c, ());
+
+        let mut g2 = Graph::new();
+        let g2_a = g2.add_node("a");
+        let g2_b = g2.add_node("b");
+        let g2_d = g2.add_node("d");
+        let g2_ab = g2.add_edge(g2_a, g2_b, ());
+        let g2_bd = g2.add_edge(g2_b, g2_d, ());
+
+        let diff = g1.diff(&g2);
+
+        assert_eq!(diff.left_only_nodes.iter().collect::<Vec<_>>(), vec![g1_c]);
+        assert_eq!(
+            diff.right_only_nodes.iter().collect::<Vec<_>>(),
+            vec![g2_d]
+        );
+        assert_eq!(
+            diff.left_only_edges.iter().collect::<Vec<_>>(),
+            vec![g1_ac, g1_bc]
+        );
+        assert_eq!(
+            diff.right_only_edges.iter().collect::<Vec<_>>(),
+            vec![g2_bd]
+        );
     }
 }

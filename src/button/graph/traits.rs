@@ -59,15 +59,22 @@ pub trait Indexable<'a>: GraphBase
 where
     Self::Node: 'a,
 {
+    fn try_node_from_index(
+        &'a self,
+        index: NodeIndex,
+    ) -> Option<&'a Self::Node>;
+
+    fn try_edge_from_index(
+        &'a self,
+        index: EdgeIndex,
+    ) -> Option<((NodeIndex, NodeIndex), &'a Self::Edge)>;
+
     /// Converts a node index into a node.
     ///
     /// Panics if the index does not exist.
-    fn node_from_index(&'a self, index: NodeIndex) -> &'a Self::Node;
-
-    /// Converts a node to an index if it exists.
-    ///
-    /// Returns `None` if the node does not exist in the graph.
-    fn node_to_index(&self, node: &Self::Node) -> Option<NodeIndex>;
+    fn node_from_index(&'a self, index: NodeIndex) -> &'a Self::Node {
+        self.try_node_from_index(index).unwrap()
+    }
 
     /// Converts an edge index into a pair.
     ///
@@ -75,7 +82,14 @@ where
     fn edge_from_index(
         &'a self,
         index: EdgeIndex,
-    ) -> ((NodeIndex, NodeIndex), &'a Self::Edge);
+    ) -> ((NodeIndex, NodeIndex), &'a Self::Edge) {
+        self.try_edge_from_index(index).unwrap()
+    }
+
+    /// Converts a node to an index if it exists.
+    ///
+    /// Returns `None` if the node does not exist in the graph.
+    fn node_to_index(&self, node: &Self::Node) -> Option<NodeIndex>;
 
     /// Converts an edge index into a pair.
     ///
@@ -88,9 +102,19 @@ where
         self.node_to_index(n).is_some()
     }
 
+    /// Returns `true` if the node exists in the graph.
+    fn contains_node_index(&'a self, index: NodeIndex) -> bool {
+        self.try_node_from_index(index).is_some()
+    }
+
     /// Returns `true` if the edge exists in the graph.
     fn contains_edge(&self, e: &(NodeIndex, NodeIndex)) -> bool {
         self.edge_to_index(e).is_some()
+    }
+
+    /// Returns `true` if the node exists in the graph.
+    fn contains_edge_index(&'a self, index: EdgeIndex) -> bool {
+        self.try_edge_from_index(index).is_some()
     }
 }
 
@@ -346,6 +370,13 @@ pub struct TarjanNodeData {
     on_stack: bool,
 }
 
+pub struct Diff {
+    pub right_only_nodes: IndexSet<NodeIndex>,
+    pub left_only_nodes: IndexSet<NodeIndex>,
+    pub right_only_edges: IndexSet<EdgeIndex>,
+    pub left_only_edges: IndexSet<EdgeIndex>,
+}
+
 pub trait Algo<'a>: Nodes<'a> + Neighbors<'a>
 where
     Self: Sized + 'a,
@@ -528,22 +559,67 @@ where
         DepthFirstSearch::new(self, roots)
     }
 
-    /// Returns an iterator over the nodes that exist in `self`, but not in
-    /// `other`.
-    fn removed_nodes<G>(&'a self, other: &'a G) -> Vec<NodeIndex>
+    /// Finds nodes that are only present in this graph, not the other.
+    ///
+    /// Computes in `O(|V|)` time.
+    fn unique_nodes<G>(&'a self, other: &'a G) -> IndexSet<NodeIndex>
     where
         Self: Indexable<'a>,
         G: GraphBase<Node = Self::Node, Edge = Self::Edge> + Indexable<'a>,
     {
-        let mut removed = Vec::new();
+        let mut nodes = IndexSet::new();
 
-        for index in self.non_root_nodes() {
+        for index in self.nodes() {
             if !other.contains_node(self.node_from_index(index)) {
-                removed.push(index);
+                nodes.insert(index);
             }
         }
 
-        removed
+        nodes
+    }
+
+    /// Finds edges that are only present in this graph, not the other.
+    ///
+    /// Computes in `O(|E|)` time.
+    fn unique_edges<G>(&'a self, other: &'a G) -> IndexSet<EdgeIndex>
+    where
+        Self: Indexable<'a> + Edges<'a>,
+        G: GraphBase<Node = Self::Node, Edge = Self::Edge> + Indexable<'a>,
+    {
+        let mut edges = IndexSet::new();
+
+        for index in self.edges() {
+            let (from, to) = self.edge_from_index(index).0;
+
+            // Translate to indices that the other graph understands.
+            let from = other.node_to_index(self.node_from_index(from));
+            let to = other.node_to_index(self.node_from_index(to));
+
+            if let (Some(from), Some(to)) = (from, to) {
+                if !other.contains_edge(&(from, to)) {
+                    edges.insert(index);
+                }
+            }
+        }
+
+        edges
+    }
+
+    /// Diffs this graph with another graph.
+    fn diff<G>(&'a self, other: &'a G) -> Diff
+    where
+        Self: Indexable<'a> + Edges<'a>,
+        G: GraphBase<Node = Self::Node, Edge = Self::Edge>
+            + Algo<'a>
+            + Edges<'a>
+            + Indexable<'a>,
+    {
+        Diff {
+            left_only_nodes: self.unique_nodes(other),
+            right_only_nodes: other.unique_nodes(self),
+            left_only_edges: self.unique_edges(other),
+            right_only_edges: other.unique_edges(self),
+        }
     }
 }
 

@@ -18,14 +18,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 use std::io;
 use std::path::Path;
 use std::sync::Mutex;
 
-use build_graph::{BuildGraph, FromRules, Node};
+use build_graph::{BuildGraph, BuildGraphExt, FromRules, Node};
 use detect::Detected;
 use logger::{EventLogger, TaskLogger};
 use res::{self, Resource, ResourceState};
@@ -33,7 +33,9 @@ use rules::Rules;
 use state::BuildState;
 use task::{self, Task};
 
-use graph::{Algo, Edges, Indexable, Neighbors, NodeIndex, Nodes, Subgraph};
+use graph::{
+    Algo, Edges, IndexSet, Indexable, Neighbors, NodeIndex, Nodes, Subgraph,
+};
 
 use error::{Error, ResultExt};
 
@@ -69,34 +71,124 @@ struct BuildContext<'a> {
     detected: Mutex<Vec<(NodeIndex, Detected)>>,
 }
 
-/// For a list of nodes, delete them in reverse topological order.
-fn delete_nodes<I, L>(
+/// Updates the build state with the build graph loaded from the on-disk rules.
+///
+/// This is one of the most important algorithms in the build system.
+fn sync_state<L>(
+    state: &mut BuildState,
+    graph: &BuildGraph,
     root: &Path,
-    state: &BuildState,
-    nodes: I,
     threads: usize,
     logger: &L,
+    dryrun: bool,
 ) -> Result<(), Error>
 where
-    I: Iterator<Item = NodeIndex>,
     L: EventLogger,
 {
-    let removed: HashSet<_> = nodes.collect();
+    // Diff with the explicit subgraph in order to have a one-to-one comparison
+    // with the rules build graph.
+    let diff = state.graph.explicit_subgraph().diff(graph);
 
-    state
-        .graph
+    let nodes_to_delete: IndexSet<_> = diff
+        .left_only_edges
+        .iter()
+        .map(|index| {
+            let (_, b) = graph.edge_from_index(index).0;
+            b
+        })
+        .collect();
+
+    // Delete the non-root resources in reverse-topological order that we own.
+    delete_resources(state, &nodes_to_delete, root, threads, logger, dryrun)?;
+
+    // Remove edges before removing nodes so that the node removal has less work
+    // to do. (If a node has fewer neighbors, it has fewer edges to remove.)
+    for index in diff.left_only_edges.iter() {
+        println!("Removed edge: {}", index);
+        assert!(state.graph.remove_edge(index).is_some());
+    }
+
+    // Remove nodes from the graph. This may invalidate the queue if the queue
+    // contains any of the nodes being removed here. Thus, we need to fix the
+    // queue after this removal.
+    for index in diff.left_only_nodes.iter() {
+        println!("Removed node: {}", state.graph.node_from_index(index));
+        assert!(state.graph.remove_node(index).is_some());
+    }
+
+    // Rebuild the queue with invalid indices filtered out.
+    let mut queue: Vec<_> = state
+        .queue
+        .iter()
+        .cloned()
+        .filter(|&index| state.graph.contains_node_index(index))
+        .collect();
+
+    for index in diff.right_only_nodes.iter() {
+        // New nodes should always be added to the queue such that they get
+        // traversed.
+        let node = graph.node_from_index(index);
+        let index = state.graph.add_node(node.clone());
+        queue.push(index);
+        println!("Added node: {} (id {})", node, index);
+    }
+
+    for index in diff.right_only_edges.iter() {
+        let ((a, b), weight) = graph.edge_from_index(index);
+
+        // unwrapping because these nodes are guaranteed to exist in the graph
+        // at this point already.
+        let a = state.graph.node_to_index(graph.node_from_index(a)).unwrap();
+        let b = state.graph.node_to_index(graph.node_from_index(b)).unwrap();
+
+        state.graph.add_edge(a, b, *weight);
+
+        println!("Added edge: {} -> {}", a, b);
+    }
+
+    state.queue = queue;
+
+    Ok(())
+}
+
+fn delete_resources<L>(
+    state: &BuildState,
+    to_remove: &IndexSet<NodeIndex>,
+    root: &Path,
+    threads: usize,
+    logger: &L,
+    dryrun: bool,
+) -> Result<(), Error>
+where
+    L: EventLogger,
+{
+    if to_remove.is_empty() {
+        println!("Nothing to delete!");
+        return Ok(());
+    }
+
+    let graph = &state.graph;
+    let checksums = &state.checksums;
+
+    graph
         .traverse(
             |tid, index, node| {
                 if let Node::Resource(r) = node {
+                    println!("Maybe will remove: {}", r);
+
                     // Only delete the resource if its in our set of removed
                     // resources and if the state has been computed. A computed
                     // state indicates that the build system "owns" the
                     // resource.
-                    if removed.contains(&index)
-                        && state.checksums.contains_key(&index)
+                    if !graph.is_root_node(index)
+                        && to_remove.contains(&index)
+                        && checksums.contains_key(&index)
                     {
                         logger.delete(tid, r)?;
-                        r.delete(root)?;
+
+                        if !dryrun {
+                            r.delete(root)?;
+                        }
                     }
                 }
 
@@ -257,12 +349,14 @@ impl<'a> Build<'a> {
                         // Only delete the resource if the state has been
                         // computed. A computed state indicates that the build
                         // system "owns" the resource.
-                        if !dryrun
-                            && !state.graph.is_root_node(index)
+                        if !state.graph.is_root_node(index)
                             && state.checksums.contains_key(&index)
                         {
                             logger.delete(tid, r)?;
-                            r.delete(self.root)?;
+
+                            if !dryrun {
+                                r.delete(self.root)?;
+                            }
                         }
                     }
 
@@ -357,11 +451,6 @@ impl<'a> Build<'a> {
         } = {
             match fs::File::open(self.state) {
                 Ok(f) => {
-                    // TODO:
-                    //  1. Find removed non-root nodes in the explicit subgraph.
-                    //  2. Delete them in reverse topological order.
-                    //  3. Remove them from the graph.
-                    //  4. Add new nodes to the graph.
                     let mut state =
                         BuildState::from_reader(io::BufReader::new(f))
                             .with_context(|_| {
@@ -372,19 +461,11 @@ impl<'a> Build<'a> {
                                 self.state
                             )
                             })?;
-                    let (old_state, removed) = state.update(graph);
-                    if !removed.is_empty() && !dryrun {
-                        // TODO: For a dryrun, print out the resources that
-                        // would be deleted.
-                        delete_nodes(
-                            self.root,
-                            &old_state,
-                            removed.into_iter(),
-                            threads,
-                            logger,
-                        )
-                        .context("Failed deleting resources")?;
-                    }
+
+                    sync_state(
+                        &mut state, &graph, self.root, threads, logger, dryrun,
+                    )
+                    .context("Failed updating build graph")?;
 
                     state
                 }
@@ -400,9 +481,7 @@ impl<'a> Build<'a> {
             }
         };
 
-        for node in DirtyNodes::new(self.root, &graph, &checksums) {
-            queue.push(node);
-        }
+        queue.extend(DirtyNodes::new(self.root, &graph, &checksums));
 
         if queue.is_empty() {
             // Don't bother traversing the graph if the queue is empty.

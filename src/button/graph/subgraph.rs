@@ -72,12 +72,26 @@ impl<'a, G> Indexable<'a> for Subgraph<'a, G>
 where
     G: Indexable<'a>,
 {
-    fn node_from_index(&'a self, index: NodeIndex) -> &'a Self::Node {
-        assert!(
-            self.nodes.contains(&index),
-            "subgraph does not contain node"
-        );
-        self.graph.node_from_index(index)
+    fn try_node_from_index(
+        &'a self,
+        index: NodeIndex,
+    ) -> Option<&'a Self::Node> {
+        if self.nodes.contains(&index) {
+            self.graph.try_node_from_index(index)
+        } else {
+            None
+        }
+    }
+
+    fn try_edge_from_index(
+        &'a self,
+        index: EdgeIndex,
+    ) -> Option<((NodeIndex, NodeIndex), &'a Self::Edge)> {
+        if self.edges.contains(&index) {
+            self.graph.try_edge_from_index(index)
+        } else {
+            None
+        }
     }
 
     fn node_to_index(&self, node: &Self::Node) -> Option<NodeIndex> {
@@ -88,17 +102,6 @@ where
         }
 
         None
-    }
-
-    fn edge_from_index(
-        &'a self,
-        index: EdgeIndex,
-    ) -> ((NodeIndex, NodeIndex), &'a Self::Edge) {
-        assert!(
-            self.edges.contains(&index),
-            "subgraph does not contain edge"
-        );
-        self.graph.edge_from_index(index)
     }
 
     fn edge_to_index(

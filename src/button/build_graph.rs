@@ -23,8 +23,8 @@ use std::fmt;
 use std::io;
 
 use graph::{
-    Algo, EdgeIndex, Edges, Graph, GraphBase, Graphviz, IndexSet, Indexable,
-    Neighbors, NodeIndex, NodeTrait, Nodes, Subgraph,
+    Algo, Edges, Graph, GraphBase, Graphviz, Indexable, Neighbors, NodeIndex,
+    NodeTrait, Nodes, Subgraph,
 };
 
 use res;
@@ -51,7 +51,16 @@ impl fmt::Display for Node {
 }
 
 #[derive(
-    Serialize, Deserialize, Clone, Ord, Eq, PartialOrd, PartialEq, Hash, Debug,
+    Serialize,
+    Deserialize,
+    Copy,
+    Clone,
+    Ord,
+    Eq,
+    PartialOrd,
+    PartialEq,
+    Hash,
+    Debug,
 )]
 pub enum Edge {
     Implicit,
@@ -354,53 +363,19 @@ pub trait BuildGraphExt<'a>:
 
         Subgraph::new(self, nodes, edges)
     }
-
-    /// Finds nodes that are only present in this graph, not the other.
-    ///
-    /// Computes in `O(|V|)` time.
-    fn distinct_nodes<G>(&'a self, other: &'a G) -> IndexSet<NodeIndex>
-    where
-        G: BuildGraphExt<'a>,
-    {
-        let mut nodes = IndexSet::new();
-
-        for index in self.nodes() {
-            if !other.contains_node(self.node_from_index(index)) {
-                nodes.insert(index);
-            }
-        }
-
-        nodes
-    }
-
-    /// Finds edges that are only present in this graph, not the other.
-    ///
-    /// Computes in `O(|E|)` time.
-    fn distinct_edges<G>(&'a self, other: &'a G) -> IndexSet<EdgeIndex>
-    where
-        G: BuildGraphExt<'a>,
-    {
-        let mut edges = IndexSet::new();
-
-        for index in self.edges() {
-            let (from, to) = self.edge_from_index(index).0;
-
-            // Translate to indices that the other graph understands.
-            let from = other.node_to_index(self.node_from_index(from));
-            let to = other.node_to_index(self.node_from_index(to));
-
-            if let (Some(from), Some(to)) = (from, to) {
-                if !other.contains_edge(&(from, to)) {
-                    edges.insert(index);
-                }
-            }
-        }
-
-        edges
-    }
 }
 
 impl<'a> BuildGraphExt<'a> for BuildGraph {}
+
+impl<'a, G: 'a> BuildGraphExt<'a> for Subgraph<'a, G> where
+    G: GraphBase<Node = Node, Edge = Edge>
+        + Nodes<'a>
+        + Edges<'a>
+        + Indexable<'a>
+        + Neighbors<'a>
+        + Sized
+{
+}
 
 impl Graphviz for BuildGraph {
     fn graphviz(&self, f: &mut io::Write) -> Result<(), io::Error> {

@@ -21,12 +21,11 @@
 use std::collections::HashMap;
 use std::fs;
 use std::io;
-use std::mem;
 use std::path::Path;
 
 use build_graph::BuildGraph;
 use error::Error;
-use graph::{Algo, Indexable, NodeIndex, Nodes};
+use graph::{Algo, NodeIndex};
 use res::ResourceState;
 
 use bincode;
@@ -110,59 +109,5 @@ impl BuildState {
         tempfile.persist(path)?;
 
         Ok(())
-    }
-
-    /// Updates the build state with the given build graph.
-    ///
-    /// Returns the old build state and the list of non-root nodes that have
-    /// been removed from the graph. This information can be used to delete
-    /// resources in reverse topological order.
-    pub fn update(
-        &mut self,
-        graph: BuildGraph,
-    ) -> (BuildState, Vec<NodeIndex>) {
-        // TODO: Take the explicit subgraph and use that to compare with the new
-        // graph.
-        // let subgraph = self.graph.explicit_subgraph();
-
-        // Fix the indices in the queue.
-        let mut queue: Vec<_> = self
-            .queue
-            .iter()
-            .filter_map(|i| self.graph.translate_index(*i, &graph))
-            .collect();
-
-        // Find removed output nodes.
-        let removed = self.graph.removed_nodes(&graph);
-
-        // Add new nodes to the queue.
-        for i in graph.nodes() {
-            let node = graph.node_from_index(i);
-            if !self.graph.contains_node(node) {
-                if let Some(index) = graph.node_to_index(node) {
-                    queue.push(index);
-                }
-            }
-        }
-
-        // Fix the indices in the checksums.
-        let mut checksums = HashMap::new();
-        for (i, checksum) in &self.checksums {
-            if let Some(i) = self.graph.translate_index(*i, &graph) {
-                checksums.insert(i, checksum.clone());
-            }
-        }
-
-        (
-            mem::replace(
-                self,
-                BuildState {
-                    graph,
-                    queue,
-                    checksums,
-                },
-            ),
-            removed,
-        )
     }
 }

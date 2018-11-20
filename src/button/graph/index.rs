@@ -193,7 +193,10 @@ where
 {
     #[inline]
     pub fn iter(&self) -> IndexSetIter<T> {
-        unimplemented!()
+        IndexSetIter {
+            iter: self.set.iter(),
+            phantom: PhantomData,
+        }
     }
 
     #[inline]
