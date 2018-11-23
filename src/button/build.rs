@@ -76,7 +76,7 @@ struct BuildContext<'a> {
 /// This is one of the most important algorithms in the build system.
 fn sync_state<L>(
     state: &mut BuildState,
-    graph: &BuildGraph,
+    graph: BuildGraph,
     root: &Path,
     threads: usize,
     logger: &L,
@@ -87,7 +87,7 @@ where
 {
     // Diff with the explicit subgraph in order to have a one-to-one comparison
     // with the rules build graph.
-    let diff = state.graph.explicit_subgraph().diff(graph);
+    let diff = state.graph.explicit_subgraph().diff(&graph);
 
     let nodes_to_delete: Vec<_> = diff
         .left_only_edges
@@ -114,6 +114,9 @@ where
     // queue after this removal.
     for index in diff.left_only_nodes.iter() {
         assert!(state.graph.remove_node(index).is_some());
+
+        // Fix the checksums.
+        state.checksums.remove(&index);
     }
 
     // Rebuild the queue with invalid indices filtered out.
@@ -457,7 +460,7 @@ impl<'a> Build<'a> {
                             })?;
 
                     sync_state(
-                        &mut state, &graph, self.root, threads, logger, dryrun,
+                        &mut state, graph, self.root, threads, logger, dryrun,
                     )
                     .context("Failed updating build graph")?;
 
@@ -521,6 +524,12 @@ impl<'a> Build<'a> {
         // modify the build order when adding new edges to the graph. That is,
         // we can only add edges to *root* nodes. If we attempt to do otherwise,
         // then the build state shouldn't be committed.
+        //{
+        //    for (_node, detected) in context.detected.lock().unwrap().iter() {
+        //        println!("Detected inputs: {:?}", detected.inputs().collect::<Vec<_>>());
+        //        println!("Detected outputs: {:?}", detected.outputs().collect::<Vec<_>>());
+        //    }
+        //}
 
         // Serialize the state. This must be the last thing that we do. If
         // anything fails above (e.g., failing to delete a resource), the state
