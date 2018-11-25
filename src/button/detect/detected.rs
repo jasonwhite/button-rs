@@ -24,21 +24,13 @@ use res;
 /// The sets of detected inputs and outputs of a process.
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Detected {
-    inputs: HashSet<res::Any>,
-    outputs: HashSet<res::Any>,
+    pub inputs: HashSet<res::Any>,
+    pub outputs: HashSet<res::Any>,
 }
 
 impl Detected {
     pub fn new() -> Detected {
         Detected::default()
-    }
-
-    pub fn inputs(&self) -> impl Iterator<Item = &res::Any> {
-        self.inputs.iter()
-    }
-
-    pub fn outputs(&self) -> impl Iterator<Item = &res::Any> {
-        self.outputs.iter()
     }
 
     pub fn add_input(&mut self, r: res::Any) {

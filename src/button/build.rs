@@ -25,7 +25,7 @@ use std::io;
 use std::path::Path;
 use std::sync::Mutex;
 
-use build_graph::{BuildGraph, BuildGraphExt, FromRules, Node};
+use build_graph::{BuildGraph, BuildGraphExt, Edge, FromRules, Node};
 use detect::Detected;
 use logger::{EventLogger, TaskLogger};
 use res::{self, Resource, ResourceState};
@@ -69,6 +69,55 @@ struct BuildContext<'a> {
 
     // Detected inputs/outputs during the build.
     detected: Mutex<Vec<(NodeIndex, Detected)>>,
+}
+
+fn delete_resources<L>(
+    state: &BuildState,
+    to_remove: &IndexSet<NodeIndex>,
+    root: &Path,
+    threads: usize,
+    logger: &L,
+    dryrun: bool,
+) -> Result<(), Error>
+where
+    L: EventLogger,
+{
+    if to_remove.is_empty() {
+        return Ok(());
+    }
+
+    let graph = &state.graph;
+    let checksums = &state.checksums;
+
+    graph
+        .traverse(
+            |tid, index, node| {
+                if let Node::Resource(r) = node {
+                    // Only delete the resource if its in our set of removed
+                    // resources and if the state has been computed. A computed
+                    // state indicates that the build system "owns" the
+                    // resource.
+                    if !graph.is_root_node(index)
+                        && to_remove.contains(&index)
+                        && checksums.contains_key(&index)
+                    {
+                        logger.delete(tid, r)?;
+
+                        if !dryrun {
+                            r.delete(root)?;
+                        }
+                    }
+                }
+
+                // Let the traversal proceed to the next node.
+                Ok(true)
+            },
+            threads,
+            true,
+        )
+        .map_err(BuildFailure::new)?; // TODO: Return a ResourceDeletion error.
+
+    Ok(())
 }
 
 /// Updates the build state with the build graph loaded from the on-disk rules.
@@ -151,51 +200,84 @@ where
     Ok(())
 }
 
-fn delete_resources<L>(
-    state: &BuildState,
-    to_remove: &IndexSet<NodeIndex>,
-    root: &Path,
-    threads: usize,
-    logger: &L,
-    dryrun: bool,
-) -> Result<(), Error>
-where
-    L: EventLogger,
-{
-    if to_remove.is_empty() {
-        return Ok(());
-    }
+/// Updates the build graph with the detected inputs/outputs.
+///
+/// Note that there is one case where this can fail: adding a dependency on
+/// a non-root node. Such a scenario can change the build order or create a race
+/// condition.
+fn sync_detected<L>(
+    graph: &mut BuildGraph,
+    detected: Vec<(NodeIndex, Detected)>,
+    checksums: &mut HashMap<NodeIndex, ResourceState>,
+    _root: &Path,
+    _threads: usize,
+    _logger: &L,
+    _dryrun: bool,
+) -> Result<(), Error> {
+    for (node, detected) in detected {
+        let mut inputs_to_remove = Vec::new();
 
-    let graph = &state.graph;
-    let checksums = &state.checksums;
+        // Find edges that can be removed.
+        for (index, edge) in graph.incoming(node) {
+            if graph.edge_from_index(edge).1 == &Edge::Implicit {
+                // We can safely assume this will always be a resource-type
+                // node.
+                let r = match graph.node_from_index(index) {
+                    Node::Resource(r) => r,
+                    _ => unreachable!(),
+                };
 
-    graph
-        .traverse(
-            |tid, index, node| {
-                if let Node::Resource(r) = node {
-                    // Only delete the resource if its in our set of removed
-                    // resources and if the state has been computed. A computed
-                    // state indicates that the build system "owns" the
-                    // resource.
-                    if !graph.is_root_node(index)
-                        && to_remove.contains(&index)
-                        && checksums.contains_key(&index)
-                    {
-                        logger.delete(tid, r)?;
+                if !detected.inputs.contains(r) {
+                    // This node is no longer being detected as an input. We
+                    // need to remove it from the graph.
+                    inputs_to_remove.push(index);
+                }
+            }
+        }
 
-                        if !dryrun {
-                            r.delete(root)?;
-                        }
+        for input in inputs_to_remove {
+            let edge_index = graph.edge_to_index(input, node).unwrap();
+            graph.remove_edge(edge_index);
+
+            // Remove the node if it has become disconnected from the graph.
+            // Orphaned nodes shouldn't cause any problems, but cleaning them up
+            // immediately after they form simplifies some logic and keeps the
+            // graph looking clean.
+            if graph.is_root_node(input) && graph.is_terminal_node(input) {
+                graph.remove_node(input);
+            }
+
+            // Any time a resource is removed from the graph, it needs to be
+            // removed from the checksums.
+            checksums.remove(&input);
+        }
+
+        // Find new edges.
+        for input in detected.inputs {
+            let input = Node::Resource(input);
+
+            if let Some(index) = graph.node_to_index(&input) {
+                if !graph.contains_edge_by_index(index, node) {
+                    // It's only valid to add an edge to this node if the node
+                    // is a root node.
+                    // TODO: Return an error if it's not a root node!
+                    if graph.is_root_node(index) {
+                        graph.add_edge(index, node, Edge::Implicit);
                     }
                 }
+            } else {
+                // A new node! It's always valid to add a new node as an input.
+                let index = graph.add_node(input);
+                graph.add_edge(index, node, Edge::Implicit);
+            }
+        }
 
-                // Let the traversal proceed to the next node.
-                Ok(true)
-            },
-            threads,
-            true,
-        )
-        .map_err(BuildFailure::new)?; // TODO: Return a ResourceDeletion error.
+        // For detected outputs, we must only
+        //  1. add an edge to new nodes.
+        //  2. delete resources *after* the graph has been fully updated and in
+        //     reverse topological order. That way, if anything fails, nothing
+        //     has been deleted yet.
+    }
 
     Ok(())
 }
@@ -442,7 +524,7 @@ impl<'a> Build<'a> {
 
         // Load/create the build state.
         let BuildState {
-            graph,
+            mut graph,
             mut queue,
             checksums,
         } = {
@@ -512,7 +594,7 @@ impl<'a> Build<'a> {
 
         let queue = {
             if let Err(errors) = &result {
-                // Queue all failed nodes so that they get visited again next
+                // Queue all failed tasks so that they get visited again next
                 // time.
                 errors.iter().map(|x| x.0).collect()
             } else {
@@ -520,16 +602,23 @@ impl<'a> Build<'a> {
             }
         };
 
+        let BuildContext {
+            root: _,
+            dryrun: _,
+            checksums,
+            detected,
+        } = context;
+        let mut checksums = checksums.into_inner().unwrap();
+        let detected = detected.into_inner().unwrap();
+
         // TODO: Add the detected inputs/outputs to the build graph. We must not
         // modify the build order when adding new edges to the graph. That is,
         // we can only add edges to *root* nodes. If we attempt to do otherwise,
         // then the build state shouldn't be committed.
-        //{
-        //    for (_node, detected) in context.detected.lock().unwrap().iter() {
-        //        println!("Detected inputs: {:?}", detected.inputs().collect::<Vec<_>>());
-        //        println!("Detected outputs: {:?}", detected.outputs().collect::<Vec<_>>());
-        //    }
-        //}
+        sync_detected(
+            &mut graph, detected, &mut checksums, self.root, threads, logger,
+            dryrun,
+        )?;
 
         // Serialize the state. This must be the last thing that we do. If
         // anything fails above (e.g., failing to delete a resource), the state
@@ -539,7 +628,7 @@ impl<'a> Build<'a> {
         BuildState {
             graph,
             queue,
-            checksums: context.checksums.into_inner().unwrap(),
+            checksums,
         }
         .write_to_path(self.state)
         .with_context(|_| {

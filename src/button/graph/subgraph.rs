@@ -106,9 +106,10 @@ where
 
     fn edge_to_index(
         &self,
-        edge: &(NodeIndex, NodeIndex),
+        from: NodeIndex,
+        to: NodeIndex,
     ) -> Option<EdgeIndex> {
-        if let Some(index) = self.graph.edge_to_index(edge) {
+        if let Some(index) = self.graph.edge_to_index(from, to) {
             if self.edges.contains(&index) {
                 return Some(index);
             }

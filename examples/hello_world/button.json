@@ -17,12 +17,13 @@
             {
                 "command": {
                     "program": "gcc",
-                    "args": ["-c", "foo.c", "-o", "obj/foo.o"]
+                    "args": ["-c", "foo.c", "-o", "obj/foo.o", "-MD", "-MF", "obj/foo.d"]
                 }
             }
         ],
         "outputs": [
-            {"file": "obj/foo.o"}
+            {"file": "obj/foo.o"},
+            {"file": "obj/foo.d"}
         ]
     },
     {
@@ -34,12 +35,13 @@
             {
                 "command": {
                     "program": "gcc",
-                    "args": ["-c", "bar.c", "-o", "obj/bar.o"]
+                    "args": ["-c", "bar.c", "-o", "obj/bar.o", "-MD", "-MF", "obj/bar.d"]
                 }
             }
         ],
         "outputs": [
-            {"file": "obj/bar.o"}
+            {"file": "obj/bar.o"},
+            {"file": "obj/bar.d"}
         ]
     },
     {

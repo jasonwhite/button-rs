@@ -93,9 +93,10 @@ where
 
     fn edge_to_index(
         &self,
-        edge: &(NodeIndex, NodeIndex),
+        from: NodeIndex,
+        to: NodeIndex,
     ) -> Option<EdgeIndex> {
-        self.edges.to_index(edge).map(EdgeIndex::from)
+        self.edges.to_index(&(from, to)).map(EdgeIndex::from)
     }
 }
 

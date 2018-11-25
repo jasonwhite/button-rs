@@ -94,8 +94,11 @@ where
     /// Converts an edge index into a pair.
     ///
     /// Returns `None` if the edge does not exist in the graph.
-    fn edge_to_index(&self, edge: &(NodeIndex, NodeIndex))
-        -> Option<EdgeIndex>;
+    fn edge_to_index(
+        &self,
+        from: NodeIndex,
+        to: NodeIndex,
+    ) -> Option<EdgeIndex>;
 
     /// Returns `true` if the node exists in the graph.
     fn contains_node(&self, n: &Self::Node) -> bool {
@@ -108,13 +111,19 @@ where
     }
 
     /// Returns `true` if the edge exists in the graph.
-    fn contains_edge(&self, e: &(NodeIndex, NodeIndex)) -> bool {
-        self.edge_to_index(e).is_some()
+    fn contains_edge_by_index(&self, from: NodeIndex, to: NodeIndex) -> bool {
+        self.edge_to_index(from, to).is_some()
     }
 
-    /// Returns `true` if the node exists in the graph.
-    fn contains_edge_index(&'a self, index: EdgeIndex) -> bool {
-        self.try_edge_from_index(index).is_some()
+    /// Returns `true` if the edge exists in the graph.
+    fn contains_edge(&self, from: &Self::Node, to: &Self::Node) -> bool {
+        if let (Some(from), Some(to)) =
+            (self.node_to_index(from), self.node_to_index(to))
+        {
+            self.contains_edge_by_index(from, to)
+        } else {
+            false
+        }
     }
 }
 
@@ -591,15 +600,10 @@ where
         for index in self.edges() {
             let (from, to) = self.edge_from_index(index).0;
 
-            // Translate to indices that the other graph understands.
-            let from = other.node_to_index(self.node_from_index(from));
-            let to = other.node_to_index(self.node_from_index(to));
-
-            if let (Some(from), Some(to)) = (from, to) {
-                if !other.contains_edge(&(from, to)) {
-                    edges.insert(index);
-                }
-            } else {
+            if !other.contains_edge(
+                self.node_from_index(from),
+                self.node_from_index(to),
+            ) {
                 edges.insert(index);
             }
         }

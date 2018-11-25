@@ -81,14 +81,6 @@ impl Command {
 
         let detected = detect.run(root, &self.process, log)?;
 
-        for p in detected.inputs() {
-            writeln!(log, "Input: {:?}", p)?;
-        }
-
-        for p in detected.outputs() {
-            writeln!(log, "Output: {:?}", p)?;
-        }
-
         Ok(detected)
     }
 }
@@ -153,6 +145,11 @@ impl Task for Command {
                 }
             }
         }
+
+        // TODO: Analyze the command line and deduce inputs/outputs? For
+        // example, we can easily see that, for the command `gcc foo.c -o
+        // foo.o`, `foo.c` is an input and `foo.o` is an output. This could make
+        // writing/generating the build description far more ergonomic.
     }
 
     fn known_outputs(&self, set: &mut res::Set) {
