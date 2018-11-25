@@ -545,11 +545,11 @@ where
             let visit = &visit;
 
             for tid in 0..threads {
-                scope.spawn(move || {
+                scope.spawn(move |_| {
                     traversal_worker(self, tid, state, visit, reverse)
                 });
             }
-        });
+        }).unwrap();
 
         let errors = state.errors.into_inner().unwrap();
 
