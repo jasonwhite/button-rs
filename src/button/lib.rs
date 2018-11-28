@@ -29,6 +29,8 @@ extern crate failure_derive;
 extern crate generic_array;
 extern crate hex;
 extern crate holyhashmap;
+#[macro_use]
+extern crate nom;
 extern crate os_pipe;
 extern crate rand;
 extern crate reqwest;

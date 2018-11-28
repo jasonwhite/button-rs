@@ -21,6 +21,7 @@
 mod args;
 mod counter;
 mod iter;
+mod make;
 mod path;
 mod proc;
 mod queue;
@@ -35,3 +36,4 @@ pub use self::proc::{Child, Process};
 pub use self::queue::RandomQueue;
 pub use self::retry::{progress_dummy, progress_print, Retry};
 pub use self::sha256::{Sha256, ShaVerifyError};
+pub use self::make::{MakeFile, MakeRule};
