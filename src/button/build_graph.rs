@@ -19,7 +19,7 @@
 // THE SOFTWARE.
 
 use std::error;
-use std::fmt;
+use std::fmt::{self, Debug, Display};
 use std::io;
 
 use graph::{
@@ -49,9 +49,17 @@ impl Node {
             _ => unreachable!(),
         }
     }
+
+    #[inline]
+    pub fn as_task(&self) -> &task::List {
+        match self {
+            Node::Task(t) => t,
+            _ => unreachable!(),
+        }
+    }
 }
 
-impl fmt::Display for Node {
+impl Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Node::Resource(ref x) => write!(f, "({})", x),
@@ -77,7 +85,7 @@ pub enum Edge {
     Explicit,
 }
 
-impl fmt::Display for Edge {
+impl Display for Edge {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Edge::Implicit => write!(f, "implicit"),
@@ -112,9 +120,9 @@ const CYCLE_EXPLANATION: &str = "\
 Cycles in the build graph cause incorrect builds and are strictly forbidden.
 Please edit the build description to remove the cycle(s) listed above.";
 
-impl<N, E> fmt::Display for CyclesError<N, E>
+impl<N, E> Display for CyclesError<N, E>
 where
-    N: NodeTrait + fmt::Display,
+    N: NodeTrait + Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use graph::Indexable;
@@ -155,27 +163,16 @@ where
     }
 }
 
-impl<N, E> fmt::Debug for CyclesError<N, E>
+impl<N, E> Debug for CyclesError<N, E>
 where
-    N: NodeTrait + fmt::Display,
+    N: NodeTrait + Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self)
     }
 }
 
-impl<N, E> error::Error for CyclesError<N, E>
-where
-    N: NodeTrait + fmt::Display,
-{
-    fn description(&self) -> &str {
-        "Cycle(s) detected in the build graph."
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
-        None
-    }
-}
+impl<N, E> error::Error for CyclesError<N, E> where N: NodeTrait + Display {}
 
 /// A race condition in the build graph.
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
@@ -193,9 +190,9 @@ impl<N> Race<N> {
     }
 }
 
-impl<N> fmt::Display for Race<N>
+impl<N> Display for Race<N>
 where
-    N: fmt::Display,
+    N: Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} (output of {} tasks)", self.node, self.count)
@@ -225,7 +222,7 @@ task. Depending on the order in which the task is executed, one task will
 overwrite the output of the other. Please edit the build description to fix the
 race condition(s).";
 
-impl fmt::Display for RaceError {
+impl Display for RaceError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(
             f,
@@ -241,15 +238,7 @@ impl fmt::Display for RaceError {
     }
 }
 
-impl error::Error for RaceError {
-    fn description(&self) -> &str {
-        "Race condition(s) detected in the build graph."
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
-        None
-    }
-}
+impl error::Error for RaceError {}
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Error {
@@ -269,7 +258,7 @@ impl From<CyclesError<Node, Edge>> for Error {
     }
 }
 
-impl fmt::Display for Error {
+impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::Races(ref err) => write!(f, "{}", err),
@@ -278,21 +267,7 @@ impl fmt::Display for Error {
     }
 }
 
-impl error::Error for Error {
-    fn description(&self) -> &str {
-        match self {
-            Error::Races(ref err) => err.description(),
-            Error::Cycles(ref err) => err.description(),
-        }
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
-        match self {
-            Error::Races(ref err) => Some(err),
-            Error::Cycles(ref err) => Some(err),
-        }
-    }
-}
+impl error::Error for Error {}
 
 /// The build graph.
 ///

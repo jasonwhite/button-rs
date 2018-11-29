@@ -28,26 +28,7 @@ use serde_json as json;
 use res;
 use task::{self, Task};
 
-#[derive(Debug, Fail)]
-pub enum RulesError {
-    #[fail(display = "{}", _0)]
-    Io(io::Error),
-
-    #[fail(display = "JSON parsing error: {}", _0)]
-    Json(json::error::Error),
-}
-
-impl From<io::Error> for RulesError {
-    fn from(err: io::Error) -> RulesError {
-        RulesError::Io(err)
-    }
-}
-
-impl From<json::error::Error> for RulesError {
-    fn from(err: json::error::Error) -> RulesError {
-        RulesError::Json(err)
-    }
-}
+use error::BuildError;
 
 /// A rule in the build description. A build description is simply a list of
 /// rules.
@@ -79,12 +60,12 @@ impl Rules {
         Rules(rules)
     }
 
-    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Rules, RulesError> {
+    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Rules, BuildError> {
         let f = fs::File::open(path)?;
         Ok(Self::from_reader(io::BufReader::new(f))?)
     }
 
-    pub fn from_reader<R>(reader: R) -> Result<Rules, RulesError>
+    pub fn from_reader<R>(reader: R) -> Result<Rules, BuildError>
     where
         R: io::Read,
     {
@@ -92,12 +73,12 @@ impl Rules {
     }
 
     #[cfg(test)]
-    pub fn from_str(s: &str) -> Result<Rules, RulesError> {
+    pub fn from_str(s: &str) -> Result<Rules, BuildError> {
         Ok(Self::new(json::from_str(s)?))
     }
 
     #[cfg(test)]
-    pub fn to_string(&self) -> Result<String, json::error::Error> {
+    pub fn to_string(&self) -> Result<String, BuildError> {
         Ok(json::to_string(&self.0)?)
     }
 

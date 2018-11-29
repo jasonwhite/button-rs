@@ -18,7 +18,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::error::Error as ErrorTrait;
 use std::io;
 use std::sync::{Arc, Mutex};
 
@@ -54,7 +53,7 @@ where
         ) {
             Ok(()) => Ok(buf.len()),
             Err(err) => {
-                Err(io::Error::new(io::ErrorKind::Other, err.description()))
+                Err(io::Error::new(io::ErrorKind::Other, err.to_string()))
             }
         }
     }

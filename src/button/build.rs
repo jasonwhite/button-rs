@@ -151,7 +151,9 @@ where
     delete_resources(state, &nodes_to_delete, root, threads, logger, dryrun)?;
 
     // Non-destructive sync of the state's data structures.
-    state.update(&graph, &diff)
+    state.update(&graph, &diff)?;
+
+    Ok(())
 }
 
 /// Updates the build graph with the detected inputs/outputs.
@@ -176,10 +178,7 @@ fn sync_detected<L>(
             if graph.edge_from_index(edge).1 == &Edge::Implicit {
                 // We can safely assume this will always be a resource-type
                 // node.
-                let r = match graph.node_from_index(index) {
-                    Node::Resource(r) => r,
-                    _ => unreachable!(),
-                };
+                let r = graph.node_from_index(index).as_res();
 
                 if !detected.inputs.contains(r) {
                     // This node is no longer being detected as an input. We
@@ -214,7 +213,8 @@ fn sync_detected<L>(
                 if !graph.contains_edge_by_index(index, node) {
                     // It's only valid to add an edge to this node if the node
                     // is a root node.
-                    // TODO: Return an error if it's not a root node!
+                    //
+                    // FIXME: Return an error if it's not a root node!
                     if graph.is_root_node(index) {
                         graph.add_edge(index, node, Edge::Implicit);
                     }
@@ -228,7 +228,7 @@ fn sync_detected<L>(
                 let index = graph.add_node(input);
                 graph.add_edge(index, node, Edge::Implicit);
 
-                checksums.insert(index, checksum);
+                assert!(checksums.insert(index, checksum).is_none());
             }
         }
 

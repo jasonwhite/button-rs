@@ -24,7 +24,7 @@ use std::io;
 use std::path::Path;
 
 use build_graph::BuildGraph;
-use error::Error;
+use error::BuildError;
 use graph::{Algo, Diff, Indexable, NodeIndex};
 use res::ResourceState;
 
@@ -65,7 +65,9 @@ impl BuildState {
     }
 
     /// Reads the state from a file.
-    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<BuildState, Error> {
+    pub fn from_path<P: AsRef<Path>>(
+        path: P,
+    ) -> Result<BuildState, BuildError> {
         let f = fs::File::open(path)?;
         Ok(Self::from_reader(io::BufReader::new(f))?)
     }
@@ -73,7 +75,7 @@ impl BuildState {
     /// Reads the state from a stream.
     pub fn from_reader<R: io::Read>(
         mut reader: R,
-    ) -> Result<BuildState, bincode::Error> {
+    ) -> Result<BuildState, BuildError> {
         // Read the version string.
         let version: String = bincode::deserialize_from(&mut reader)?;
 
@@ -82,7 +84,8 @@ impl BuildState {
             // force a full rebuild when `update()` is called.
             Ok(BuildState::default())
         } else {
-            bincode::deserialize_from(reader)
+            let state = bincode::deserialize_from(reader)?;
+            Ok(state)
         }
     }
 
@@ -90,14 +93,18 @@ impl BuildState {
     pub fn write_to<W: io::Write>(
         &self,
         mut writer: W,
-    ) -> Result<(), bincode::Error> {
+    ) -> Result<(), BuildError> {
         bincode::serialize_into(&mut writer, env!("CARGO_PKG_VERSION"))?;
-        bincode::serialize_into(writer, &self)
+        bincode::serialize_into(writer, &self)?;
+        Ok(())
     }
 
     /// Writes the state to a file. The file is atomically updated using
     /// a temporary file.
-    pub fn write_to_path<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
+    pub fn write_to_path<P: AsRef<Path>>(
+        &self,
+        path: P,
+    ) -> Result<(), BuildError> {
         let path = path.as_ref();
 
         let dir = path.parent().unwrap_or_else(|| Path::new("."));
@@ -119,7 +126,7 @@ impl BuildState {
         &mut self,
         graph: &BuildGraph,
         diff: &Diff,
-    ) -> Result<(), Error> {
+    ) -> Result<(), BuildError> {
         // Remove edges before removing nodes so that the node removal has less
         // work to do. (If a node has fewer neighbors, it has fewer edges to
         // remove.)

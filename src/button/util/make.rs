@@ -17,7 +17,6 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-use std::error::Error;
 use std::str::FromStr;
 
 use nom::{self, AsChar};
@@ -37,7 +36,7 @@ impl FromStr for MakeFile {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match make_rules(s) {
             Ok((_, rules)) => Ok(MakeFile(rules)),
-            Err(err) => Err(err.description().to_string()),
+            Err(err) => Err(err.to_string()),
         }
     }
 }
