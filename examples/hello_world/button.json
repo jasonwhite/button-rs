@@ -11,37 +11,35 @@
     {
         "inputs": [
             {"dir": "obj"},
-            {"file": "foo.c"}
+            {"file": "src/foo.c"}
         ],
         "tasks": [
             {
                 "command": {
-                    "program": "gcc",
-                    "args": ["-c", "foo.c", "-o", "obj/foo.o", "-MD", "-MF", "obj/foo.d"]
+                    "program": "clang",
+                    "args": ["-c", "src/foo.c", "-o", "obj/foo.o"]
                 }
             }
         ],
         "outputs": [
-            {"file": "obj/foo.o"},
-            {"file": "obj/foo.d"}
+            {"file": "obj/foo.o"}
         ]
     },
     {
         "inputs": [
             {"dir": "obj"},
-            {"file": "bar.c"}
+            {"file": "src/bar.c"}
         ],
         "tasks": [
             {
                 "command": {
-                    "program": "gcc",
-                    "args": ["-c", "bar.c", "-o", "obj/bar.o", "-MD", "-MF", "obj/bar.d"]
+                    "program": "clang",
+                    "args": ["-c", "src/bar.c", "-o", "obj/bar.o"]
                 }
             }
         ],
         "outputs": [
-            {"file": "obj/bar.o"},
-            {"file": "obj/bar.d"}
+            {"file": "obj/bar.o"}
         ]
     },
     {
@@ -52,7 +50,7 @@
         "tasks": [
             {
                 "command": {
-                    "program": "gcc",
+                    "program": "clang",
                     "args": ["obj/foo.o", "obj/bar.o", "-o", "foobar"]
                 }
             }
