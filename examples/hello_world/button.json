@@ -10,6 +10,21 @@
     },
     {
         "inputs": [
+            {"file": "src/foo.c"},
+            {"file": ".clang-tidy"}
+        ],
+        "tasks": [
+            {
+                "command": {
+                    "program": "clang-tidy",
+                    "args": ["src/foo.c", "--"],
+                    "display": "clang-tidy src/foo.c"
+                }
+            }
+        ]
+    },
+    {
+        "inputs": [
             {"dir": "obj"},
             {"file": "src/foo.c"}
         ],
@@ -17,12 +32,28 @@
             {
                 "command": {
                     "program": "clang",
-                    "args": ["-c", "src/foo.c", "-o", "obj/foo.o"]
+                    "args": ["-c", "src/foo.c", "-o", "obj/foo.o"],
+                    "display": "clang src/foo.c"
                 }
             }
         ],
         "outputs": [
             {"file": "obj/foo.o"}
+        ]
+    },
+    {
+        "inputs": [
+            {"file": "src/bar.c"},
+            {"file": ".clang-tidy"}
+        ],
+        "tasks": [
+            {
+                "command": {
+                    "program": "clang-tidy",
+                    "args": ["src/bar.c", "--"],
+                    "display": "clang-tidy src/bar.c"
+                }
+            }
         ]
     },
     {
@@ -34,7 +65,8 @@
             {
                 "command": {
                     "program": "clang",
-                    "args": ["-c", "src/bar.c", "-o", "obj/bar.o"]
+                    "args": ["-c", "src/bar.c", "-o", "obj/bar.o"],
+                    "display": "clang src/bar.c"
                 }
             }
         ],
@@ -51,7 +83,8 @@
             {
                 "command": {
                     "program": "clang",
-                    "args": ["obj/foo.o", "obj/bar.o", "-o", "foobar"]
+                    "args": ["obj/foo.o", "obj/bar.o", "-o", "foobar"],
+                    "display": "link foobar"
                 }
             }
         ],
