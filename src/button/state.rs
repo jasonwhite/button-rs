@@ -25,7 +25,7 @@ use std::path::Path;
 
 use build_graph::BuildGraph;
 use error::Error;
-use graph::{Algo, NodeIndex};
+use graph::{Algo, Diff, Indexable, NodeIndex};
 use res::ResourceState;
 
 use bincode;
@@ -107,6 +107,64 @@ impl BuildState {
         self.write_to(io::BufWriter::new(&mut tempfile))?;
 
         tempfile.persist(path)?;
+
+        Ok(())
+    }
+
+    /// Performs a non-destructive (no file system changes) synchronization of
+    /// the state based on the new explicit graph.
+    ///
+    /// Deletion of removed output resources should be done before this.
+    pub fn update(
+        &mut self,
+        graph: &BuildGraph,
+        diff: &Diff,
+    ) -> Result<(), Error> {
+        // Remove edges before removing nodes so that the node removal has less
+        // work to do. (If a node has fewer neighbors, it has fewer edges to
+        // remove.)
+        for index in diff.left_only_edges.iter() {
+            assert!(self.graph.remove_edge(index).is_some());
+        }
+
+        // Remove nodes from the graph. This may invalidate the queue if the
+        // queue contains any of the nodes being removed here. Thus, we need to
+        // fix the queue after this removal.
+        for index in diff.left_only_nodes.iter() {
+            assert!(self.graph.remove_node(index).is_some());
+
+            // Fix the checksums.
+            self.checksums.remove(&index);
+        }
+
+        // Rebuild the queue with invalid indices filtered out.
+        let mut queue: Vec<_> = self
+            .queue
+            .iter()
+            .cloned()
+            .filter(|&index| self.graph.contains_node_index(index))
+            .collect();
+
+        for index in diff.right_only_nodes.iter() {
+            // New nodes should always be added to the queue such that they get
+            // traversed.
+            let node = graph.node_from_index(index);
+            let index = self.graph.add_node(node.clone());
+            queue.push(index);
+        }
+
+        for index in diff.right_only_edges.iter() {
+            let ((a, b), weight) = graph.edge_from_index(index);
+
+            // unwrapping because these nodes are guaranteed to exist in the
+            // graph at this point already.
+            let a = self.graph.node_to_index(graph.node_from_index(a)).unwrap();
+            let b = self.graph.node_to_index(graph.node_from_index(b)).unwrap();
+
+            self.graph.add_edge(a, b, *weight);
+        }
+
+        self.queue = queue;
 
         Ok(())
     }

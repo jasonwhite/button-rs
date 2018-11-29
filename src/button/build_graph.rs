@@ -41,6 +41,16 @@ pub enum Node {
     Task(task::List),
 }
 
+impl Node {
+    #[inline]
+    pub fn as_res(&self) -> &res::Any {
+        match self {
+            Node::Resource(r) => r,
+            _ => unreachable!(),
+        }
+    }
+}
+
 impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -429,8 +439,13 @@ impl Graphviz for BuildGraph {
 
         // Edges
         for index in self.edges() {
-            let (edge, _) = self.edge_from_index(index);
-            writeln!(f, "    N{} -> N{};", edge.0, edge.1)?;
+            let (edge, weight) = self.edge_from_index(index);
+            let style = match weight {
+                Edge::Explicit => "solid",
+                Edge::Implicit => "dashed",
+            };
+
+            writeln!(f, "    N{} -> N{} [style={}];", edge.0, edge.1, style)?;
         }
 
         writeln!(f, "}}")

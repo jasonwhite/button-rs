@@ -27,6 +27,6 @@ pub use self::base::{Graph, NodeTrait};
 pub use self::index::{EdgeIndex, IndexSet, NodeIndex};
 pub use self::subgraph::Subgraph;
 pub use self::traits::{
-    Algo, Edges, GraphBase, Graphviz, Indexable, Neighbors, Nodes, VisitMap,
-    Visitable,
+    Algo, Diff, Edges, GraphBase, Graphviz, Indexable, Neighbors, Nodes,
+    VisitMap, Visitable,
 };

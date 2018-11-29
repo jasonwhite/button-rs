@@ -1,5 +1,24 @@
-use std::str::FromStr;
+// Copyright (c) 2018 Jason White
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
 use std::error::Error;
+use std::str::FromStr;
 
 use nom::{self, AsChar};
 
@@ -20,6 +39,12 @@ impl FromStr for MakeFile {
             Ok((_, rules)) => Ok(MakeFile(rules)),
             Err(err) => Err(err.description().to_string()),
         }
+    }
+}
+
+impl MakeFile {
+    pub fn rules(&self) -> &Vec<MakeRule> {
+        &self.0
     }
 }
 
@@ -104,31 +129,41 @@ mod tests {
 
         assert_eq!(
             make_targets("foo\\ ooo.o bar.o      baz.o:"),
-            Ok((":", vec!["foo ooo.o".into(), "bar.o".into(), "baz.o".into()]))
+            Ok((
+                ":",
+                vec!["foo ooo.o".into(), "bar.o".into(), "baz.o".into()]
+            ))
         );
 
         assert_eq!(
             make_rule("foo.o bar.o   :  foo.c \\\n \\\r\n bar.c \n"),
-            Ok((" \n", MakeRule {
-                targets: vec!["foo.o".into(), "bar.o".into()],
-                prereqs: vec!["foo.c".into(), "bar.c".into()],
-            }))
+            Ok((
+                " \n",
+                MakeRule {
+                    targets: vec!["foo.o".into(), "bar.o".into()],
+                    prereqs: vec!["foo.c".into(), "bar.c".into()],
+                }
+            ))
         );
 
-        let makefile = "foo.o: foo.c foo.h  \t\n  \n\r\n bar.o: bar.c foo.h\n\0";
+        let makefile =
+            "foo.o: foo.c foo.h  \t\n  \n\r\n bar.o: bar.c foo.h\n\0";
 
         assert_eq!(
             make_rules(makefile),
-            Ok(("\0", vec![
-                MakeRule {
-                    targets: vec!["foo.o".into()],
-                    prereqs: vec!["foo.c".into(), "foo.h".into()],
-                },
-                MakeRule {
-                    targets: vec!["bar.o".into()],
-                    prereqs: vec!["bar.c".into(), "foo.h".into()],
-                }
-            ]))
+            Ok((
+                "\0",
+                vec![
+                    MakeRule {
+                        targets: vec!["foo.o".into()],
+                        prereqs: vec!["foo.c".into(), "foo.h".into()],
+                    },
+                    MakeRule {
+                        targets: vec!["bar.o".into()],
+                        prereqs: vec!["bar.c".into(), "foo.h".into()],
+                    }
+                ]
+            ))
         )
     }
 }

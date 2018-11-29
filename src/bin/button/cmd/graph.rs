@@ -19,12 +19,12 @@
 // THE SOFTWARE.
 use std::fs;
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use button::build_graph::{BuildGraph, FromRules};
 use button::graph::Graphviz;
 use button::rules::Rules;
-use button::{Error, ResultExt};
+use button::{BuildState, Error, ResultExt};
 
 use opts::GlobalOpts;
 use paths;
@@ -40,18 +40,10 @@ pub struct Graph {
     #[structopt(long = "output", short = "o", parse(from_os_str))]
     output: Option<PathBuf>,
 
-    /// Only display the subgraph that will be traversed on an update. This
-    /// has to query the file system for changes to resources.
-    #[structopt(long = "changes")]
-    changes: bool,
-
-    /// Display the cached graph from the previous build.
+    /// Display the cached graph from the previous build. Otherwise, only
+    /// displays the build graph derived from the build rules.
     #[structopt(long = "cached")]
     cached: bool,
-
-    /// Display the full name for each node instead of the abbreviated name.
-    #[structopt(long = "full")]
-    full: bool,
 }
 
 impl Graph {
@@ -60,11 +52,25 @@ impl Graph {
         let rules = paths::rules_or(self.rules)
             .context("Failed to find build rules")?;
 
-        let rules = Rules::from_path(&rules).with_context(|_| {
-            format!("Failed loading rules from file {:?}", rules)
-        })?;
+        let build_graph = if self.cached {
+            let root = rules.parent().unwrap_or_else(|| Path::new("."));
+            let state_path = root.join(paths::STATE);
+            let state =
+                BuildState::from_path(&state_path).with_context(|_| {
+                    format!(
+                        "Failed loading build state from '{}'",
+                        state_path.display()
+                    )
+                })?;
 
-        let build_graph = BuildGraph::from_rules(rules)?;
+            state.graph
+        } else {
+            let rules = Rules::from_path(&rules).with_context(|_| {
+                format!("Failed loading rules from file {:?}", rules)
+            })?;
+
+            BuildGraph::from_rules(rules)?
+        };
 
         if let Some(output) = &self.output {
             let mut stream =

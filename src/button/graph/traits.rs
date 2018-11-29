@@ -549,7 +549,8 @@ where
                     traversal_worker(self, tid, state, visit, reverse)
                 });
             }
-        }).unwrap();
+        })
+        .unwrap();
 
         let errors = state.errors.into_inner().unwrap();
 

@@ -20,6 +20,7 @@
 
 pub mod base;
 pub mod cl;
+pub mod clang;
 mod detected;
 
 pub use self::detected::Detected;
@@ -49,6 +50,12 @@ pub enum Detect {
     /// `/showIncludes` to the command line and parsing the output.
     Cl,
 
+    /// Detect inputs and outputs for Clang or GCC. This works by adding the
+    /// `-MMD -MF temp.d` flags to the compilation command line and parsing the
+    /// resulting Makefile. Note that we do not care about system header files
+    /// here, hence the `-MMD` flag instead of `-MD`.
+    Clang,
+
     /// Don't do any input/output detection. Just run the process as is. This
     /// assumes that all inputs and outputs have been explicitly specified up
     /// front.
@@ -70,8 +77,8 @@ impl Detect {
         if let Some(stem) = program.file_stem() {
             match stem.to_str() {
                 Some("cl") => Detect::Cl,
-                // Some("gcc") => Detect::GCC,
-                // Some("clang") => Detect::Clang,
+                Some("gcc") => Detect::Clang,
+                Some("clang") => Detect::Clang,
                 _ => Detect::default(),
             }
         } else {
@@ -87,8 +94,8 @@ impl Detect {
         if let Some(name) = program.file_name() {
             match name.to_str() {
                 Some("cl") => Detect::Cl,
-                // Some("gcc") => Detect::GCC,
-                // Some("clang") => Detect::Clang,
+                Some("gcc") => Detect::Clang,
+                Some("clang") => Detect::Clang,
                 _ => Detect::None,
             }
         } else {
@@ -105,6 +112,7 @@ impl Detect {
     ) -> Result<Detected, Error> {
         match self {
             Detect::Cl => cl::run(root, process, log),
+            Detect::Clang => clang::run(root, process, log),
             Detect::None => base::run(root, process, log),
         }
     }

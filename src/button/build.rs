@@ -121,8 +121,6 @@ where
 }
 
 /// Updates the build state with the build graph loaded from the on-disk rules.
-///
-/// This is one of the most important algorithms in the build system.
 fn sync_state<L>(
     state: &mut BuildState,
     graph: BuildGraph,
@@ -152,52 +150,8 @@ where
     // Delete the non-root resources in reverse-topological order that we own.
     delete_resources(state, &nodes_to_delete, root, threads, logger, dryrun)?;
 
-    // Remove edges before removing nodes so that the node removal has less work
-    // to do. (If a node has fewer neighbors, it has fewer edges to remove.)
-    for index in diff.left_only_edges.iter() {
-        assert!(state.graph.remove_edge(index).is_some());
-    }
-
-    // Remove nodes from the graph. This may invalidate the queue if the queue
-    // contains any of the nodes being removed here. Thus, we need to fix the
-    // queue after this removal.
-    for index in diff.left_only_nodes.iter() {
-        assert!(state.graph.remove_node(index).is_some());
-
-        // Fix the checksums.
-        state.checksums.remove(&index);
-    }
-
-    // Rebuild the queue with invalid indices filtered out.
-    let mut queue: Vec<_> = state
-        .queue
-        .iter()
-        .cloned()
-        .filter(|&index| state.graph.contains_node_index(index))
-        .collect();
-
-    for index in diff.right_only_nodes.iter() {
-        // New nodes should always be added to the queue such that they get
-        // traversed.
-        let node = graph.node_from_index(index);
-        let index = state.graph.add_node(node.clone());
-        queue.push(index);
-    }
-
-    for index in diff.right_only_edges.iter() {
-        let ((a, b), weight) = graph.edge_from_index(index);
-
-        // unwrapping because these nodes are guaranteed to exist in the graph
-        // at this point already.
-        let a = state.graph.node_to_index(graph.node_from_index(a)).unwrap();
-        let b = state.graph.node_to_index(graph.node_from_index(b)).unwrap();
-
-        state.graph.add_edge(a, b, *weight);
-    }
-
-    state.queue = queue;
-
-    Ok(())
+    // Non-destructive sync of the state's data structures.
+    state.update(&graph, &diff)
 }
 
 /// Updates the build graph with the detected inputs/outputs.
@@ -209,7 +163,7 @@ fn sync_detected<L>(
     graph: &mut BuildGraph,
     detected: Vec<(NodeIndex, Detected)>,
     checksums: &mut HashMap<NodeIndex, ResourceState>,
-    _root: &Path,
+    root: &Path,
     _threads: usize,
     _logger: &L,
     _dryrun: bool,
@@ -266,9 +220,15 @@ fn sync_detected<L>(
                     }
                 }
             } else {
+                // Calculate the checksum so the build doesn't see this as
+                // changed next time.
+                let checksum = input.as_res().state(root)?;
+
                 // A new node! It's always valid to add a new node as an input.
                 let index = graph.add_node(input);
                 graph.add_edge(index, node, Edge::Implicit);
+
+                checksums.insert(index, checksum);
             }
         }
 
@@ -616,7 +576,12 @@ impl<'a> Build<'a> {
         // we can only add edges to *root* nodes. If we attempt to do otherwise,
         // then the build state shouldn't be committed.
         sync_detected(
-            &mut graph, detected, &mut checksums, self.root, threads, logger,
+            &mut graph,
+            detected,
+            &mut checksums,
+            self.root,
+            threads,
+            logger,
             dryrun,
         )?;
 
