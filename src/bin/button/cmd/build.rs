@@ -98,9 +98,7 @@ impl Build {
             build.clean(self.dryrun, threads, &loggers)?;
         }
 
-        let rules = Rules::from_path(&rules).with_context(|_| {
-            format!("Failed loading rules from file {:?}", rules)
-        })?;
+        let rules = Rules::from_path(&rules)?;
 
         build.build(rules, self.dryrun, threads, &mut loggers)
     }

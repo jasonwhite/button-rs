@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs;
 use std::io;
@@ -37,7 +37,7 @@ use graph::{
     Algo, Edges, IndexSet, Indexable, Neighbors, NodeIndex, Nodes, Subgraph,
 };
 
-use error::{Error, ResultExt};
+use error::{BuildError, Error, ErrorKind, ResultExt};
 
 /// A build failure. Contains each of the node indexes that failed and the
 /// associated error.
@@ -151,9 +151,103 @@ where
     delete_resources(state, &nodes_to_delete, root, threads, logger, dryrun)?;
 
     // Non-destructive sync of the state's data structures.
-    state.update(&graph, &diff)?;
+    state.update(&graph, &diff);
 
     Ok(())
+}
+
+fn removed_implicit_inputs(
+    graph: &mut BuildGraph,
+    node: NodeIndex,
+    inputs: &HashSet<res::Any>,
+) -> Vec<NodeIndex> {
+    let mut inputs_to_remove = Vec::new();
+
+    // Find edges that can be removed.
+    for (index, edge) in graph.incoming(node) {
+        if graph.edge_from_index(edge).1 == &Edge::Implicit {
+            // We can safely assume this will always be a resource-type node.
+            let r = graph.node_from_index(index).as_res();
+
+            if !inputs.contains(r) {
+                // This node is no longer being detected as an input. We need to
+                // remove it from the graph.
+                inputs_to_remove.push(index);
+            }
+        }
+    }
+
+    inputs_to_remove
+}
+
+fn sync_removed_inputs(
+    graph: &mut BuildGraph,
+    node: NodeIndex,
+    inputs: &HashSet<res::Any>,
+    checksums: &mut HashMap<NodeIndex, ResourceState>,
+) {
+    for input in removed_implicit_inputs(graph, node, inputs) {
+        let edge_index = graph.edge_to_index(input, node).unwrap();
+        graph.remove_edge(edge_index);
+
+        // Remove the node if it has become disconnected from the graph.
+        // Orphaned nodes shouldn't cause any problems, but cleaning them up
+        // immediately after they form simplifies some logic and keeps the graph
+        // looking clean.
+        if graph.is_root_node(input) && graph.is_terminal_node(input) {
+            graph.remove_node(input);
+        }
+
+        // Any time a resource is removed from the graph, it needs to be removed
+        // from the checksums.
+        checksums.remove(&input);
+    }
+}
+
+fn sync_added_inputs(
+    graph: &mut BuildGraph,
+    node: NodeIndex,
+    inputs: HashSet<res::Any>,
+    checksums: &mut HashMap<NodeIndex, ResourceState>,
+    root: &Path,
+) -> Result<(), Vec<(NodeIndex, NodeIndex)>> {
+    let mut errors = Vec::new();
+
+    for input in inputs {
+        let input = Node::Resource(input);
+
+        if let Some(index) = graph.node_to_index(&input) {
+            if !graph.contains_edge_by_index(index, node) {
+                // It's only valid to add an edge to this node if the node
+                // is a root node.
+                if graph.is_root_node(index) {
+                    graph.add_edge(index, node, Edge::Implicit);
+                } else {
+                    // Adding this edge to the graph would have caused the build
+                    // order to change.
+                    errors.push((index, node));
+                }
+            }
+        } else {
+            // Calculate the checksum so the build doesn't see this as
+            // changed next time.
+            let checksum = input.as_res().state(root);
+
+            // A new node! It's always valid to add a new node as an input.
+            let index = graph.add_node(input);
+            graph.add_edge(index, node, Edge::Implicit);
+
+            if let Ok(checksum) = checksum {
+                assert!(checksums.insert(index, checksum).is_none());
+            }
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
 }
 
 /// Updates the build graph with the detected inputs/outputs.
@@ -169,67 +263,17 @@ fn sync_detected<L>(
     _threads: usize,
     _logger: &L,
     _dryrun: bool,
-) -> Result<(), Error> {
-    for (node, detected) in detected {
-        let mut inputs_to_remove = Vec::new();
+) -> Result<(), BuildError> {
+    let mut bad_edges = Vec::new();
 
-        // Find edges that can be removed.
-        for (index, edge) in graph.incoming(node) {
-            if graph.edge_from_index(edge).1 == &Edge::Implicit {
-                // We can safely assume this will always be a resource-type
-                // node.
-                let r = graph.node_from_index(index).as_res();
+    for (node, Detected { inputs, outputs: _ }) in detected {
+        // Sync inputs
+        sync_removed_inputs(graph, node, &inputs, checksums);
 
-                if !detected.inputs.contains(r) {
-                    // This node is no longer being detected as an input. We
-                    // need to remove it from the graph.
-                    inputs_to_remove.push(index);
-                }
-            }
-        }
-
-        for input in inputs_to_remove {
-            let edge_index = graph.edge_to_index(input, node).unwrap();
-            graph.remove_edge(edge_index);
-
-            // Remove the node if it has become disconnected from the graph.
-            // Orphaned nodes shouldn't cause any problems, but cleaning them up
-            // immediately after they form simplifies some logic and keeps the
-            // graph looking clean.
-            if graph.is_root_node(input) && graph.is_terminal_node(input) {
-                graph.remove_node(input);
-            }
-
-            // Any time a resource is removed from the graph, it needs to be
-            // removed from the checksums.
-            checksums.remove(&input);
-        }
-
-        // Find new edges.
-        for input in detected.inputs {
-            let input = Node::Resource(input);
-
-            if let Some(index) = graph.node_to_index(&input) {
-                if !graph.contains_edge_by_index(index, node) {
-                    // It's only valid to add an edge to this node if the node
-                    // is a root node.
-                    //
-                    // FIXME: Return an error if it's not a root node!
-                    if graph.is_root_node(index) {
-                        graph.add_edge(index, node, Edge::Implicit);
-                    }
-                }
-            } else {
-                // Calculate the checksum so the build doesn't see this as
-                // changed next time.
-                let checksum = input.as_res().state(root)?;
-
-                // A new node! It's always valid to add a new node as an input.
-                let index = graph.add_node(input);
-                graph.add_edge(index, node, Edge::Implicit);
-
-                assert!(checksums.insert(index, checksum).is_none());
-            }
+        if let Err(errors) =
+            sync_added_inputs(graph, node, inputs, checksums, root)
+        {
+            bad_edges.extend(errors.into_iter());
         }
 
         // For detected outputs, we must only
@@ -237,6 +281,10 @@ fn sync_detected<L>(
         //  2. delete resources *after* the graph has been fully updated and in
         //     reverse topological order. That way, if anything fails, nothing
         //     has been deleted yet.
+    }
+
+    if !bad_edges.is_empty() {
+        return Err(ErrorKind::InvalidEdges(bad_edges).into());
     }
 
     Ok(())
@@ -571,7 +619,7 @@ impl<'a> Build<'a> {
         let mut checksums = checksums.into_inner().unwrap();
         let detected = detected.into_inner().unwrap();
 
-        // TODO: Add the detected inputs/outputs to the build graph. We must not
+        // Add the detected inputs/outputs to the build graph. We must not
         // modify the build order when adding new edges to the graph. That is,
         // we can only add edges to *root* nodes. If we attempt to do otherwise,
         // then the build state shouldn't be committed.

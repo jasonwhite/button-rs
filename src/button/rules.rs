@@ -28,7 +28,7 @@ use serde_json as json;
 use res;
 use task::{self, Task};
 
-use error::BuildError;
+use error::{BuildError, ErrorKind, ResultExt};
 
 /// A rule in the build description. A build description is simply a list of
 /// rules.
@@ -61,11 +61,24 @@ impl Rules {
     }
 
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Rules, BuildError> {
-        let f = fs::File::open(path)?;
-        Ok(Self::from_reader(io::BufReader::new(f))?)
+        let path = path.as_ref();
+
+        let f = fs::File::open(path)
+            .with_context(|_| {
+                format!("Could not open file '{}'", path.display())
+            })
+            .context(ErrorKind::ParsingRules)?;
+
+        let rules = Self::from_reader(io::BufReader::new(f))
+            .with_context(|_| {
+                format!("Failed parsing json from '{}'", path.display())
+            })
+            .context(ErrorKind::ParsingRules)?;
+
+        Ok(rules)
     }
 
-    pub fn from_reader<R>(reader: R) -> Result<Rules, BuildError>
+    fn from_reader<R>(reader: R) -> Result<Rules, json::error::Error>
     where
         R: io::Read,
     {
@@ -73,13 +86,8 @@ impl Rules {
     }
 
     #[cfg(test)]
-    pub fn from_str(s: &str) -> Result<Rules, BuildError> {
+    pub fn from_str(s: &str) -> Result<Rules, json::error::Error> {
         Ok(Self::new(json::from_str(s)?))
-    }
-
-    #[cfg(test)]
-    pub fn to_string(&self) -> Result<String, BuildError> {
-        Ok(json::to_string(&self.0)?)
     }
 
     pub fn iter(&self) -> Iter<Rule> {

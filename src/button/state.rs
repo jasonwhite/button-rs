@@ -24,7 +24,7 @@ use std::io;
 use std::path::Path;
 
 use build_graph::BuildGraph;
-use error::BuildError;
+use error::{BuildError, ErrorKind, ResultExt};
 use graph::{Algo, Diff, Indexable, NodeIndex};
 use res::ResourceState;
 
@@ -68,14 +68,17 @@ impl BuildState {
     pub fn from_path<P: AsRef<Path>>(
         path: P,
     ) -> Result<BuildState, BuildError> {
-        let f = fs::File::open(path)?;
-        Ok(Self::from_reader(io::BufReader::new(f))?)
+        let path = path.as_ref();
+        let f = fs::File::open(path)
+            .with_context(|_| ErrorKind::LoadState(path.to_path_buf()))?;
+        Ok(Self::from_reader(io::BufReader::new(f))
+            .with_context(|_| ErrorKind::LoadState(path.to_path_buf()))?)
     }
 
     /// Reads the state from a stream.
     pub fn from_reader<R: io::Read>(
         mut reader: R,
-    ) -> Result<BuildState, BuildError> {
+    ) -> Result<BuildState, bincode::Error> {
         // Read the version string.
         let version: String = bincode::deserialize_from(&mut reader)?;
 
@@ -90,10 +93,10 @@ impl BuildState {
     }
 
     /// Writes the state to a stream.
-    pub fn write_to<W: io::Write>(
+    fn write_to<W: io::Write>(
         &self,
         mut writer: W,
-    ) -> Result<(), BuildError> {
+    ) -> Result<(), bincode::Error> {
         bincode::serialize_into(&mut writer, env!("CARGO_PKG_VERSION"))?;
         bincode::serialize_into(writer, &self)?;
         Ok(())
@@ -109,11 +112,25 @@ impl BuildState {
 
         let dir = path.parent().unwrap_or_else(|| Path::new("."));
 
-        let mut tempfile = NamedTempFile::new_in(dir)?;
+        let mut tempfile = NamedTempFile::new_in(dir)
+            .with_context(|_| {
+                format!("Failed creating temporary file in '{}'", dir.display())
+            })
+            .with_context(|_| ErrorKind::SaveState(path.to_path_buf()))?;
 
-        self.write_to(io::BufWriter::new(&mut tempfile))?;
+        self.write_to(io::BufWriter::new(&mut tempfile))
+            .with_context(|_| ErrorKind::SaveState(path.to_path_buf()))?;
 
-        tempfile.persist(path)?;
+        tempfile
+            .persist(path)
+            .with_context(|err| {
+                format!(
+                    "Failed persisting temporary file '{}' to '{}'",
+                    err.file.path().display(),
+                    path.display()
+                )
+            })
+            .with_context(|_| ErrorKind::SaveState(path.to_path_buf()))?;
 
         Ok(())
     }
@@ -122,11 +139,7 @@ impl BuildState {
     /// the state based on the new explicit graph.
     ///
     /// Deletion of removed output resources should be done before this.
-    pub fn update(
-        &mut self,
-        graph: &BuildGraph,
-        diff: &Diff,
-    ) -> Result<(), BuildError> {
+    pub fn update(&mut self, graph: &BuildGraph, diff: &Diff) {
         // Remove edges before removing nodes so that the node removal has less
         // work to do. (If a node has fewer neighbors, it has fewer edges to
         // remove.)
@@ -172,7 +185,5 @@ impl BuildState {
         }
 
         self.queue = queue;
-
-        Ok(())
     }
 }
