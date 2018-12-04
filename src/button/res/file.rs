@@ -114,7 +114,7 @@ impl FromStr for File {
 
 impl fmt::Display for File {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.path)
+        write!(f, "{}", self.path.display())
     }
 }
 

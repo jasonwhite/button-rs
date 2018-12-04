@@ -178,7 +178,7 @@ impl EventLogger for Console {
     }
 
     fn delete(&self, thread: usize, resource: &res::Any) -> LogResult<()> {
-        println!("[{}] Deleting {}", thread, resource);
+        println!("[{}] Deleting: {}", thread, resource);
 
         Ok(())
     }
