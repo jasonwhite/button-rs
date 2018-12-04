@@ -191,7 +191,7 @@ where
             }
 
             LogEvent::Delete(e) => {
-                logger.delete(e.thread, &e.resource)?;
+                logger.delete(e.thread, &e.resource, &Ok(()))?;
             }
         }
     }

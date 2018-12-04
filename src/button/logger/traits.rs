@@ -56,5 +56,10 @@ pub trait EventLogger: Send + Sync {
     ) -> Result<Self::TaskLogger, Error>;
 
     /// Called when a resource is deleted.
-    fn delete(&self, thread: usize, resource: &res::Any) -> LogResult<()>;
+    fn delete(
+        &self,
+        thread: usize,
+        resource: &res::Any,
+        result: &Result<(), Error>,
+    ) -> LogResult<()>;
 }

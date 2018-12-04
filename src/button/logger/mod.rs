@@ -153,10 +153,15 @@ impl EventLogger for Any {
         }
     }
 
-    fn delete(&self, thread: usize, resource: &res::Any) -> LogResult<()> {
+    fn delete(
+        &self,
+        thread: usize,
+        resource: &res::Any,
+        result: &Result<(), Error>,
+    ) -> LogResult<()> {
         match self {
-            Any::Console(l) => l.delete(thread, resource),
-            Any::BinaryFile(l) => l.delete(thread, resource),
+            Any::Console(l) => l.delete(thread, resource, result),
+            Any::BinaryFile(l) => l.delete(thread, resource, result),
         }
     }
 }
@@ -289,9 +294,14 @@ where
         Ok(list)
     }
 
-    fn delete(&self, thread: usize, resource: &res::Any) -> LogResult<()> {
+    fn delete(
+        &self,
+        thread: usize,
+        resource: &res::Any,
+        result: &Result<(), Error>,
+    ) -> LogResult<()> {
         for logger in &self.inner {
-            logger.delete(thread, resource)?;
+            logger.delete(thread, resource, result)?;
         }
 
         Ok(())

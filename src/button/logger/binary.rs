@@ -170,7 +170,12 @@ where
         })
     }
 
-    fn delete(&self, thread: usize, resource: &res::Any) -> LogResult<()> {
+    fn delete(
+        &self,
+        thread: usize,
+        resource: &res::Any,
+        _result: &Result<(), Error>,
+    ) -> LogResult<()> {
         let mut writer = self.writer.lock().unwrap();
         writer.dump(
             Delete {

@@ -101,11 +101,12 @@ where
                         && to_remove.contains(&index)
                         && checksums.contains_key(&index)
                     {
-                        logger.delete(tid, r)?;
+                        let result =
+                            if dryrun { Ok(()) } else { r.delete(root) };
 
-                        if !dryrun {
-                            r.delete(root)?;
-                        }
+                        logger.delete(tid, r, &result)?;
+
+                        result?;
                     }
                 }
 
@@ -436,11 +437,15 @@ impl<'a> Build<'a> {
                         if !state.graph.is_root_node(index)
                             && state.checksums.contains_key(&index)
                         {
-                            logger.delete(tid, r)?;
+                            let result = if dryrun {
+                                Ok(())
+                            } else {
+                                r.delete(self.root)
+                            };
 
-                            if !dryrun {
-                                r.delete(self.root)?;
-                            }
+                            logger.delete(tid, r, &result)?;
+
+                            result?;
                         }
                     }
 

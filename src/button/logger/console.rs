@@ -177,8 +177,17 @@ impl EventLogger for Console {
         ConsoleTask::new(self.verbose, thread, task, self.bufwriter.clone())
     }
 
-    fn delete(&self, thread: usize, resource: &res::Any) -> LogResult<()> {
-        println!("[{}] Deleting: {}", thread, resource);
+    fn delete(
+        &self,
+        thread: usize,
+        resource: &res::Any,
+        result: &Result<(), Error>,
+    ) -> LogResult<()> {
+        if let Err(err) = result {
+            println!("[{}] Failed to delete: {} ({})", thread, resource, err);
+        } else {
+            println!("[{}] Deleted: {}", thread, resource);
+        }
 
         Ok(())
     }
