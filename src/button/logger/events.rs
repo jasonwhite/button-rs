@@ -67,6 +67,14 @@ pub struct Delete {
     pub resource: res::Any,
 }
 
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ChecksumError {
+    pub thread: usize,
+    pub resource: res::Any,
+    pub error: SerError,
+}
+
 /// A logging event.
 #[derive(Serialize, Deserialize)]
 pub enum LogEvent {
@@ -84,6 +92,9 @@ pub enum LogEvent {
 
     /// A task is deleted.
     Delete(Delete),
+
+    /// A checksum failed to be computed.
+    ChecksumError(ChecksumError),
 }
 
 impl From<BeginBuild> for LogEvent {
@@ -119,6 +130,12 @@ impl From<FinishTask> for LogEvent {
 impl From<Delete> for LogEvent {
     fn from(event: Delete) -> LogEvent {
         LogEvent::Delete(event)
+    }
+}
+
+impl From<ChecksumError> for LogEvent {
+    fn from(event: ChecksumError) -> LogEvent {
+        LogEvent::ChecksumError(event)
     }
 }
 
@@ -192,6 +209,11 @@ where
 
             LogEvent::Delete(e) => {
                 logger.delete(e.thread, &e.resource, &Ok(()))?;
+            }
+
+            LogEvent::ChecksumError(e) => {
+                let err = e.error.into();
+                logger.checksum_error(e.thread, &e.resource, &err)?;
             }
         }
     }

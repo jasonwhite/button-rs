@@ -191,4 +191,17 @@ impl EventLogger for Console {
 
         Ok(())
     }
+
+    fn checksum_error(
+        &self,
+        thread: usize,
+        resource: &res::Any,
+        error: &Error,
+    ) -> LogResult<()> {
+        println!(
+            "[{}] Failed computing checksum for: {} ({})",
+            thread, resource, error
+        );
+        Ok(())
+    }
 }

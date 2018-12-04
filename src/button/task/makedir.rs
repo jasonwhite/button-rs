@@ -84,9 +84,9 @@ impl Task for MakeDir {
     }
 
     fn known_inputs(&self, set: &mut res::Set) {
-        // Add parent directory as an input. This must exist in order to create
-        // the child directory. Adding this dependency also ensures that we
-        // delete directories in the correct order relative to one another.
+        // Add parent directory as an input. Adding this dependency also ensures
+        // that we delete directories in the correct order relative to one
+        // another.
         if let Some(parent) = self.path.parent() {
             set.insert(res::Dir::new(parent.to_path_buf()).into());
         }

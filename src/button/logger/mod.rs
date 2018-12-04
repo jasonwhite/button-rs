@@ -164,6 +164,18 @@ impl EventLogger for Any {
             Any::BinaryFile(l) => l.delete(thread, resource, result),
         }
     }
+
+    fn checksum_error(
+        &self,
+        thread: usize,
+        resource: &res::Any,
+        error: &Error,
+    ) -> LogResult<()> {
+        match self {
+            Any::Console(l) => l.checksum_error(thread, resource, error),
+            Any::BinaryFile(l) => l.checksum_error(thread, resource, error),
+        }
+    }
 }
 
 /// A list of task loggers.
@@ -302,6 +314,19 @@ where
     ) -> LogResult<()> {
         for logger in &self.inner {
             logger.delete(thread, resource, result)?;
+        }
+
+        Ok(())
+    }
+
+    fn checksum_error(
+        &self,
+        thread: usize,
+        resource: &res::Any,
+        error: &Error,
+    ) -> LogResult<()> {
+        for logger in &self.inner {
+            logger.checksum_error(thread, resource, error)?;
         }
 
         Ok(())

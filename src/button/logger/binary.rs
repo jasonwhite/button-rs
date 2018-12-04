@@ -187,4 +187,13 @@ where
 
         Ok(())
     }
+
+    fn checksum_error(
+        &self,
+        _thread: usize,
+        _resource: &res::Any,
+        _error: &Error,
+    ) -> LogResult<()> {
+        Ok(())
+    }
 }

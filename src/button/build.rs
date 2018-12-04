@@ -663,18 +663,28 @@ where
     L: EventLogger,
 {
     match node {
-        Node::Resource(r) => build_resource(context, tid, index, r),
+        Node::Resource(r) => build_resource(context, tid, index, r, logger),
         Node::Task(t) => build_task(context, tid, index, t, logger),
     }
 }
 
-fn build_resource(
+fn build_resource<L>(
     context: &BuildContext,
-    _tid: usize,
+    tid: usize,
     index: NodeIndex,
     node: &res::Any,
-) -> Result<bool, Error> {
-    let state = node.state(context.root)?;
+    logger: &L,
+) -> Result<bool, Error>
+where
+    L: EventLogger,
+{
+    let state = match node.state(context.root) {
+        Ok(state) => state,
+        Err(err) => {
+            logger.checksum_error(tid, node, &err)?;
+            return Err(err);
+        }
+    };
 
     let mut checksums = context.checksums.lock().unwrap();
 
