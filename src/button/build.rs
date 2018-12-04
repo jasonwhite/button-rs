@@ -37,7 +37,7 @@ use graph::{
     Algo, Edges, IndexSet, Indexable, Neighbors, NodeIndex, Nodes, Subgraph,
 };
 
-use error::{BuildError, Error, ErrorKind, ResultExt};
+use error::{BuildError, Error, ErrorKind, Fail, ResultExt};
 
 /// A build failure. Contains each of the node indexes that failed and the
 /// associated error.
@@ -78,7 +78,7 @@ fn delete_resources<L>(
     threads: usize,
     logger: &L,
     dryrun: bool,
-) -> Result<(), Error>
+) -> Result<(), BuildError>
 where
     L: EventLogger,
 {
@@ -115,7 +115,7 @@ where
             threads,
             true,
         )
-        .map_err(BuildFailure::new)?; // TODO: Return a ResourceDeletion error.
+        .map_err(ErrorKind::DeleteErrors)?;
 
     Ok(())
 }
@@ -123,18 +123,18 @@ where
 /// Updates the build state with the build graph loaded from the on-disk rules.
 fn sync_state<L>(
     state: &mut BuildState,
-    graph: BuildGraph,
+    graph: &BuildGraph,
     root: &Path,
     threads: usize,
     logger: &L,
     dryrun: bool,
-) -> Result<(), Error>
+) -> Result<(), BuildError>
 where
     L: EventLogger,
 {
     // Diff with the explicit subgraph in order to have a one-to-one comparison
     // with the rules build graph.
-    let diff = state.graph.explicit_subgraph().diff(&graph);
+    let diff = state.graph.explicit_subgraph().diff(graph);
 
     let nodes_to_delete: Vec<_> = diff
         .left_only_edges
@@ -147,11 +147,11 @@ where
 
     let nodes_to_delete: IndexSet<_> = nodes_to_delete.into_iter().collect();
 
-    // Delete the non-root resources in reverse-topological order that we own.
+    // Delete the non-root resources that we own in reverse-topological order.
     delete_resources(state, &nodes_to_delete, root, threads, logger, dryrun)?;
 
     // Non-destructive sync of the state's data structures.
-    state.update(&graph, &diff);
+    state.update(graph, &diff);
 
     Ok(())
 }
@@ -266,7 +266,7 @@ fn sync_detected<L>(
 ) -> Result<(), BuildError> {
     let mut bad_edges = Vec::new();
 
-    for (node, Detected { inputs, outputs: _ }) in detected {
+    for (node, Detected { inputs, .. }) in detected {
         // Sync inputs
         sync_removed_inputs(graph, node, &inputs, checksums);
 
@@ -402,19 +402,14 @@ impl<'a> Build<'a> {
         dryrun: bool,
         threads: usize,
         logger: &L,
-    ) -> Result<(), Error>
+    ) -> Result<(), BuildError>
     where
         L: EventLogger,
     {
         let state = match fs::File::open(self.state) {
             Ok(f) => BuildState::from_reader(io::BufReader::new(f))
                 .with_context(|_| {
-                    format!(
-                        "Failed loading build state from file {:?}. \
-                         Is it corrupted? Consider doing a `git clean -fdx` \
-                         or equivalent.",
-                        self.state
-                    )
+                    ErrorKind::LoadState(self.state.to_path_buf())
                 })?,
             Err(err) => {
                 if err.kind() == io::ErrorKind::NotFound {
@@ -422,7 +417,9 @@ impl<'a> Build<'a> {
                     return Ok(());
                 } else {
                     // Some other fatal IO error occurred.
-                    return Err(err.into());
+                    return Err(err
+                        .context(ErrorKind::LoadState(self.state.to_path_buf()))
+                        .into());
                 }
             }
         };
@@ -453,11 +450,12 @@ impl<'a> Build<'a> {
                 threads,
                 true,
             )
-            .map_err(BuildFailure::new)?;
-        // TODO: Return a ResourceDeletion error.
+            .map_err(ErrorKind::DeleteErrors)?;
 
         // Delete the build state
-        fs::remove_file(self.state)?;
+        fs::remove_file(self.state).with_context(|_| {
+            ErrorKind::CleanState(self.state.to_path_buf())
+        })?;
 
         Ok(())
     }
@@ -505,7 +503,7 @@ impl<'a> Build<'a> {
         dryrun: bool,
         threads: usize,
         logger: &mut L,
-    ) -> Result<(), Error>
+    ) -> Result<(), BuildError>
     where
         L: EventLogger,
     {
@@ -523,12 +521,12 @@ impl<'a> Build<'a> {
         dryrun: bool,
         threads: usize,
         logger: &L,
-    ) -> Result<(), Error>
+    ) -> Result<(), BuildError>
     where
         L: EventLogger,
     {
-        let graph = BuildGraph::from_rules(rules)
-            .context("Failed to create build graph from rules")?;
+        let graph =
+            BuildGraph::from_rules(rules).context(ErrorKind::BuildGraph)?;
 
         // Load/create the build state.
         let BuildState {
@@ -541,18 +539,13 @@ impl<'a> Build<'a> {
                     let mut state =
                         BuildState::from_reader(io::BufReader::new(f))
                             .with_context(|_| {
-                                format!(
-                                "Failed loading build state from file {:?}. \
-                                 Is it corrupted? Consider doing a \
-                                 `git clean -fdx` or equivalent.",
-                                self.state
-                            )
+                                ErrorKind::LoadState(self.state.to_path_buf())
                             })?;
 
                     sync_state(
-                        &mut state, graph, self.root, threads, logger, dryrun,
+                        &mut state, &graph, self.root, threads, logger, dryrun,
                     )
-                    .context("Failed updating build graph")?;
+                    .context(ErrorKind::SyncState)?;
 
                     state
                 }
@@ -562,7 +555,11 @@ impl<'a> Build<'a> {
                         BuildState::from_graph(graph)
                     } else {
                         // Some other fatal IO error occurred.
-                        return Err(err.into());
+                        return Err(err
+                            .context(ErrorKind::LoadState(
+                                self.state.to_path_buf(),
+                            ))
+                            .into());
                     }
                 }
             }
@@ -611,10 +608,9 @@ impl<'a> Build<'a> {
         };
 
         let BuildContext {
-            root: _,
-            dryrun: _,
             checksums,
             detected,
+            ..
         } = context;
         let mut checksums = checksums.into_inner().unwrap();
         let detected = detected.into_inner().unwrap();
@@ -643,12 +639,9 @@ impl<'a> Build<'a> {
             queue,
             checksums,
         }
-        .write_to_path(self.state)
-        .with_context(|_| {
-            format!("Failed writing build state to {:?}", self.state)
-        })?;
+        .write_to_path(self.state)?;
 
-        result.map_err(BuildFailure::new)?;
+        result.map_err(ErrorKind::TaskErrors)?;
 
         Ok(())
     }

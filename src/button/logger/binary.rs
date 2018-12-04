@@ -29,7 +29,7 @@ use task;
 
 use bincode;
 use chrono::Utc;
-use error::{Error, SerError};
+use error::{BuildError, Error, SerError};
 
 use super::events::*;
 
@@ -70,7 +70,7 @@ where
     fn finish(self, result: &LogResult<Detected>) -> LogResult<()> {
         let result = match result {
             Ok(x) => Ok(x.clone()),
-            Err(err) => Err(SerError::new(err)),
+            Err(err) => Err(SerError::from(err)),
         };
 
         let mut writer = self.writer.lock().unwrap();
@@ -139,10 +139,10 @@ where
         Ok(())
     }
 
-    fn end_build(&mut self, result: &Result<(), Error>) -> LogResult<()> {
+    fn end_build(&mut self, result: &Result<(), BuildError>) -> LogResult<()> {
         let result = match result {
             Ok(()) => Ok(()),
-            Err(err) => Err(SerError::new(err)),
+            Err(err) => Err(SerError::from(err)),
         };
 
         let mut writer = self.writer.lock().unwrap();

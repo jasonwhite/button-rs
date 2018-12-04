@@ -34,7 +34,7 @@ pub use self::events::{log_from_path, log_from_reader, LogEvent};
 pub use self::traits::{EventLogger, LogResult, TaskLogger};
 
 use detect::Detected;
-use error::{Error, ResultExt};
+use error::{BuildError, Error, ResultExt};
 use res;
 use task;
 
@@ -135,7 +135,7 @@ impl EventLogger for Any {
         }
     }
 
-    fn end_build(&mut self, result: &Result<(), Error>) -> LogResult<()> {
+    fn end_build(&mut self, result: &Result<(), BuildError>) -> LogResult<()> {
         match self {
             Any::Console(l) => l.end_build(result),
             Any::BinaryFile(l) => l.end_build(result),
@@ -267,7 +267,7 @@ where
         Ok(())
     }
 
-    fn end_build(&mut self, result: &Result<(), Error>) -> LogResult<()> {
+    fn end_build(&mut self, result: &Result<(), BuildError>) -> LogResult<()> {
         for logger in &mut self.inner {
             logger.end_build(result)?;
         }

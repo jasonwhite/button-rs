@@ -21,7 +21,7 @@
 use std::io;
 
 use detect::Detected;
-use error::Error;
+use error::{BuildError, Error};
 
 use res;
 use task;
@@ -46,7 +46,7 @@ pub trait EventLogger: Send + Sync {
     fn begin_build(&mut self, threads: usize) -> LogResult<()>;
 
     /// Called when the build has finished.
-    fn end_build(&mut self, result: &Result<(), Error>) -> LogResult<()>;
+    fn end_build(&mut self, result: &Result<(), BuildError>) -> LogResult<()>;
 
     /// Called when a task is about to be executed.
     fn start_task(

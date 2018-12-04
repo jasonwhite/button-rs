@@ -100,6 +100,8 @@ impl Build {
 
         let rules = Rules::from_path(&rules)?;
 
-        build.build(rules, self.dryrun, threads, &mut loggers)
+        build.build(rules, self.dryrun, threads, &mut loggers)?;
+
+        Ok(())
     }
 }

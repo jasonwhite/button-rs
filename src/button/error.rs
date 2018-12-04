@@ -18,14 +18,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use std::fmt::{self, Display};
+use std::fmt::{self, Debug, Display};
 use std::path::PathBuf;
 
-use failure::{Backtrace, Context, Fail};
+use failure::{Backtrace, Context};
 
 use graph::NodeIndex;
 
-pub use failure::{Error, ResultExt};
+pub use failure::{Error, Fail, ResultExt};
 
 /// A serializable error.
 ///
@@ -37,34 +37,41 @@ pub use failure::{Error, ResultExt};
 #[derive(Serialize, Deserialize)]
 pub struct SerError(Vec<String>);
 
-impl SerError {
-    pub fn new(error: &Error) -> SerError {
+impl<'a> From<&'a Error> for SerError {
+    fn from(error: &Error) -> SerError {
         SerError(error.iter_chain().map(|c| format!("{}", c)).collect())
     }
 }
 
-impl fmt::Debug for SerError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+impl<'a> From<&'a BuildError> for SerError {
+    fn from(error: &BuildError) -> SerError {
+        let mut errors = Vec::new();
+        errors.push(format!("{}", error));
+
+        let mut error = error.cause();
+
+        while let Some(cause) = error {
+            errors.push(format!("{}", cause));
+            error = cause.cause();
+        }
+
+        SerError(errors)
+    }
+}
+
+impl Debug for SerError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.0[0])
     }
 }
 
-impl Into<Error> for SerError {
-    fn into(self) -> Error {
-        let mut causes = self.0.into_iter().rev();
-
-        let mut err = Error::from_boxed_compat(causes.next().unwrap().into());
-
-        for cause in causes {
-            err = err.context(cause).into();
-        }
-
-        err
+impl Display for SerError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0[0])
     }
 }
 
-#[derive(Debug)]
-pub struct TaskError(Error);
+impl std::error::Error for SerError {}
 
 #[derive(Debug)]
 pub struct ChecksumError(Error);
@@ -78,7 +85,7 @@ pub struct EdgeError(NodeIndex, NodeIndex);
 /// An error that can occur during a build.
 #[derive(Fail, Debug)]
 pub enum ErrorKind {
-    /// A failure to parse rules.
+    /// A failure parsing rules.
     ParsingRules,
 
     /// A failure reading the build state.
@@ -87,8 +94,25 @@ pub enum ErrorKind {
     /// A failure writing the build state.
     SaveState(PathBuf),
 
+    /// A failure deleting the build state.
+    CleanState(PathBuf),
+
+    /// A failure synchronizing the build state.
+    SyncState,
+
     /// Detected edges that would have caused the build order to change.
     InvalidEdges(Vec<(NodeIndex, NodeIndex)>),
+
+    /// One or more failed tasks.
+    TaskErrors(Vec<(NodeIndex, Error)>),
+
+    /// One or more failed deletions.
+    DeleteErrors(Vec<(NodeIndex, Error)>),
+
+    /// Failed creating build graph.
+    BuildGraph,
+
+    Other(Error),
 }
 
 impl Display for ErrorKind {
@@ -103,11 +127,23 @@ impl Display for ErrorKind {
             ErrorKind::SaveState(path) => {
                 write!(f, "Failed saving build state to '{}'", path.display())
             }
+            ErrorKind::CleanState(path) => {
+                write!(f, "Failed deleting build state '{}'", path.display())
+            }
+            ErrorKind::SyncState => write!(f, "Failed updating build graph"),
             ErrorKind::InvalidEdges(edges) => write!(
                 f,
                 "{} detected edge(s) would have changed build order",
                 edges.len()
             ),
+            ErrorKind::TaskErrors(errors) => {
+                write!(f, "{} task(s) failed", errors.len())
+            }
+            ErrorKind::DeleteErrors(errors) => {
+                write!(f, "{} resources(s) could not be deleted", errors.len())
+            }
+            ErrorKind::BuildGraph => write!(f, "Failed creating build graph"),
+            ErrorKind::Other(err) => write!(f, "{}", err),
         }
     }
 }
@@ -115,6 +151,12 @@ impl Display for ErrorKind {
 #[derive(Debug)]
 pub struct BuildError {
     inner: Context<ErrorKind>,
+}
+
+impl BuildError {
+    pub fn kind(&self) -> &ErrorKind {
+        &*self.inner.get_context()
+    }
 }
 
 impl Fail for BuildError {
@@ -133,12 +175,6 @@ impl Display for BuildError {
     }
 }
 
-impl BuildError {
-    pub fn kind(&self) -> &ErrorKind {
-        &*self.inner.get_context()
-    }
-}
-
 impl From<ErrorKind> for BuildError {
     fn from(kind: ErrorKind) -> Self {
         BuildError {
@@ -150,5 +186,27 @@ impl From<ErrorKind> for BuildError {
 impl From<Context<ErrorKind>> for BuildError {
     fn from(inner: Context<ErrorKind>) -> Self {
         BuildError { inner }
+    }
+}
+
+impl From<Error> for BuildError {
+    fn from(err: Error) -> Self {
+        BuildError {
+            inner: Context::new(ErrorKind::Other(err)),
+        }
+    }
+}
+
+impl From<SerError> for BuildError {
+    fn from(err: SerError) -> BuildError {
+        let mut causes = err.0.into_iter().rev();
+
+        let mut err = Error::from_boxed_compat(causes.next().unwrap().into());
+
+        for cause in causes {
+            err = err.context(cause).into();
+        }
+
+        ErrorKind::Other(err).into()
     }
 }

@@ -63,6 +63,8 @@ impl Clean {
 
         let state_path = root.join(paths::STATE);
         let build = button::Build::new(root, &state_path);
-        build.clean(self.dryrun, threads, &logger)
+        build.clean(self.dryrun, threads, &logger)?;
+
+        Ok(())
     }
 }

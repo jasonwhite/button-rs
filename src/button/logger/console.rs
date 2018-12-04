@@ -26,7 +26,7 @@ use detect::Detected;
 use res;
 use task;
 
-use error::Error;
+use error::{BuildError, Error};
 
 use super::traits::{EventLogger, LogResult, TaskLogger};
 
@@ -162,8 +162,9 @@ impl EventLogger for Console {
         Ok(())
     }
 
-    fn end_build(&mut self, _result: &Result<(), Error>) -> LogResult<()> {
-        println!("Build duration: {:.4?}", self.start_time.elapsed());
+    fn end_build(&mut self, _result: &Result<(), BuildError>) -> LogResult<()> {
+        println!("---");
+        println!("Build complete. Took {:.4?}", self.start_time.elapsed());
 
         Ok(())
     }
