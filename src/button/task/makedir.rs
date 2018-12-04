@@ -56,7 +56,16 @@ impl MakeDir {
         root: &Path,
         _log: &mut io::Write,
     ) -> Result<Detected, Error> {
-        fs::create_dir_all(&root.join(&self.path))?;
+        // Only create the last directory, not the entire directory path. We
+        // would not be able to properly clean up directories if we did the
+        // equivalent of `mkdir -p`. Instead, the entire directory path chain
+        // should be coded into the build graph. For example, to create the
+        // directory path `obj/x64`, there should be two rules: one for creating
+        // `obj` and one for creating `obj/x64`. We automatically add a
+        // dependency on the parent path such that they get created in the
+        // correct order.
+        fs::create_dir(&root.join(&self.path))?;
+
         Ok(Detected::new())
     }
 }
@@ -88,7 +97,9 @@ impl Task for MakeDir {
         // that we delete directories in the correct order relative to one
         // another.
         if let Some(parent) = self.path.parent() {
-            set.insert(res::Dir::new(parent.to_path_buf()).into());
+            if parent != Path::new("") && parent != Path::new(".") {
+                set.insert(res::Dir::new(parent.to_path_buf()).into());
+            }
         }
     }
 
@@ -103,7 +114,32 @@ mod tests {
     use res;
 
     #[test]
-    fn test_known_outputs() {
+    fn known_inputs_parent() {
+        let task = MakeDir::new(PathBuf::from("foo/bar"));
+        let mut set = res::Set::new();
+        task.known_inputs(&mut set);
+        assert_eq!(set.len(), 1);
+        assert!(set.contains(&res::Dir::new("foo".into()).into()));
+    }
+
+    #[test]
+    fn known_inputs_no_parent() {
+        let task = MakeDir::new(PathBuf::from("foo"));
+        let mut set = res::Set::new();
+        task.known_inputs(&mut set);
+        assert_eq!(set.len(), 0);
+    }
+
+    #[test]
+    fn known_inputs_dot_parent() {
+        let task = MakeDir::new(PathBuf::from("./foo"));
+        let mut set = res::Set::new();
+        task.known_inputs(&mut set);
+        assert_eq!(set.len(), 0);
+    }
+
+    #[test]
+    fn known_outputs() {
         let task = MakeDir::new(PathBuf::from("foobar"));
         let mut set = res::Set::new();
         task.known_outputs(&mut set);

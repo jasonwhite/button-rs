@@ -67,7 +67,6 @@ pub struct Delete {
     pub resource: res::Any,
 }
 
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ChecksumError {
     pub thread: usize,
