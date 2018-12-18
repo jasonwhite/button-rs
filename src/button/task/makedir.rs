@@ -64,7 +64,14 @@ impl MakeDir {
         // `obj` and one for creating `obj/x64`. We automatically add a
         // dependency on the parent path such that they get created in the
         // correct order.
-        fs::create_dir(&root.join(&self.path))?;
+        match fs::create_dir(&root.join(&self.path)) {
+            Ok(()) => Ok(()),
+            Err(err) => match err.kind() {
+                // Don't care if it already exists.
+                io::ErrorKind::AlreadyExists => Ok(()),
+                _ => Err(err),
+            }
+        }?;
 
         Ok(Detected::new())
     }
