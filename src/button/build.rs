@@ -285,6 +285,16 @@ fn sync_detected<L>(
     }
 
     if !bad_edges.is_empty() {
+        let bad_edges = bad_edges
+            .into_iter()
+            .map(|(a, b)| {
+                (
+                    format!("{}", graph.node_from_index(a)),
+                    format!("{}", graph.node_from_index(b)),
+                )
+            })
+            .collect();
+
         return Err(ErrorKind::InvalidEdges(bad_edges).into());
     }
 

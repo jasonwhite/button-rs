@@ -101,7 +101,7 @@ pub enum ErrorKind {
     SyncState,
 
     /// Detected edges that would have caused the build order to change.
-    InvalidEdges(Vec<(NodeIndex, NodeIndex)>),
+    InvalidEdges(Vec<(String, String)>),
 
     /// One or more failed tasks.
     TaskErrors(Vec<(NodeIndex, Error)>),
@@ -131,11 +131,19 @@ impl Display for ErrorKind {
                 write!(f, "Failed deleting build state '{}'", path.display())
             }
             ErrorKind::SyncState => write!(f, "Failed updating build graph"),
-            ErrorKind::InvalidEdges(edges) => write!(
-                f,
-                "{} detected edge(s) would have changed build order",
-                edges.len()
-            ),
+            ErrorKind::InvalidEdges(edges) => {
+                writeln!(
+                    f,
+                    "{} detected edge(s) would have changed build order:",
+                    edges.len()
+                )?;
+
+                for (from, to) in edges {
+                    writeln!(f, "- {} -> {}", from, to)?;
+                }
+
+                Ok(())
+            }
             ErrorKind::TaskErrors(errors) => {
                 write!(f, "{} task(s) failed", errors.len())
             }
