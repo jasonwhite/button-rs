@@ -64,7 +64,7 @@ impl BatchScript {
     fn execute_impl(
         &self,
         root: &Path,
-        log: &mut io::Write,
+        log: &mut dyn io::Write,
     ) -> Result<Detected, Error> {
         // Write the script contents to a temporary file for execution. This
         // temporary file must outlive the spawned process.
@@ -108,7 +108,7 @@ impl BatchScript {
 }
 
 impl fmt::Display for BatchScript {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.display {
             Some(ref display) => write!(f, "batch script: {}", display),
             None => write!(f, "batch script"),
@@ -117,7 +117,7 @@ impl fmt::Display for BatchScript {
 }
 
 impl fmt::Debug for BatchScript {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self)
     }
 }
@@ -126,7 +126,7 @@ impl Task for BatchScript {
     fn execute(
         &self,
         root: &Path,
-        log: &mut io::Write,
+        log: &mut dyn io::Write,
     ) -> Result<Detected, Error> {
         if let Some(ref retry) = self.retry {
             retry.call(|| self.execute_impl(root, log), progress_dummy)

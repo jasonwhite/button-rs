@@ -50,7 +50,7 @@ impl Copy {
     fn execute_impl(
         &self,
         root: &Path,
-        _log: &mut io::Write,
+        _log: &mut dyn io::Write,
     ) -> Result<Detected, Error> {
         fs::copy(&root.join(&self.from), &root.join(&self.to))?;
         Ok(Detected::new())
@@ -58,13 +58,13 @@ impl Copy {
 }
 
 impl fmt::Display for Copy {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "copy {:?} -> {:?}", self.from, self.to)
     }
 }
 
 impl fmt::Debug for Copy {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self)
     }
 }
@@ -73,7 +73,7 @@ impl Task for Copy {
     fn execute(
         &self,
         root: &Path,
-        log: &mut io::Write,
+        log: &mut dyn io::Write,
     ) -> Result<Detected, Error> {
         self.retry
             .call(|| self.execute_impl(root, log), progress_dummy)

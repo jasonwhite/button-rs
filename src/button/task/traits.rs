@@ -49,7 +49,7 @@ pub trait Task:
     fn execute(
         &self,
         root: &Path,
-        log: &mut io::Write,
+        log: &mut dyn io::Write,
     ) -> Result<Detected, Error>;
 
     /// Inputs the task knows about *a priori*. It must calculate these by

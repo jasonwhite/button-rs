@@ -54,7 +54,7 @@ impl MakeDir {
     fn execute_impl(
         &self,
         root: &Path,
-        _log: &mut io::Write,
+        _log: &mut dyn io::Write,
     ) -> Result<Detected, Error> {
         // Only create the last directory, not the entire directory path. We
         // would not be able to properly clean up directories if we did the
@@ -78,13 +78,13 @@ impl MakeDir {
 }
 
 impl fmt::Display for MakeDir {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "mkdir {:?}", self.path)
     }
 }
 
 impl fmt::Debug for MakeDir {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self)
     }
 }
@@ -93,7 +93,7 @@ impl Task for MakeDir {
     fn execute(
         &self,
         root: &Path,
-        log: &mut io::Write,
+        log: &mut dyn io::Write,
     ) -> Result<Detected, Error> {
         self.retry
             .call(|| self.execute_impl(root, log), progress_dummy)

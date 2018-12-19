@@ -46,7 +46,7 @@ impl ops::Deref for Arg {
 impl fmt::Display for Arg {
     /// Quotes the argument such that it is safe to pass to the shell.
     #[cfg(windows)]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let quote =
             self.0.chars().any(|c| c == ' ' || c == '\t') || self.0.is_empty();
 
@@ -88,7 +88,7 @@ impl fmt::Display for Arg {
 
     /// Quotes the argument such that it is safe to pass to the shell.
     #[cfg(unix)]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let quote = self.0.chars().any(|c| " \n\t#<>'&|".contains(c))
             || self.0.is_empty();
 
@@ -188,7 +188,7 @@ impl AsRef<OsStr> for ArgBuf {
 }
 
 impl fmt::Display for ArgBuf {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&**self, formatter)
     }
 }
@@ -289,7 +289,7 @@ impl Arguments {
     }
 
     /// Write a response file to an arbitrary writer.
-    fn write_response_file(&self, writer: &mut io::Write) -> io::Result<()> {
+    fn write_response_file(&self, writer: &mut dyn io::Write) -> io::Result<()> {
         let mut iter = self.into_iter();
 
         if let Some(arg) = iter.next() {
@@ -309,7 +309,7 @@ impl Arguments {
 }
 
 impl fmt::Display for Arguments {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut iter = self.iter();
 
         if let Some(arg) = iter.next() {

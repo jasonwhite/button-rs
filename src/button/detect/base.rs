@@ -30,7 +30,7 @@ use super::detected::Detected;
 pub fn run(
     root: &Path,
     process: &Process,
-    log: &mut io::Write,
+    log: &mut dyn io::Write,
 ) -> Result<Detected, Error> {
     let mut process = Cow::Borrowed(process);
 

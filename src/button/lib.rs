@@ -17,28 +17,28 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-extern crate bincode;
-extern crate bit_set;
-extern crate chrono;
+use bincode;
+use bit_set;
+
 #[macro_use]
 extern crate serde_derive;
-extern crate crossbeam;
-extern crate failure;
+use crossbeam;
+use failure;
 #[macro_use]
 extern crate failure_derive;
-extern crate generic_array;
-extern crate hex;
-extern crate holyhashmap;
+
+
+use holyhashmap;
 #[macro_use]
 extern crate nom;
-extern crate os_pipe;
-extern crate rand;
-extern crate reqwest;
-extern crate serde;
-extern crate serde_json;
-extern crate sha2;
-extern crate tempfile;
-extern crate termcolor;
+
+use rand;
+use reqwest;
+
+use serde_json;
+use sha2;
+use tempfile;
+use termcolor;
 
 mod build;
 pub mod build_graph;

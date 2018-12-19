@@ -58,13 +58,13 @@ pub struct Download {
 }
 
 impl fmt::Display for Download {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.url)
     }
 }
 
 impl fmt::Debug for Download {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self.url)
     }
 }
@@ -73,7 +73,7 @@ impl Task for Download {
     fn execute(
         &self,
         root: &Path,
-        log: &mut io::Write,
+        log: &mut dyn io::Write,
     ) -> Result<Detected, Error> {
         let path = root.join(&self.path);
 

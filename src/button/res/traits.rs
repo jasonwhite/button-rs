@@ -42,7 +42,7 @@ pub enum ResourceState {
 }
 
 impl fmt::Display for ResourceState {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ResourceState::Missing => write!(f, "missing"),
             ResourceState::Checksum(c) => write!(f, "{}", c),

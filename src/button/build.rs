@@ -53,7 +53,7 @@ impl BuildFailure {
 }
 
 impl fmt::Display for BuildFailure {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.errors.len() == 1 {
             write!(f, "Build failed with {} error", self.errors.len())
         } else {
@@ -653,7 +653,7 @@ impl<'a> Build<'a> {
 }
 
 fn build_node<L>(
-    context: &BuildContext,
+    context: &BuildContext<'_>,
     tid: usize,
     index: NodeIndex,
     node: &Node,
@@ -669,7 +669,7 @@ where
 }
 
 fn build_resource<L>(
-    context: &BuildContext,
+    context: &BuildContext<'_>,
     tid: usize,
     index: NodeIndex,
     node: &res::Any,
@@ -703,7 +703,7 @@ where
 }
 
 fn build_task<L>(
-    context: &BuildContext,
+    context: &BuildContext<'_>,
     tid: usize,
     index: NodeIndex,
     node: &task::List,

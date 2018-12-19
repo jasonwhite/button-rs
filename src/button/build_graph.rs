@@ -60,7 +60,7 @@ impl Node {
 }
 
 impl Display for Node {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Node::Resource(ref x) => write!(f, "({})", x),
             Node::Task(ref x) => write!(f, "[{}]", x),
@@ -86,7 +86,7 @@ pub enum Edge {
 }
 
 impl Display for Edge {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Edge::Implicit => write!(f, "implicit"),
             Edge::Explicit => write!(f, "explicit"),
@@ -124,7 +124,7 @@ impl<N, E> Display for CyclesError<N, E>
 where
     N: NodeTrait + Display,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use crate::graph::Indexable;
 
         writeln!(
@@ -167,7 +167,7 @@ impl<N, E> Debug for CyclesError<N, E>
 where
     N: NodeTrait + Display,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self)
     }
 }
@@ -194,7 +194,7 @@ impl<N> Display for Race<N>
 where
     N: Display,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} (output of {} tasks)", self.node, self.count)
     }
 }
@@ -223,7 +223,7 @@ overwrite the output of the other. Please edit the build description to fix the
 race condition(s).";
 
 impl Display for RaceError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(
             f,
             "{} race condition(s) detected in the build graph:\n",
@@ -259,7 +259,7 @@ impl From<CyclesError<Node, Edge>> for Error {
 }
 
 impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::Races(ref err) => write!(f, "{}", err),
             Error::Cycles(ref err) => write!(f, "{}", err),
@@ -363,7 +363,7 @@ impl<'a, G: 'a> BuildGraphExt<'a> for Subgraph<'a, G> where
 }
 
 impl Graphviz for BuildGraph {
-    fn graphviz(&self, f: &mut io::Write) -> Result<(), io::Error> {
+    fn graphviz(&self, f: &mut dyn io::Write) -> Result<(), io::Error> {
         fn escape_label(s: &str) -> String {
             s.chars().flat_map(|c| c.escape_default()).collect()
         }

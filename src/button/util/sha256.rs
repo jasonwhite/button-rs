@@ -45,7 +45,7 @@ impl ShaVerifyError {
 }
 
 impl fmt::Display for ShaVerifyError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "expected SHA256 {}, but found {}",
@@ -111,13 +111,13 @@ impl Sha256 {
 }
 
 impl fmt::Display for Sha256 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:x}", self.inner)
     }
 }
 
 impl fmt::Debug for Sha256 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:x}", self.inner)
     }
 }
@@ -156,7 +156,7 @@ impl<'de> Deserialize<'de> for Sha256 {
         impl<'de> Visitor<'de> for HexVisitor {
             type Value = Sha256;
 
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 write!(f, "hex string or bytes")
             }
 

@@ -24,10 +24,7 @@ use super::traits::{
 use super::index::{EdgeIndex, IndexSet, IndexSetIter, NodeIndex};
 
 /// A graph with a subset of nodes and edges.
-pub struct Subgraph<'a, G>
-where
-    G: 'a,
-{
+pub struct Subgraph<'a, G> {
     graph: &'a G,
 
     // Nodes that are in the graph.

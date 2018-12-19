@@ -113,7 +113,7 @@ where
     }
 }
 
-pub struct NodesIter<'a, N: 'a> {
+pub struct NodesIter<'a, N> {
     iter: holyhashmap::Indices<'a, N, NodeNeighbors>,
 }
 
@@ -337,10 +337,7 @@ where
 }
 
 /// Iterator over all of the edges in the graph.
-pub struct EdgesIter<'a, E>
-where
-    E: 'a,
-{
+pub struct EdgesIter<'a, E> {
     iter: holyhashmap::Indices<'a, (NodeIndex, NodeIndex), E>,
 }
 

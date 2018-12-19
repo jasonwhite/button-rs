@@ -73,7 +73,7 @@ impl Command {
     fn execute_impl(
         &self,
         root: &Path,
-        log: &mut io::Write,
+        log: &mut dyn io::Write,
     ) -> Result<Detected, Error> {
         let detect = self
             .detect
@@ -86,7 +86,7 @@ impl Command {
 }
 
 impl fmt::Display for Command {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(ref display) = self.display {
             write!(f, "{}", display)
         } else {
@@ -96,7 +96,7 @@ impl fmt::Display for Command {
 }
 
 impl fmt::Debug for Command {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.process)
     }
 }
@@ -105,7 +105,7 @@ impl Task for Command {
     fn execute(
         &self,
         root: &Path,
-        log: &mut io::Write,
+        log: &mut dyn io::Write,
     ) -> Result<Detected, Error> {
         if let Some(ref retry) = self.retry {
             retry.call(|| self.execute_impl(root, log), progress_dummy)
@@ -221,7 +221,7 @@ impl<'de> Deserialize<'de> for Command {
         impl<'de> Visitor<'de> for CommandVisitor {
             type Value = Command;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("struct Command")
             }
 

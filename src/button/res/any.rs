@@ -43,7 +43,7 @@ pub enum Any {
 }
 
 impl fmt::Display for Any {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Any::File(ref x) => x.fmt(f),
             Any::Dir(ref x) => x.fmt(f),
@@ -52,7 +52,7 @@ impl fmt::Display for Any {
 }
 
 impl fmt::Debug for Any {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Any::File(ref x) => x.fmt(f),
             Any::Dir(ref x) => x.fmt(f),

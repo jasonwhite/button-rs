@@ -57,7 +57,7 @@ pub enum Any {
 }
 
 impl fmt::Display for Any {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Any::BatchScript(ref x) => x.fmt(f),
             Any::Command(ref x) => x.fmt(f),
@@ -69,7 +69,7 @@ impl fmt::Display for Any {
 }
 
 impl fmt::Debug for Any {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Any::BatchScript(ref x) => x.fmt(f),
             Any::Command(ref x) => x.fmt(f),
@@ -120,7 +120,7 @@ impl Task for Any {
     fn execute(
         &self,
         root: &Path,
-        log: &mut io::Write,
+        log: &mut dyn io::Write,
     ) -> Result<Detected, Error> {
         match self {
             Any::BatchScript(ref x) => x.execute(root, log),

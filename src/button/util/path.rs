@@ -147,7 +147,7 @@ impl PathExt for Path {
         } else {
             let mut ita = self.components();
             let mut itb = base.components();
-            let mut comps: Vec<Component> = vec![];
+            let mut comps: Vec<Component<'_>> = vec![];
             loop {
                 match (ita.next(), itb.next()) {
                     (None, None) => break,

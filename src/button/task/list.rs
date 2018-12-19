@@ -76,7 +76,7 @@ impl ops::Deref for List {
 }
 
 impl fmt::Display for List {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.list.len() == 1 {
             write!(f, "{}", self.list[0])
         } else {
@@ -86,7 +86,7 @@ impl fmt::Display for List {
 }
 
 impl fmt::Debug for List {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.list.len() == 1 {
             write!(f, "{}", self.list[0])
         } else {
@@ -99,7 +99,7 @@ impl Task for List {
     fn execute(
         &self,
         root: &Path,
-        log: &mut io::Write,
+        log: &mut dyn io::Write,
     ) -> Result<Detected, Error> {
         let mut detected = Detected::new();
 

@@ -432,7 +432,7 @@ where
         fn scc_visit<'a, 'b, G>(
             v: NodeIndex,
             g: &'a G,
-            data: &'b mut Data<G::Map>,
+            data: &'b mut Data<'_, G::Map>,
         ) where
             G: Neighbors<'a> + Visitable<TarjanNodeData> + 'a,
         {
@@ -707,7 +707,7 @@ fn traversal_worker<'a, G, F, Error>(
 
 pub struct RootNodes<'a, G>
 where
-    G: Nodes<'a> + 'a,
+    G: Nodes<'a>,
 {
     graph: &'a G,
     nodes: <G as Nodes<'a>>::Iter,
@@ -715,7 +715,7 @@ where
 
 impl<'a, G> RootNodes<'a, G>
 where
-    G: Nodes<'a> + 'a,
+    G: Nodes<'a>,
 {
     pub fn new(graph: &'a G) -> RootNodes<'a, G> {
         RootNodes {
@@ -744,7 +744,7 @@ where
 
 pub struct NonRootNodes<'a, G>
 where
-    G: Nodes<'a> + 'a,
+    G: Nodes<'a>,
 {
     graph: &'a G,
     nodes: <G as Nodes<'a>>::Iter,
@@ -752,7 +752,7 @@ where
 
 impl<'a, G> NonRootNodes<'a, G>
 where
-    G: Nodes<'a> + 'a,
+    G: Nodes<'a>,
 {
     pub fn new(graph: &'a G) -> NonRootNodes<'a, G> {
         NonRootNodes {
@@ -781,7 +781,7 @@ where
 
 pub struct TerminalNodes<'a, G>
 where
-    G: Nodes<'a> + 'a,
+    G: Nodes<'a>,
 {
     graph: &'a G,
     nodes: <G as Nodes<'a>>::Iter,
@@ -818,7 +818,7 @@ where
 
 pub struct NonTerminalNodes<'a, G>
 where
-    G: Nodes<'a> + 'a,
+    G: Nodes<'a>,
 {
     graph: &'a G,
     nodes: <G as Nodes<'a>>::Iter,
@@ -853,7 +853,7 @@ where
     }
 }
 
-pub struct DepthFirstSearch<'a, G: 'a> {
+pub struct DepthFirstSearch<'a, G> {
     graph: &'a G,
     stack: Vec<NodeIndex>,
     visited: IndexSet<NodeIndex>,
@@ -893,5 +893,5 @@ where
 
 pub trait Graphviz {
     /// GraphViz formatting of the graph.
-    fn graphviz(&self, f: &mut io::Write) -> Result<(), io::Error>;
+    fn graphviz(&self, f: &mut dyn io::Write) -> Result<(), io::Error>;
 }

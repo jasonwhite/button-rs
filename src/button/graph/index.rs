@@ -62,7 +62,7 @@ impl Into<usize> for NodeIndex {
 }
 
 impl fmt::Display for NodeIndex {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
@@ -98,7 +98,7 @@ impl Into<usize> for EdgeIndex {
 }
 
 impl fmt::Display for EdgeIndex {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
@@ -192,7 +192,7 @@ where
     T: Index,
 {
     #[inline]
-    pub fn iter(&self) -> IndexSetIter<T> {
+    pub fn iter(&self) -> IndexSetIter<'_, T> {
         IndexSetIter {
             iter: self.set.iter(),
             phantom: PhantomData,

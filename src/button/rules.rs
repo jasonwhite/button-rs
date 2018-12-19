@@ -90,11 +90,11 @@ impl Rules {
         Ok(Self::new(json::from_str(s)?))
     }
 
-    pub fn iter(&self) -> Iter<Rule> {
+    pub fn iter(&self) -> Iter<'_, Rule> {
         self.0.iter()
     }
 
-    pub fn iter_mut(&mut self) -> IterMut<Rule> {
+    pub fn iter_mut(&mut self) -> IterMut<'_, Rule> {
         self.0.iter_mut()
     }
 }

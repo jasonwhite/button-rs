@@ -60,13 +60,13 @@ impl<'a> From<&'a BuildError> for SerError {
 }
 
 impl Debug for SerError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self.0[0])
     }
 }
 
 impl Display for SerError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0[0])
     }
 }
@@ -116,7 +116,7 @@ pub enum ErrorKind {
 }
 
 impl Display for ErrorKind {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ErrorKind::ParsingRules => write!(f, "Could not parse build rules"),
             ErrorKind::LoadState(path) => write!(
@@ -160,7 +160,7 @@ impl BuildError {
 }
 
 impl Fail for BuildError {
-    fn cause(&self) -> Option<&Fail> {
+    fn cause(&self) -> Option<&dyn Fail> {
         self.inner.cause()
     }
 
@@ -170,7 +170,7 @@ impl Fail for BuildError {
 }
 
 impl Display for BuildError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.inner, f)
     }
 }

@@ -17,12 +17,12 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-extern crate atty;
-extern crate button;
-extern crate num_cpus;
+use atty;
+use button;
+use num_cpus;
 #[macro_use]
 extern crate structopt;
-extern crate termcolor;
+use termcolor;
 
 mod args;
 mod cmd;
