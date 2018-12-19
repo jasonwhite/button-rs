@@ -132,8 +132,8 @@ impl Resource for Dir {
     /// topological order. Thus, if all output resource are accounted for,
     /// directory deletion will always succeed.
     fn delete(&self, root: &Path) -> Result<(), Error> {
-        use std::time::Duration;
         use crate::util::{progress_dummy, Retry};
+        use std::time::Duration;
 
         // Retry directory deletions. On Windows, directory deletions can fail
         // spuriously, but usually only for a very short time.

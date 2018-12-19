@@ -23,9 +23,9 @@ use std::io::{self, Write};
 use std::mem;
 use std::path::Path;
 
+use crate::error::SerError;
 use bincode;
 use chrono::{DateTime, Utc};
-use crate::error::SerError;
 
 use crate::detect::Detected;
 use crate::res;

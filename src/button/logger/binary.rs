@@ -27,9 +27,9 @@ use crate::detect::Detected;
 use crate::res;
 use crate::task;
 
+use crate::error::{BuildError, Error, SerError};
 use bincode;
 use chrono::Utc;
-use crate::error::{BuildError, Error, SerError};
 
 use super::events::*;
 

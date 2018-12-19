@@ -112,8 +112,8 @@ impl IntoIterator for Rules {
 mod tests {
     use super::*;
     use crate::res::File;
-    use std::path::PathBuf;
     use crate::task::Command;
+    use std::path::PathBuf;
 
     #[test]
     fn test_loading() {

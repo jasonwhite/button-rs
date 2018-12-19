@@ -70,7 +70,7 @@ impl MakeDir {
                 // Don't care if it already exists.
                 io::ErrorKind::AlreadyExists => Ok(()),
                 _ => Err(err),
-            }
+            },
         }?;
 
         Ok(Detected::new())

@@ -162,7 +162,7 @@ impl PathExt for Path {
                         comps.push(a)
                     }
                     (Some(_), Some(b)) if b == Component::ParentDir => {
-                        return None
+                        return None;
                     }
                     (Some(a), Some(_)) => {
                         comps.push(Component::ParentDir);

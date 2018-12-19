@@ -289,7 +289,10 @@ impl Arguments {
     }
 
     /// Write a response file to an arbitrary writer.
-    fn write_response_file(&self, writer: &mut dyn io::Write) -> io::Result<()> {
+    fn write_response_file(
+        &self,
+        writer: &mut dyn io::Write,
+    ) -> io::Result<()> {
         let mut iter = self.into_iter();
 
         if let Some(arg) = iter.next() {

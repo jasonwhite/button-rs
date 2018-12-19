@@ -221,7 +221,10 @@ impl<'de> Deserialize<'de> for Command {
         impl<'de> Visitor<'de> for CommandVisitor {
             type Value = Command;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            fn expecting(
+                &self,
+                formatter: &mut fmt::Formatter<'_>,
+            ) -> fmt::Result {
                 formatter.write_str("struct Command")
             }
 

@@ -27,7 +27,6 @@ use failure;
 #[macro_use]
 extern crate failure_derive;
 
-
 use holyhashmap;
 #[macro_use]
 extern crate nom;
