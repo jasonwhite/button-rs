@@ -29,10 +29,10 @@ use super::download::Download;
 use super::makedir::MakeDir;
 
 use super::traits::Task;
-use detect::Detected;
-use error::Error;
+use crate::detect::Detected;
+use crate::error::Error;
 
-use res;
+use crate::res;
 
 /// Any possible task. This list is used for deserialization purposes.
 #[derive(

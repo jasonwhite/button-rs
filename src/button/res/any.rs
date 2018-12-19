@@ -21,7 +21,7 @@
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-use error::Error;
+use crate::error::Error;
 
 use super::dir::Dir;
 use super::file::File;

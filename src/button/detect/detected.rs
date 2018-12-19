@@ -19,7 +19,7 @@
 // THE SOFTWARE.
 use std::collections::HashSet;
 
-use res;
+use crate::res;
 
 /// The sets of detected inputs and outputs of a process.
 #[derive(Serialize, Deserialize, Clone, Default)]

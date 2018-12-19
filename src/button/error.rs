@@ -23,7 +23,7 @@ use std::path::PathBuf;
 
 use failure::{Backtrace, Context};
 
-use graph::NodeIndex;
+use crate::graph::NodeIndex;
 
 pub use failure::{Error, Fail, ResultExt};
 

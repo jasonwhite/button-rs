@@ -29,7 +29,7 @@ mod cmd;
 mod opts;
 mod paths;
 
-use args::Args;
+use crate::args::Args;
 use structopt::StructOpt;
 
 fn main() {

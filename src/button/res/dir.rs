@@ -25,8 +25,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use error::Error;
-use util::Sha256;
+use crate::error::Error;
+use crate::util::Sha256;
 
 use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -133,7 +133,7 @@ impl Resource for Dir {
     /// directory deletion will always succeed.
     fn delete(&self, root: &Path) -> Result<(), Error> {
         use std::time::Duration;
-        use util::{progress_dummy, Retry};
+        use crate::util::{progress_dummy, Retry};
 
         // Retry directory deletions. On Windows, directory deletions can fail
         // spuriously, but usually only for a very short time.

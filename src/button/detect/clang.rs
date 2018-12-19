@@ -23,14 +23,14 @@ use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use error::{Error, ResultExt};
-use util::Process;
+use crate::error::{Error, ResultExt};
+use crate::util::Process;
 
 use super::detected::Detected;
 
 use tempfile::NamedTempFile;
 
-use util::MakeFile;
+use crate::util::MakeFile;
 
 pub fn run(
     root: &Path,

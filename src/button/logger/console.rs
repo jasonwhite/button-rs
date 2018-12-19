@@ -22,11 +22,11 @@ use std::io::{self, Write};
 use std::sync::Arc;
 use std::time::Instant;
 
-use detect::Detected;
-use res;
-use task;
+use crate::detect::Detected;
+use crate::res;
+use crate::task;
 
-use error::{BuildError, Error};
+use crate::error::{BuildError, Error};
 
 use super::traits::{EventLogger, LogResult, TaskLogger};
 

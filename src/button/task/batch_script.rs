@@ -26,12 +26,12 @@ use std::path::{Path, PathBuf};
 
 use tempfile;
 
-use error::Error;
+use crate::error::Error;
 
 use super::traits::Task;
-use detect::Detected;
+use crate::detect::Detected;
 
-use util::{progress_dummy, Arguments, Process, Retry};
+use crate::util::{progress_dummy, Arguments, Process, Retry};
 
 /// A task to create a directory.
 #[derive(

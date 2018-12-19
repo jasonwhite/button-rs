@@ -28,9 +28,9 @@ pub use self::detected::Detected;
 use std::io;
 use std::path::Path;
 
-use error::Error;
+use crate::error::Error;
 
-use util::Process;
+use crate::util::Process;
 
 /// Input and output detection strategy.
 #[derive(

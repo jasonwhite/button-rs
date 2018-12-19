@@ -20,11 +20,11 @@
 
 use std::io;
 
-use detect::Detected;
-use error::{BuildError, Error};
+use crate::detect::Detected;
+use crate::error::{BuildError, Error};
 
-use res;
-use task;
+use crate::res;
+use crate::task;
 
 /// A log result represents the result of the logging operation itself. For
 /// example, events should use this to propagate errors relating to IO.

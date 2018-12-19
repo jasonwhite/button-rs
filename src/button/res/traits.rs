@@ -22,11 +22,11 @@ use std::fmt;
 use std::hash::Hash;
 use std::path::Path;
 
-use error::Error;
+use crate::error::Error;
 
 use serde::Serialize;
 
-use util;
+use crate::util;
 
 pub type Checksum = util::Sha256;
 

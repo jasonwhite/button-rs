@@ -30,7 +30,7 @@ use tempfile::TempPath;
 
 use super::args::{Arg, Arguments};
 
-use error::{Error, ResultExt};
+use crate::error::{Error, ResultExt};
 
 #[derive(
     Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Debug,

@@ -5,6 +5,7 @@ version = "0.1.0"
 authors = ["Jason White"]
 license = "MIT"
 repository = "https://github.com/jasonwhite/button-rs"
+edition = "2018"
 
 [lib]
 name = "button"

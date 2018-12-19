@@ -23,11 +23,11 @@ use std::hash::Hash;
 use std::io;
 use std::path::Path;
 
-use detect::Detected;
-use error::Error;
+use crate::detect::Detected;
+use crate::error::Error;
 use serde::Serialize;
 
-use res;
+use crate::res;
 
 /// A task is a routine to be executed that produces resources as outputs.
 ///

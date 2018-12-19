@@ -25,19 +25,19 @@ use std::io;
 use std::path::Path;
 use std::sync::Mutex;
 
-use build_graph::{BuildGraph, BuildGraphExt, Edge, FromRules, Node};
-use detect::Detected;
-use logger::{EventLogger, TaskLogger};
-use res::{self, Resource, ResourceState};
-use rules::Rules;
-use state::BuildState;
-use task::{self, Task};
+use crate::build_graph::{BuildGraph, BuildGraphExt, Edge, FromRules, Node};
+use crate::detect::Detected;
+use crate::logger::{EventLogger, TaskLogger};
+use crate::res::{self, Resource, ResourceState};
+use crate::rules::Rules;
+use crate::state::BuildState;
+use crate::task::{self, Task};
 
-use graph::{
+use crate::graph::{
     Algo, Edges, IndexSet, Indexable, Neighbors, NodeIndex, Nodes, Subgraph,
 };
 
-use error::{BuildError, Error, ErrorKind, Fail, ResultExt};
+use crate::error::{BuildError, Error, ErrorKind, Fail, ResultExt};
 
 /// A build failure. Contains each of the node indexes that failed and the
 /// associated error.

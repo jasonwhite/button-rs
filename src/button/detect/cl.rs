@@ -21,8 +21,8 @@
 use std::io::{self, BufRead};
 use std::path::Path;
 
-use error::{Error, ResultExt};
-use util::Process;
+use crate::error::{Error, ResultExt};
+use crate::util::Process;
 
 use super::detected::Detected;
 

@@ -33,8 +33,8 @@ use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 
 use super::traits::{Resource, ResourceState};
 
-use error::{Error, ResultExt};
-use util::{self, PathExt};
+use crate::error::{Error, ResultExt};
+use crate::util::{self, PathExt};
 
 /// A file resource. This can actually be a file *or* directory.
 ///

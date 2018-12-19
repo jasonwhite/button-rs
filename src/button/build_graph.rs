@@ -22,15 +22,15 @@ use std::error;
 use std::fmt::{self, Debug, Display};
 use std::io;
 
-use graph::{
+use crate::graph::{
     Algo, Edges, Graph, GraphBase, Graphviz, Indexable, Neighbors, NodeIndex,
     NodeTrait, Nodes, Subgraph,
 };
 
-use res;
-use task;
+use crate::res;
+use crate::task;
 
-use rules::{Rule, Rules};
+use crate::rules::{Rule, Rules};
 
 /// A node in the graph.
 #[derive(
@@ -125,7 +125,7 @@ where
     N: NodeTrait + Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use graph::Indexable;
+        use crate::graph::Indexable;
 
         writeln!(
             f,
@@ -483,7 +483,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use res::File;
+    use crate::res::File;
 
     #[test]
     fn test_good_graph() {

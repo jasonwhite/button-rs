@@ -23,8 +23,8 @@ use num_cpus;
 
 use button::{self, logger, Error, ResultExt, Rules};
 
-use opts::GlobalOpts;
-use paths;
+use crate::opts::GlobalOpts;
+use crate::paths;
 
 #[derive(StructOpt, Debug)]
 pub struct Build {

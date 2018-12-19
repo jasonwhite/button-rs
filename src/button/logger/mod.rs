@@ -33,10 +33,10 @@ pub use self::console::{Console, ConsoleTask};
 pub use self::events::{log_from_path, log_from_reader, LogEvent};
 pub use self::traits::{EventLogger, LogResult, TaskLogger};
 
-use detect::Detected;
-use error::{BuildError, Error, ResultExt};
-use res;
-use task;
+use crate::detect::Detected;
+use crate::error::{BuildError, Error, ResultExt};
+use crate::res;
+use crate::task;
 
 // TODO: Add additional loggers:
 //

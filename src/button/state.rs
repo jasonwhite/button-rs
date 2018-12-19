@@ -23,10 +23,10 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-use build_graph::BuildGraph;
-use error::{BuildError, ErrorKind, ResultExt};
-use graph::{Algo, Diff, Indexable, NodeIndex};
-use res::ResourceState;
+use crate::build_graph::BuildGraph;
+use crate::error::{BuildError, ErrorKind, ResultExt};
+use crate::graph::{Algo, Diff, Indexable, NodeIndex};
+use crate::res::ResourceState;
 
 use bincode;
 use tempfile::NamedTempFile;

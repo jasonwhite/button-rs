@@ -24,11 +24,11 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use super::traits::Task;
-use detect::Detected;
-use error::Error;
+use crate::detect::Detected;
+use crate::error::Error;
 
-use res;
-use util::{progress_dummy, Retry};
+use crate::res;
+use crate::util::{progress_dummy, Retry};
 
 /// A task to create a directory.
 #[derive(

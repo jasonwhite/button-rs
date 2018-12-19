@@ -25,11 +25,11 @@ use std::path::Path;
 
 use bincode;
 use chrono::{DateTime, Utc};
-use error::SerError;
+use crate::error::SerError;
 
-use detect::Detected;
-use res;
-use task;
+use crate::detect::Detected;
+use crate::res;
+use crate::task;
 
 use super::traits::{EventLogger, LogResult, TaskLogger};
 

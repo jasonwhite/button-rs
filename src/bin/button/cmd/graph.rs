@@ -26,8 +26,8 @@ use button::graph::Graphviz;
 use button::rules::Rules;
 use button::{BuildState, Error, ResultExt};
 
-use opts::GlobalOpts;
-use paths;
+use crate::opts::GlobalOpts;
+use crate::paths;
 
 #[derive(StructOpt, Debug)]
 pub struct Graph {

@@ -21,8 +21,8 @@ use std::io::Write;
 
 use termcolor::{self as tc, WriteColor};
 
-use cmd::Command;
-use opts::GlobalOpts;
+use crate::cmd::Command;
+use crate::opts::GlobalOpts;
 
 #[derive(StructOpt, Debug)]
 pub struct Args {

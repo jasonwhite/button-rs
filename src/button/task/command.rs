@@ -27,12 +27,12 @@ use serde::de::{
 };
 use serde::ser::{Serialize, SerializeStruct, Serializer};
 
-use error::Error;
-use res;
-use util::{progress_dummy, Arguments, Process, Retry};
+use crate::error::Error;
+use crate::res;
+use crate::util::{progress_dummy, Arguments, Process, Retry};
 
 use super::traits::Task;
-use detect::{Detect, Detected};
+use crate::detect::{Detect, Detected};
 
 const DEV_NULL: &str = "/dev/null";
 

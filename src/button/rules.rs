@@ -25,10 +25,10 @@ use std::slice::{Iter, IterMut};
 
 use serde_json as json;
 
-use res;
-use task::{self, Task};
+use crate::res;
+use crate::task::{self, Task};
 
-use error::{BuildError, ErrorKind, ResultExt};
+use crate::error::{BuildError, ErrorKind, ResultExt};
 
 /// A rule in the build description. A build description is simply a list of
 /// rules.
@@ -111,9 +111,9 @@ impl IntoIterator for Rules {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use res::File;
+    use crate::res::File;
     use std::path::PathBuf;
-    use task::Command;
+    use crate::task::Command;
 
     #[test]
     fn test_loading() {

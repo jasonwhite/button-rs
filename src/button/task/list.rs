@@ -27,10 +27,10 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::any::Any;
 use super::traits::Task;
-use detect::Detected;
-use error::Error;
+use crate::detect::Detected;
+use crate::error::Error;
 
-use res;
+use crate::res;
 
 /// A list of tasks executed in sequence. This is the root task for all tasks.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]

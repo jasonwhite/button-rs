@@ -27,11 +27,11 @@ use reqwest;
 use tempfile::NamedTempFile;
 
 use super::traits::Task;
-use detect::Detected;
-use error::{Error, ResultExt};
+use crate::detect::Detected;
+use crate::error::{Error, ResultExt};
 
-use res;
-use util::{progress_dummy, Retry, Sha256, ShaVerifyError};
+use crate::res;
+use crate::util::{progress_dummy, Retry, Sha256, ShaVerifyError};
 
 /// A task to download a URL. This would normally be a task with no input
 /// resources.

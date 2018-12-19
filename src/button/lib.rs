@@ -52,7 +52,7 @@ pub mod state;
 pub mod task;
 pub mod util;
 
-pub use build::{Build, BuildFailure};
-pub use error::{Error, ResultExt};
-pub use rules::Rules;
-pub use state::BuildState;
+pub use crate::build::{Build, BuildFailure};
+pub use crate::error::{Error, ResultExt};
+pub use crate::rules::Rules;
+pub use crate::state::BuildState;

@@ -29,7 +29,7 @@ use std::sync::Mutex;
 
 use crossbeam;
 
-use util;
+use crate::util;
 
 use super::index::{EdgeIndex, IndexSet, NodeIndex};
 

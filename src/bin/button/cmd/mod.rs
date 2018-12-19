@@ -30,7 +30,7 @@ pub use self::replay::Replay;
 
 use button::Error;
 
-use opts::GlobalOpts;
+use crate::opts::GlobalOpts;
 
 #[derive(StructOpt, Debug)]
 pub enum Command {

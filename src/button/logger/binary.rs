@@ -23,13 +23,13 @@ use std::sync::{Arc, Mutex};
 
 use super::traits::{EventLogger, LogResult, TaskLogger};
 
-use detect::Detected;
-use res;
-use task;
+use crate::detect::Detected;
+use crate::res;
+use crate::task;
 
 use bincode;
 use chrono::Utc;
-use error::{BuildError, Error, SerError};
+use crate::error::{BuildError, Error, SerError};
 
 use super::events::*;
 

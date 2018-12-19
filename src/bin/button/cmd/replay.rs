@@ -21,7 +21,7 @@
 use std::path::{Path, PathBuf};
 
 use button::{logger, Error, ResultExt};
-use opts::GlobalOpts;
+use crate::opts::GlobalOpts;
 
 #[derive(StructOpt, Debug)]
 pub struct Replay {
