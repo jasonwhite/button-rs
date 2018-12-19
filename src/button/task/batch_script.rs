@@ -86,6 +86,7 @@ impl BatchScript {
 
         let mut process = Process::new(PathBuf::from("cmd.exe"), args);
         process.env = self.env.clone();
+        process.cwd = self.cwd.clone();
 
         let (mut reader, child) = process.spawn(root)?;
 
