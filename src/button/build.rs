@@ -37,7 +37,9 @@ use crate::graph::{
     Algo, Edges, IndexSet, Indexable, Neighbors, NodeIndex, Nodes, Subgraph,
 };
 
-use crate::error::{BuildError, Error, ErrorKind, Fail, ResultExt};
+use crate::error::{
+    BuildError, Error, ErrorKind, Fail, InvalidEdges, ResultExt,
+};
 
 /// A build failure. Contains each of the node indexes that failed and the
 /// associated error.
@@ -65,6 +67,7 @@ impl fmt::Display for BuildFailure {
 struct BuildContext<'a> {
     root: &'a Path,
     dryrun: bool,
+    graph: &'a BuildGraph,
     checksums: Mutex<HashMap<NodeIndex, ResourceState>>,
 
     // Detected inputs/outputs during the build.
@@ -211,9 +214,7 @@ fn sync_added_inputs(
     inputs: HashSet<res::Any>,
     checksums: &mut HashMap<NodeIndex, ResourceState>,
     root: &Path,
-) -> Result<(), Vec<(NodeIndex, NodeIndex)>> {
-    let mut errors = Vec::new();
-
+) {
     for input in inputs {
         let input = Node::Resource(input);
 
@@ -226,7 +227,10 @@ fn sync_added_inputs(
                 } else {
                     // Adding this edge to the graph would have caused the build
                     // order to change.
-                    errors.push((index, node));
+                    //
+                    // It should not be possible to reach this. The task should
+                    // have failed before reaching this spot.
+                    unreachable!();
                 }
             }
         } else {
@@ -242,12 +246,6 @@ fn sync_added_inputs(
                 assert!(checksums.insert(index, checksum).is_none());
             }
         }
-    }
-
-    if errors.is_empty() {
-        Ok(())
-    } else {
-        Err(errors)
     }
 }
 
@@ -265,37 +263,16 @@ fn sync_detected<L>(
     _logger: &L,
     _dryrun: bool,
 ) -> Result<(), BuildError> {
-    let mut bad_edges = Vec::new();
-
     for (node, Detected { inputs, .. }) in detected {
         // Sync inputs
         sync_removed_inputs(graph, node, &inputs, checksums);
-
-        if let Err(errors) =
-            sync_added_inputs(graph, node, inputs, checksums, root)
-        {
-            bad_edges.extend(errors.into_iter());
-        }
+        sync_added_inputs(graph, node, inputs, checksums, root);
 
         // For detected outputs, we must only
         //  1. add an edge to new nodes.
         //  2. delete resources *after* the graph has been fully updated and in
         //     reverse topological order. That way, if anything fails, nothing
         //     has been deleted yet.
-    }
-
-    if !bad_edges.is_empty() {
-        let bad_edges = bad_edges
-            .into_iter()
-            .map(|(a, b)| {
-                (
-                    format!("{}", graph.node_from_index(a)),
-                    format!("{}", graph.node_from_index(b)),
-                )
-            })
-            .collect();
-
-        return Err(ErrorKind::InvalidEdges(bad_edges).into());
     }
 
     Ok(())
@@ -590,6 +567,7 @@ impl<'a> Build<'a> {
         let context = BuildContext {
             root: self.root,
             dryrun,
+            graph: &graph,
             checksums: Mutex::new(checksums),
             detected: Mutex::new(Vec::new()),
         };
@@ -712,6 +690,40 @@ where
     ret
 }
 
+/// Checks that the detected inputs or outputs are valid and won't change the
+/// build order if added.
+fn check_detected(
+    graph: &BuildGraph,
+    index: NodeIndex,
+    detected: Detected,
+    log: &mut dyn io::Write,
+) -> Result<Detected, Error> {
+    // It's only valid to add an implicit edge to a resource if:
+    //  1. the resource does not exist,
+    //  2. it's a root node, or
+    //  3. an explicit edge from it already exists.
+    let mut invalid_edges = Vec::new();
+
+    for input in &detected.inputs {
+        let node = Node::Resource(input.clone());
+        if let Some(input) = graph.node_to_index(&node) {
+            if !graph.contains_edge_by_index(input, index)
+                && !graph.is_root_node(input)
+            {
+                invalid_edges.push((input, index));
+
+                writeln!(log, "Error: Cannot depend on {}", node)?;
+            }
+        }
+    }
+
+    if invalid_edges.is_empty() {
+        Ok(detected)
+    } else {
+        Err(InvalidEdges(invalid_edges).into())
+    }
+}
+
 fn build_task<L>(
     context: &BuildContext<'_>,
     tid: usize,
@@ -728,7 +740,19 @@ where
         if context.dryrun {
             task_logger.finish(&Ok(Detected::new()))?;
         } else {
-            let result = task.execute(context.root, &mut task_logger);
+            let result = task.execute(context.root, &mut task_logger).and_then(
+                |detected| {
+                    // Check for detected edges that would change the build
+                    // order. It's better to fail an individual task than the
+                    // entire build in this case.
+                    check_detected(
+                        context.graph,
+                        index,
+                        detected,
+                        &mut task_logger,
+                    )
+                },
+            );
 
             task_logger.finish(&result)?;
 

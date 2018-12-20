@@ -73,6 +73,19 @@ impl Display for SerError {
 
 impl std::error::Error for SerError {}
 
+#[derive(Fail, Debug)]
+pub struct InvalidEdges(pub Vec<(NodeIndex, NodeIndex)>);
+
+impl Display for InvalidEdges {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} detected edge(s) would have changed build order",
+            self.0.len()
+        )
+    }
+}
+
 #[derive(Debug)]
 pub struct ChecksumError(Error);
 
