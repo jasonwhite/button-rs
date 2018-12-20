@@ -712,7 +712,11 @@ fn check_detected(
             {
                 invalid_edges.push((input, index));
 
-                writeln!(log, "Error: Cannot depend on {}", node)?;
+                writeln!(
+                    log,
+                    "Error: '{}' must be added as an explicit dependency.",
+                    node.as_res()
+                )?;
             }
         }
     }
