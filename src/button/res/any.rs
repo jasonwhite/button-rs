@@ -19,7 +19,7 @@
 // THE SOFTWARE.
 
 use std::fmt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::error::Error;
 
@@ -60,9 +60,9 @@ impl fmt::Debug for Any {
     }
 }
 
-impl From<PathBuf> for Any {
-    fn from(res: PathBuf) -> Self {
-        Any::File(File::new(&res))
+impl<P: AsRef<Path>> From<P> for Any {
+    fn from(path: P) -> Self {
+        Any::File(File::new(path))
     }
 }
 

@@ -84,7 +84,7 @@ impl Task for Copy {
         // necessary directory creation happens first.
         if let Some(parent) = self.to.parent() {
             if parent != Path::new("") && parent != Path::new(".") {
-                set.insert(res::Dir::new(parent.to_path_buf()).into());
+                set.insert(res::Dir::new(parent).into());
             }
         }
 

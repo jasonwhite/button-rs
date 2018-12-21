@@ -132,7 +132,7 @@ impl Task for Command {
         if let Some(ref path) = self.process.stdout {
             if path != Path::new(DEV_NULL) {
                 if let Some(parent) = path.parent() {
-                    set.insert(res::Dir::new(parent.to_path_buf()).into());
+                    set.insert(res::Dir::new(parent).into());
                 }
             }
         }
@@ -141,7 +141,7 @@ impl Task for Command {
         if let Some(ref path) = self.process.stderr {
             if path != Path::new(DEV_NULL) {
                 if let Some(parent) = path.parent() {
-                    set.insert(res::Dir::new(parent.to_path_buf()).into());
+                    set.insert(res::Dir::new(parent).into());
                 }
             }
         }

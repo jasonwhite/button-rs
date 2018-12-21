@@ -105,7 +105,7 @@ impl Task for MakeDir {
         // another.
         if let Some(parent) = self.path.parent() {
             if parent != Path::new("") && parent != Path::new(".") {
-                set.insert(res::Dir::new(parent.to_path_buf()).into());
+                set.insert(res::Dir::new(parent).into());
             }
         }
     }

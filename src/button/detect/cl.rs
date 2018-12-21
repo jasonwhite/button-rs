@@ -93,9 +93,9 @@ pub fn run(
                     // steps should not generate the same TLH file. To avoid
                     // that problem, it is best to restrict `#import` directives
                     // to only precompiled headers.
-                    detected.add_output(path.to_path_buf().into());
+                    detected.add_output(path.into());
                 } else {
-                    detected.add_input(path.to_path_buf().into());
+                    detected.add_input(path.into());
                 }
             }
         } else {
