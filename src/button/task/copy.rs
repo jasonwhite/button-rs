@@ -79,12 +79,19 @@ impl Task for Copy {
             .call(|| self.execute_impl(root, log), progress_dummy)
     }
 
-    fn known_inputs(&self, resources: &mut res::Set) {
-        resources.insert(self.from.clone().into());
+    fn known_inputs(&self, set: &mut res::Set) {
+        // Depend on the output directory existing. This ensures that any
+        // necessary directory creation happens first.
+        if let Some(parent) = self.to.parent() {
+            if parent != Path::new("") && parent != Path::new(".") {
+                set.insert(res::Dir::new(parent.to_path_buf()).into());
+            }
+        }
+
+        set.insert(self.from.clone().into());
     }
 
-    fn known_outputs(&self, resources: &mut res::Set) {
-        // TODO: Depend on output directory.
-        resources.insert(self.to.clone().into());
+    fn known_outputs(&self, set: &mut res::Set) {
+        set.insert(self.to.clone().into());
     }
 }

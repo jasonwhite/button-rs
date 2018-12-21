@@ -126,7 +126,7 @@ mod tests {
         let mut set = res::Set::new();
         task.known_inputs(&mut set);
         assert_eq!(set.len(), 1);
-        assert!(set.contains(&res::Dir::new("foo".into()).into()));
+        assert!(set.contains(&res::Dir::new("foo").into()));
     }
 
     #[test]
@@ -151,6 +151,6 @@ mod tests {
         let mut set = res::Set::new();
         task.known_outputs(&mut set);
         assert_eq!(set.len(), 1);
-        assert!(set.contains(&res::Dir::new("foobar".into()).into()));
+        assert!(set.contains(&res::Dir::new("foobar").into()));
     }
 }

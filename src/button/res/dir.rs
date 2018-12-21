@@ -26,7 +26,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use crate::error::Error;
-use crate::util::Sha256;
+use crate::util::{PathExt, Sha256};
 
 use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -39,8 +39,10 @@ pub struct Dir {
 }
 
 impl Dir {
-    pub fn new(path: PathBuf) -> Dir {
-        Dir { path }
+    pub fn new<P: AsRef<Path>>(path: P) -> Dir {
+        Dir {
+            path: path.as_ref().normalize(),
+        }
     }
 
     fn delete_impl(&self, root: &Path) -> Result<(), Error> {
