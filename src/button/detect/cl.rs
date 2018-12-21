@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+use std::ffi::OsStr;
 use std::io::{self, BufRead};
 use std::path::Path;
 
@@ -82,7 +83,20 @@ pub fn run(
             // Only include paths that are contained within the project
             // root. Everything else is treated as a system dependency.
             if let Ok(path) = path.strip_prefix(&root) {
-                detected.add_input(path.to_path_buf().into());
+                if path.extension() == Some(OsStr::new(".tlh")) {
+                    // TLH includes are a special case. These are actually
+                    // outputs of the preprocessing step. An `#import <foo.tlb>`
+                    // will generate a `foo.tlh` file in the output directory
+                    // and perform an `#include` on it. If we don't track these
+                    // outputs, they won't get cleaned up correctly. Tracking
+                    // this also helps detect race conditions. Two compilation
+                    // steps should not generate the same TLH file. To avoid
+                    // that problem, it is best to restrict `#import` directives
+                    // to only precompiled headers.
+                    detected.add_output(path.to_path_buf().into());
+                } else {
+                    detected.add_input(path.to_path_buf().into());
+                }
             }
         } else {
             log.write_all(line.as_ref())?;
