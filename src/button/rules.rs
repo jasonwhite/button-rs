@@ -33,6 +33,7 @@ use crate::error::{BuildError, ErrorKind, ResultExt};
 /// A rule in the build description. A build description is simply a list of
 /// rules.
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct Rule {
     /// Inputs to the task.
     #[serde(default)]
