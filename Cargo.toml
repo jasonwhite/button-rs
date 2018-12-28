@@ -32,5 +32,8 @@ serde_derive = "1"
 serde_json = "1"
 sha2 = "0.8"
 structopt = "0.2"
-tempfile = "3"
 termcolor = "1"
+
+[dependencies.tempfile]
+git = "https://github.com/jasonwhite/tempfile"
+branch = "not-hidden"

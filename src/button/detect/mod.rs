@@ -45,6 +45,7 @@ use crate::util::Process;
     Hash,
     Debug,
 )]
+#[serde(rename_all = "lowercase")]
 pub enum Detect {
     /// Detect inputs and outputs for MSVC Cl.exe. This works by adding
     /// `/showIncludes` to the command line and parsing the output.
