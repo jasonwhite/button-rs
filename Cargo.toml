@@ -35,5 +35,5 @@ structopt = "0.2"
 termcolor = "1"
 
 [dependencies.tempfile]
-git = "https://github.com/jasonwhite/tempfile"
-branch = "not-hidden"
+git = "https://github.com/Stebalien/tempfile"
+branch = "master"
