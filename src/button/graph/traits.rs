@@ -523,6 +523,7 @@ where
     fn traverse<F, Error>(
         &'a self,
         visit: F,
+        must_visit: &IndexSet<NodeIndex>,
         threads: usize,
         reverse: bool,
     ) -> Result<(), Vec<(NodeIndex, Error)>>
@@ -546,7 +547,9 @@ where
 
             for tid in 0..threads {
                 scope.spawn(move |_| {
-                    traversal_worker(self, tid, state, visit, reverse)
+                    traversal_worker(
+                        self, tid, state, visit, must_visit, reverse,
+                    )
                 });
             }
         })
@@ -636,6 +639,7 @@ fn traversal_worker<'a, G, F, Error>(
     tid: usize,
     state: &TraversalState<G, Error>,
     visit: &F,
+    must_visit: &IndexSet<NodeIndex>,
     reverse: bool,
 ) where
     G: Neighbors<'a> + Indexable<'a> + Visitable<bool> + Algo<'a>,
@@ -644,19 +648,23 @@ fn traversal_worker<'a, G, F, Error>(
 {
     while let Some(index) = state.queue.pop() {
         // Only call the visitor function if:
-        //  1. This node has no incoming edges, or
-        //  2. Any of its incoming nodes have had its visitor function
-        //     called.
+        //  1. this node *must* be visited (e.g., in order to recreate an
+        //     output), or
+        //  2. this node has no incoming edges, or
+        //  3. any of its incoming nodes have had its visitor function called.
         //
-        // Although the entire graph is traversed (unless an error occurs),
-        // we may only call the visitor function on a subset of
-        // it.
+        // Although the entire graph is traversed (unless an error occurs), we
+        // may only call the visitor function on a subset of it.
         let do_visit = {
-            let mut incoming = g.neighbors(index, !reverse);
-            let visited = state.visited.lock().unwrap();
-            util::empty_or_any(&mut incoming, |(p, _)| {
-                visited.get(&p) == Some(&true)
-            })
+            if must_visit.contains(&index) {
+                true
+            } else {
+                let mut incoming = g.neighbors(index, !reverse);
+                let visited = state.visited.lock().unwrap();
+                util::empty_or_any(&mut incoming, |(p, _)| {
+                    visited.get(&p) == Some(&true)
+                })
+            }
         };
 
         let keep_going = if do_visit {
@@ -674,14 +682,13 @@ fn traversal_worker<'a, G, F, Error>(
                 errors.push((index, err));
                 visited.visit(index, false);
 
-                // If we're the last node to be processed, shutdown all
-                // threads.
+                // If we're the last node to be processed, shutdown all threads.
                 if state.active.fetch_sub(1, Ordering::Relaxed) == 1 {
                     state.shutdown();
                 }
 
-                // In case of error, do not traverse child nodes. Nothing
-                // that depends on this node should be visited.
+                // In case of error, do not traverse child nodes. Nothing that
+                // depends on this node should be visited.
                 continue;
             }
         };

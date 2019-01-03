@@ -116,6 +116,7 @@ where
                 // Let the traversal proceed to the next node.
                 Ok(true)
             },
+            &IndexSet::new(),
             threads,
             true,
         )
@@ -439,6 +440,7 @@ impl<'a> Build<'a> {
                     // Let the traversal proceed to the next node.
                     Ok(true)
                 },
+                &IndexSet::new(),
                 threads,
                 true,
             )
@@ -573,6 +575,9 @@ impl<'a> Build<'a> {
         };
 
         let result = {
+            // Nodes that must get visited during the traversal.
+            let must_visit: IndexSet<_> = queue.iter().cloned().collect();
+
             // Create the subgraph from the queued nodes.
             let subgraph = Subgraph::new(
                 &graph,
@@ -585,6 +590,7 @@ impl<'a> Build<'a> {
                 |tid, index, node| {
                     build_node(&context, tid, index, node, logger)
                 },
+                &must_visit,
                 threads,
                 false,
             )
