@@ -35,7 +35,8 @@ use termcolor::{self as tc, WriteColor};
 pub struct ConsoleTask {
     verbose: bool,
     bufwriter: Arc<tc::BufferWriter>,
-    header: String,
+    thread: usize,
+    task_name: String,
     body: Vec<u8>,
     start_time: Instant,
 }
@@ -50,7 +51,8 @@ impl ConsoleTask {
         Ok(ConsoleTask {
             verbose,
             bufwriter,
-            header: format!("[{}] {}", thread, task),
+            thread,
+            task_name: task.to_string(),
             body: Vec::new(),
             start_time: Instant::now(),
         })
@@ -76,21 +78,28 @@ impl TaskLogger for ConsoleTask {
         let ConsoleTask {
             verbose,
             bufwriter,
-            header,
+            thread,
+            task_name,
             body,
             start_time,
         } = self;
 
         let mut buf = bufwriter.buffer();
 
+        let mut color = tc::ColorSpec::new();
         let color = if result.is_ok() {
-            tc::Color::Green
+            color.set_fg(Some(tc::Color::Green)).set_bold(true)
         } else {
-            tc::Color::Red
+            // Make errors highly-visible.
+            color
+                .set_fg(Some(tc::Color::White))
+                .set_bold(true)
+                .set_bg(Some(tc::Color::Red))
+                .set_intense(true)
         };
 
-        buf.set_color(tc::ColorSpec::new().set_fg(Some(color)).set_bold(true))?;
-        buf.write_all(header.as_ref())?;
+        buf.set_color(color)?;
+        write!(buf, "[{}] {}", thread, task_name)?;
         buf.reset()?;
         buf.write_all(b"\n")?;
         buf.write_all(&body)?;
