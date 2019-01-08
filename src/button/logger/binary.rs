@@ -154,7 +154,7 @@ where
         &self,
         thread: usize,
         task: &task::Any,
-    ) -> Result<Self::TaskLogger, Error> {
+    ) -> LogResult<Self::TaskLogger> {
         let mut writer = self.writer.lock().unwrap();
         writer.dump(
             StartTask {

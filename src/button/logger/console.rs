@@ -35,7 +35,8 @@ use termcolor::{self as tc, WriteColor};
 pub struct ConsoleTask {
     verbose: bool,
     bufwriter: Arc<tc::BufferWriter>,
-    buf: tc::Buffer,
+    header: String,
+    body: Vec<u8>,
     start_time: Instant,
 }
 
@@ -46,21 +47,11 @@ impl ConsoleTask {
         task: &task::Any,
         bufwriter: Arc<tc::BufferWriter>,
     ) -> Result<ConsoleTask, Error> {
-        let mut buf = bufwriter.buffer();
-
-        buf.set_color(
-            tc::ColorSpec::new()
-                .set_fg(Some(tc::Color::Green))
-                .set_bold(true),
-        )?;
-        write!(&mut buf, "[{}] {}", thread, task)?;
-        buf.reset()?;
-        buf.write_all(b"\n")?;
-
         Ok(ConsoleTask {
             verbose,
             bufwriter,
-            buf,
+            header: format!("[{}] {}", thread, task),
+            body: Vec::new(),
             start_time: Instant::now(),
         })
     }
@@ -68,11 +59,11 @@ impl ConsoleTask {
 
 impl io::Write for ConsoleTask {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.buf.write(buf)
+        self.body.write(buf)
     }
 
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        self.buf.write_all(buf)
+        self.body.write_all(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
@@ -85,14 +76,29 @@ impl TaskLogger for ConsoleTask {
         let ConsoleTask {
             verbose,
             bufwriter,
-            mut buf,
+            header,
+            body,
             start_time,
         } = self;
+
+        let mut buf = bufwriter.buffer();
+
+        let color = if result.is_ok() {
+            tc::Color::Green
+        } else {
+            tc::Color::Red
+        };
+
+        buf.set_color(tc::ColorSpec::new().set_fg(Some(color)).set_bold(true))?;
+        buf.write_all(header.as_ref())?;
+        buf.reset()?;
+        buf.write_all(b"\n")?;
+        buf.write_all(&body)?;
 
         let duration = start_time.elapsed();
 
         // TODO: Convert \r\n to \n on Windows.
-        // TODO: Convert ASCII escape codes to Windows if necessary.
+        // TODO: Convert ASCII color codes to real colors on Windows.
 
         // Add a new line to the end if there isn't one.
         if !buf.as_slice().ends_with(b"\n") {
@@ -173,7 +179,7 @@ impl EventLogger for Console {
         &self,
         thread: usize,
         task: &task::Any,
-    ) -> Result<ConsoleTask, Error> {
+    ) -> LogResult<ConsoleTask> {
         ConsoleTask::new(self.verbose, thread, task, self.bufwriter.clone())
     }
 
