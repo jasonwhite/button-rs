@@ -39,6 +39,10 @@ pub fn run(
 ) -> Result<Detected, Error> {
     let mut process = process.clone();
 
+    // Always enable color output. The logger will take care of filtering out
+    // the ANSI escape codes if necessary.
+    process.args.push("-fdiagnostics-color=always".into());
+
     // Use `-MMD -MF` to capture header files used by the build.
     //
     // TODO: Handle the case where this is already in the command line arguments
