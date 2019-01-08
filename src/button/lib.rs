@@ -25,18 +25,6 @@ extern crate failure_derive;
 #[macro_use]
 extern crate nom;
 
-use bincode;
-use bit_set;
-use crossbeam;
-use failure;
-use holyhashmap;
-use rand;
-use reqwest;
-use serde_json;
-use sha2;
-use tempfile;
-use termcolor;
-
 mod build;
 pub mod build_graph;
 mod detect;

@@ -20,11 +20,6 @@
 #[macro_use]
 extern crate structopt;
 
-use atty;
-use button;
-use num_cpus;
-use termcolor;
-
 mod args;
 mod cmd;
 mod opts;
