@@ -41,7 +41,8 @@ pub fn run(
 
     // Always enable color output. The logger will take care of filtering out
     // the ANSI escape codes if necessary.
-    process.args.push("-fdiagnostics-color=always".into());
+    process.args.push("-fdiagnostics-color".into());
+    process.args.push("-fansi-escape-codes".into());
 
     // Use `-MMD -MF` to capture header files used by the build.
     //
