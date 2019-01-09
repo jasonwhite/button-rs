@@ -49,7 +49,8 @@ impl MakeFile {
 
 fn is_file_name<C: AsChar>(chr: C) -> bool {
     let chr = chr.as_char();
-    !(chr == '\\' || chr == ':' || chr == '\n' || chr == ' ' || chr == '\0')
+    !(chr == '\\' || chr == ':' || chr == '\r' || chr == '\n' || chr == ' ' ||
+      chr == '\0')
 }
 
 fn is_space<C: AsChar>(chr: C) -> bool {
@@ -69,6 +70,7 @@ named!(pub filename<&str, String>,
         alt!(
             tag!("\\") => { |_| "\\" }
             | tag!(" ") => { |_| " " }
+            | tag!("r") => { |_| "\r" }
             | tag!("n") => { |_| "\n" }
             | tag!("t") => { |_| "\t" }
             | nom::line_ending => { |_| "" }
@@ -163,6 +165,19 @@ mod tests {
                     }
                 ]
             ))
-        )
+        );
+
+        assert_eq!(
+            make_rules("obj/bar.o: src/bar.c src/foo.h\r\n\0"),
+            Ok((
+                "\0",
+                vec![
+                    MakeRule {
+                        targets: vec!["obj/bar.o".into()],
+                        prereqs: vec!["src/bar.c".into(), "src/foo.h".into()],
+                    },
+                ]
+            ))
+        );
     }
 }
