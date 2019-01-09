@@ -214,7 +214,7 @@ impl EventLogger for Console {
         error: &Error,
     ) -> LogResult<()> {
         println!(
-            "[{}] Failed computing checksum for: {} ({})",
+            "[{}] Failed computing checksum for: {:?} ({})",
             thread, resource, error
         );
         Ok(())
