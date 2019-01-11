@@ -42,8 +42,7 @@ pub struct Copy {
     to: PathBuf,
 
     /// Retry settings.
-    #[serde(default)]
-    retry: Retry,
+    retry: Option<Retry>,
 }
 
 impl Copy {
@@ -75,8 +74,11 @@ impl Task for Copy {
         root: &Path,
         log: &mut dyn io::Write,
     ) -> Result<Detected, Error> {
-        self.retry
-            .call(|| self.execute_impl(root, log), progress_dummy)
+        if let Some(retry) = &self.retry {
+            retry.call(|| self.execute_impl(root, log), progress_dummy)
+        } else {
+            self.execute_impl(root, log)
+        }
     }
 
     fn known_inputs(&self, set: &mut res::Set) {

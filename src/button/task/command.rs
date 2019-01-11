@@ -107,7 +107,7 @@ impl Task for Command {
         root: &Path,
         log: &mut dyn io::Write,
     ) -> Result<Detected, Error> {
-        if let Some(ref retry) = self.retry {
+        if let Some(retry) = &self.retry {
             retry.call(|| self.execute_impl(root, log), progress_dummy)
         } else {
             self.execute_impl(root, log)
@@ -174,18 +174,58 @@ impl Serialize for Command {
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("command", 5)?;
-        state.serialize_field("program", &self.process.program)?;
-        state.serialize_field("args", &self.process.args)?;
-        state.serialize_field("cwd", &self.process.cwd)?;
-        state.serialize_field("env", &self.process.env)?;
-        state.serialize_field("stdin", &self.process.stdin)?;
-        state.serialize_field("stdout", &self.process.stdout)?;
-        state.serialize_field("stderr", &self.process.stderr)?;
-        state.serialize_field("display", &self.display)?;
-        state.serialize_field("retry", &self.retry)?;
-        state.serialize_field("detect", &self.detect)?;
-        state.end()
+        if serializer.is_human_readable() {
+            let mut state = serializer.serialize_struct("command", 5)?;
+            state.serialize_field("program", &self.process.program)?;
+            state.serialize_field("args", &self.process.args)?;
+
+            if self.process.cwd.is_some() {
+                state.serialize_field("cwd", &self.process.cwd)?;
+            }
+
+            if self.process.env.is_some() {
+                state.serialize_field("env", &self.process.env)?;
+            }
+
+            if self.process.stdin.is_some() {
+                state.serialize_field("stdin", &self.process.stdin)?;
+            }
+
+            if self.process.stdout.is_some() {
+                state.serialize_field("stdout", &self.process.stdout)?;
+            }
+
+            if self.process.stderr.is_some() {
+                state.serialize_field("stderr", &self.process.stderr)?;
+            }
+
+            if self.display.is_some() {
+                state.serialize_field("display", &self.display)?;
+            }
+
+            if self.retry.is_some() {
+                state.serialize_field("retry", &self.retry)?;
+            }
+
+            if self.detect.is_some() {
+                state.serialize_field("detect", &self.detect)?;
+            }
+
+            state.end()
+        } else {
+            let mut state = serializer.serialize_struct("command", 5)?;
+            state.serialize_field("program", &self.process.program)?;
+            state.serialize_field("args", &self.process.args)?;
+            state.serialize_field("cwd", &self.process.cwd)?;
+            state.serialize_field("env", &self.process.env)?;
+            state.serialize_field("stdin", &self.process.stdin)?;
+            state.serialize_field("stdout", &self.process.stdout)?;
+            state.serialize_field("stderr", &self.process.stderr)?;
+            state.serialize_field("display", &self.display)?;
+            state.serialize_field("retry", &self.retry)?;
+            state.serialize_field("detect", &self.detect)?;
+            state.end()
+        }
     }
 }
 

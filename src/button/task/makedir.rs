@@ -39,16 +39,12 @@ pub struct MakeDir {
     path: PathBuf,
 
     /// Retry settings.
-    #[serde(default)]
-    retry: Retry,
+    retry: Option<Retry>,
 }
 
 impl MakeDir {
     pub fn new(path: PathBuf) -> MakeDir {
-        MakeDir {
-            path,
-            retry: Retry::default(),
-        }
+        MakeDir { path, retry: None }
     }
 
     fn execute_impl(
@@ -95,8 +91,11 @@ impl Task for MakeDir {
         root: &Path,
         log: &mut dyn io::Write,
     ) -> Result<Detected, Error> {
-        self.retry
-            .call(|| self.execute_impl(root, log), progress_dummy)
+        if let Some(retry) = &self.retry {
+            retry.call(|| self.execute_impl(root, log), progress_dummy)
+        } else {
+            self.execute_impl(root, log)
+        }
     }
 
     fn known_inputs(&self, set: &mut res::Set) {

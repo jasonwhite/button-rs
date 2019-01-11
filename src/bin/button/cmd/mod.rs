@@ -20,11 +20,13 @@
 
 mod build;
 mod clean;
+mod dump;
 mod graph;
 mod replay;
 
 pub use self::build::Build;
 pub use self::clean::Clean;
+pub use self::dump::Dump;
 pub use self::graph::Graph;
 pub use self::replay::Replay;
 
@@ -42,6 +44,10 @@ pub enum Command {
     #[structopt(name = "clean")]
     Clean(Clean),
 
+    /// Dumps the build graph.
+    #[structopt(name = "dump")]
+    Dump(Dump),
+
     /// Generates a graphviz file of the build graph.
     #[structopt(name = "graph")]
     Graph(Graph),
@@ -56,6 +62,7 @@ impl Command {
         match self {
             Command::Build(x) => x.main(global),
             Command::Clean(x) => x.main(global),
+            Command::Dump(x) => x.main(global),
             Command::Graph(x) => x.main(global),
             Command::Replay(x) => x.main(global),
         }

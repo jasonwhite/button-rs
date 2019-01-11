@@ -19,6 +19,8 @@
 // THE SOFTWARE.
 #[macro_use]
 extern crate structopt;
+#[macro_use]
+extern crate serde_derive;
 
 mod args;
 mod cmd;
