@@ -21,3 +21,7 @@ This is ***not*** intended to be:
 
 This project is a work in progress. It's too early to add documentation or any
 more info to this README.
+
+## License
+
+[MIT License.](/LICENSE)
