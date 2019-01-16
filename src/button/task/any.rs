@@ -22,6 +22,8 @@ use std::fmt;
 use std::io;
 use std::path::Path;
 
+use serde::{Deserialize, Serialize};
+
 use super::batch_script::BatchScript;
 use super::command::Command;
 use super::copy::Copy;

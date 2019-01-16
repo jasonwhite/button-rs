@@ -24,14 +24,15 @@ use std::path::{Path, PathBuf};
 use std::time;
 
 use reqwest;
+use serde::{Deserialize, Serialize};
 use tempfile::NamedTempFile;
 
-use super::traits::Task;
 use crate::detect::Detected;
 use crate::error::{Error, ResultExt};
-
 use crate::res;
 use crate::util::{progress_dummy, Retry, Sha256, ShaVerifyError};
+
+use super::traits::Task;
 
 /// A task to download a URL. This would normally be a task with no input
 /// resources.

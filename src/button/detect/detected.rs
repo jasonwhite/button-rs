@@ -19,6 +19,8 @@
 // THE SOFTWARE.
 use std::collections::HashSet;
 
+use serde::{Deserialize, Serialize};
+
 use crate::res;
 
 /// The sets of detected inputs and outputs of a process.

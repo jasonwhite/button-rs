@@ -28,8 +28,9 @@ pub use self::detected::Detected;
 use std::io;
 use std::path::Path;
 
-use crate::error::Error;
+use serde::{Deserialize, Serialize};
 
+use crate::error::Error;
 use crate::util::Process;
 
 /// Input and output detection strategy.

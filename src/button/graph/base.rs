@@ -21,6 +21,7 @@ use std::collections::{hash_map, HashMap};
 use std::hash::Hash;
 
 use holyhashmap::{self, HolyHashMap};
+use serde::{Deserialize, Serialize};
 
 use super::index::{EdgeIndex, NodeIndex};
 use super::traits::{

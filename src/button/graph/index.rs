@@ -23,8 +23,8 @@ use std::iter::FromIterator;
 use std::marker::PhantomData;
 
 use bit_set::{self, BitSet};
-
 use holyhashmap::EntryIndex;
+use serde::{Deserialize, Serialize};
 
 pub trait Index:
     Copy + Clone + Eq + PartialEq + Hash + From<usize> + Into<usize>

@@ -19,6 +19,7 @@
 // THE SOFTWARE.
 use std::io::Write;
 
+use structopt::StructOpt;
 use termcolor::{self as tc, WriteColor};
 
 use crate::cmd::Command;

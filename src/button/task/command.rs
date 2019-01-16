@@ -22,10 +22,11 @@ use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use serde::de::{
-    self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor,
+use serde::{
+    de::{self, Deserializer, MapAccess, SeqAccess, Visitor},
+    ser::{SerializeStruct, Serializer},
+    Deserialize, Serialize,
 };
-use serde::ser::{Serialize, SerializeStruct, Serializer};
 
 use crate::error::Error;
 use crate::res;

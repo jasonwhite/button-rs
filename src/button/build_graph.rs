@@ -22,15 +22,15 @@ use std::error;
 use std::fmt::{self, Debug, Display};
 use std::io;
 
+use serde::{Deserialize, Serialize};
+
 use crate::graph::{
     Algo, Edges, Graph, GraphBase, Graphviz, Indexable, Neighbors, NodeIndex,
     NodeTrait, Nodes, Subgraph,
 };
-
 use crate::res;
-use crate::task;
-
 use crate::rules::{Rule, Rules};
+use crate::task;
 
 /// A node in the graph.
 #[derive(

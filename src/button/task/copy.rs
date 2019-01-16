@@ -23,12 +23,14 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use super::traits::Task;
+use serde::{Deserialize, Serialize};
+
 use crate::detect::Detected;
 use crate::error::Error;
-
 use crate::res;
 use crate::util::{progress_dummy, Retry};
+
+use super::traits::Task;
 
 /// A task to create a directory.
 #[derive(

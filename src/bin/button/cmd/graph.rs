@@ -21,6 +21,8 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
+use structopt::StructOpt;
+
 use button::build_graph::{BuildGraph, FromRules};
 use button::graph::Graphviz;
 use button::rules::Rules;

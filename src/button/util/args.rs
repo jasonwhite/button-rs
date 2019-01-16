@@ -23,6 +23,7 @@ use std::io::{self, Write};
 use std::iter;
 use std::ops;
 
+use serde::{Deserialize, Serialize};
 use tempfile::{NamedTempFile, TempPath};
 
 /// Helper type for formatting command line arguments.

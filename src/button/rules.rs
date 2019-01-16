@@ -23,6 +23,7 @@ use std::io;
 use std::path::Path;
 use std::slice::{Iter, IterMut};
 
+use serde::{Deserialize, Serialize};
 use serde_json as json;
 
 use crate::res;

@@ -19,10 +19,6 @@
 // THE SOFTWARE.
 
 #[macro_use]
-extern crate serde_derive;
-#[macro_use]
-extern crate failure_derive;
-#[macro_use]
 extern crate nom;
 
 mod build;

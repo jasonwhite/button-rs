@@ -70,6 +70,8 @@ use std::fmt::Display;
 use std::thread::sleep;
 use std::time::Duration;
 
+use serde::{Deserialize, Serialize};
+
 #[derive(
     Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Copy, Clone,
 )]

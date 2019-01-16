@@ -26,11 +26,12 @@ use std::path::{Path, PathBuf};
 use std::process;
 
 use os_pipe::{pipe, PipeReader};
+use serde::{Deserialize, Serialize};
 use tempfile::TempPath;
 
-use super::args::{Arg, Arguments};
-
 use crate::error::{Error, ResultExt};
+
+use super::args::{Arg, Arguments};
 
 #[derive(
     Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Debug,

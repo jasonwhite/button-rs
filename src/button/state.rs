@@ -29,6 +29,7 @@ use crate::graph::{Algo, Diff, Indexable, NodeIndex};
 use crate::res::ResourceState;
 
 use bincode;
+use serde::{Deserialize, Serialize};
 use tempfile::NamedTempFile;
 
 /// The state of the build.

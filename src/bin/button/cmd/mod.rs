@@ -30,6 +30,8 @@ pub use self::dump::Dump;
 pub use self::graph::Graph;
 pub use self::replay::Replay;
 
+use structopt::StructOpt;
+
 use button::Error;
 
 use crate::opts::GlobalOpts;

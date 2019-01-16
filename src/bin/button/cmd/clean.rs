@@ -20,6 +20,7 @@
 use std::path::{Path, PathBuf};
 
 use num_cpus;
+use structopt::StructOpt;
 
 use button::{self, logger, Error, ResultExt};
 

@@ -18,15 +18,17 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+use std::collections::BTreeSet;
 use std::fmt;
 use std::path::Path;
+
+use serde::{Deserialize, Serialize};
 
 use crate::error::Error;
 
 use super::dir::Dir;
 use super::file::File;
 use super::traits::{Resource, ResourceState};
-use std::collections::BTreeSet;
 
 /// A set of resources.
 pub type Set = BTreeSet<Any>;

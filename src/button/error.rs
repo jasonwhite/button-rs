@@ -22,6 +22,7 @@ use std::fmt::{self, Debug, Display};
 use std::path::PathBuf;
 
 use failure::{Backtrace, Context};
+use serde::{Deserialize, Serialize};
 
 use crate::graph::NodeIndex;
 

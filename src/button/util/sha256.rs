@@ -23,14 +23,15 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-use hex::{FromHex, FromHexError, ToHex};
-
-use sha2::{self, Digest};
-
+use failure::Fail;
 use generic_array::{typenum, GenericArray};
-
-use serde::de::{self, Deserialize, Deserializer, Visitor};
-use serde::ser::{self, Serialize, Serializer};
+use hex::{FromHex, FromHexError, ToHex};
+use serde::{
+    de::{self, Deserializer, Visitor},
+    ser::{self, Serializer},
+    Deserialize, Serialize,
+};
+use sha2::{self, Digest};
 
 #[derive(Fail, Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct ShaVerifyError {

@@ -22,10 +22,9 @@ use std::fmt;
 use std::hash::Hash;
 use std::path::Path;
 
+use serde::{Deserialize, Serialize};
+
 use crate::error::Error;
-
-use serde::Serialize;
-
 use crate::util;
 
 pub type Checksum = util::Sha256;
