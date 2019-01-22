@@ -23,12 +23,16 @@ mod clean;
 mod dump;
 mod graph;
 mod replay;
+mod server;
+mod test;
 
 pub use self::build::Build;
 pub use self::clean::Clean;
 pub use self::dump::Dump;
 pub use self::graph::Graph;
 pub use self::replay::Replay;
+pub use self::server::Server;
+pub use self::test::Test;
 
 use structopt::StructOpt;
 
@@ -57,6 +61,14 @@ pub enum Command {
     /// Replays a build log file.
     #[structopt(name = "replay")]
     Replay(Replay),
+
+    /// Spawns the build daemon server.
+    #[structopt(name = "server")]
+    Server(Server),
+
+    /// Replays a build log file.
+    #[structopt(name = "test")]
+    Test(Test),
 }
 
 impl Command {
@@ -67,6 +79,8 @@ impl Command {
             Command::Dump(x) => x.main(global),
             Command::Graph(x) => x.main(global),
             Command::Replay(x) => x.main(global),
+            Command::Server(x) => x.main(global),
+            Command::Test(x) => x.main(global),
         }
     }
 }

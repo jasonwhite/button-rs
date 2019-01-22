@@ -90,7 +90,7 @@ pub enum LogEvent {
     /// A task is finished.
     FinishTask(FinishTask),
 
-    /// A task is deleted.
+    /// A resource is deleted.
     Delete(Delete),
 
     /// A checksum failed to be computed.

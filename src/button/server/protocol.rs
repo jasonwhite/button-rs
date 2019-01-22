@@ -17,43 +17,34 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+use serde::{Deserialize, Serialize};
 
-use bytes::BytesMut;
-use tokio::codec::{length_delimited::LengthDelimitedCodec, Decoder, Encoder};
+/// A request for the server.
+#[derive(Serialize, Deserialize, Debug)]
+pub enum Request {
+    /// Requests a build.
+    Build,
 
-use crate::error::Error;
+    /// Requests a clean.
+    Clean,
 
-/// Shim for getting the right error type that we need.
-#[derive(Debug)]
-pub struct Codec(LengthDelimitedCodec);
+    /// Requests the server to shut down.
+    Shutdown,
 
-impl Codec {
-    pub fn new() -> Codec {
-        Codec(LengthDelimitedCodec::new())
-    }
+    /// Requests a build to happen automatically whenever a file is changed.
+    Watch,
 }
 
-impl Decoder for Codec {
-    type Item = <LengthDelimitedCodec as Decoder>::Item;
-    type Error = Error;
-
-    fn decode(
-        &mut self,
-        src: &mut BytesMut,
-    ) -> Result<Option<Self::Item>, Self::Error> {
-        Ok(self.0.decode(src)?)
-    }
+/// The response sent back to the client afer a request is made.
+#[derive(Serialize, Deserialize, Debug)]
+pub enum Response {
+    Success,
+    Shutdown,
 }
 
-impl Encoder for Codec {
-    type Item = <LengthDelimitedCodec as Encoder>::Item;
-    type Error = Error;
-
-    fn encode(
-        &mut self,
-        item: Self::Item,
-        dst: &mut BytesMut,
-    ) -> Result<(), Self::Error> {
-        Ok(self.0.encode(item, dst)?)
-    }
+/// An item in the response body. Zero or more items may follow a response.
+#[derive(Serialize, Deserialize, Debug)]
+pub enum ResponseItem {
+    /// A build event. Sent by the server when a build event occurs.
+    BuildEvent(usize),
 }

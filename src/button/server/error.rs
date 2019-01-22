@@ -17,13 +17,20 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-use bincode;
+use std::fmt;
 use std::io;
 
+use bincode;
+use futures::sync::mpsc::SendError;
+
+use super::shutdown::ShutdownMessage;
+
+/// A server error.
 #[derive(Debug)]
 pub enum Error {
     Bincode(bincode::Error),
     Io(io::Error),
+    Shutdown(SendError<ShutdownMessage>),
     Unknown,
 }
 
@@ -39,8 +46,31 @@ impl From<io::Error> for Error {
     }
 }
 
+impl From<SendError<ShutdownMessage>> for Error {
+    fn from(error: SendError<ShutdownMessage>) -> Self {
+        Error::Shutdown(error)
+    }
+}
+
 impl From<()> for Error {
     fn from(_error: ()) -> Self {
         Error::Unknown
     }
 }
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::Bincode(e) => write!(f, "{}", e),
+            Error::Io(e) => write!(f, "{}", e),
+            Error::Shutdown(e) => {
+                write!(f, "Failed shutting down the server: {}", e)
+            }
+            Error::Unknown => write!(f, "An unknown error occurred"),
+        }?;
+
+        Ok(())
+    }
+}
+
+impl std::error::Error for Error {}

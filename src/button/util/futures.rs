@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Jason White
+// Copyright (c) 2019 Jason White
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -17,24 +17,44 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-mod args;
-mod counter;
-mod futures;
-mod iter;
-mod make;
-mod path;
-mod proc;
-mod queue;
-mod retry;
-mod sha256;
+use futures::{Future, Poll, Stream};
 
-pub use self::args::{Arg, ArgBuf, Arguments};
-pub use self::counter::Counter;
-pub use self::futures::Either;
-pub use self::iter::empty_or_any;
-pub use self::make::{MakeFile, MakeRule};
-pub use self::path::PathExt;
-pub use self::proc::{Child, Process};
-pub use self::queue::RandomQueue;
-pub use self::retry::{progress_dummy, progress_print, Retry};
-pub use self::sha256::{Sha256, ShaVerifyError};
+/// Reimplementation of `futures::future::Either` to get a `Stream`
+/// implementation. Currently, `Stream` is only implemented for `Either` in
+/// futures 0.2, not 0.1.
+pub enum Either<A, B> {
+    A(A),
+    B(B),
+}
+
+impl<A, B> Future for Either<A, B>
+where
+    A: Future,
+    B: Future<Item = A::Item, Error = A::Error>,
+{
+    type Item = A::Item;
+    type Error = A::Error;
+
+    fn poll(&mut self) -> Poll<A::Item, A::Error> {
+        match *self {
+            Either::A(ref mut a) => a.poll(),
+            Either::B(ref mut b) => b.poll(),
+        }
+    }
+}
+
+impl<A, B> Stream for Either<A, B>
+where
+    A: Stream,
+    B: Stream<Item = A::Item, Error = A::Error>,
+{
+    type Item = A::Item;
+    type Error = A::Error;
+
+    fn poll(&mut self) -> Poll<Option<A::Item>, A::Error> {
+        match *self {
+            Either::A(ref mut a) => a.poll(),
+            Either::B(ref mut b) => b.poll(),
+        }
+    }
+}

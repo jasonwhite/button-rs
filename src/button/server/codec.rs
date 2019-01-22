@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Jason White
+// Copyright (c) 2019 Jason White
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -17,24 +17,43 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-mod args;
-mod counter;
-mod futures;
-mod iter;
-mod make;
-mod path;
-mod proc;
-mod queue;
-mod retry;
-mod sha256;
 
-pub use self::args::{Arg, ArgBuf, Arguments};
-pub use self::counter::Counter;
-pub use self::futures::Either;
-pub use self::iter::empty_or_any;
-pub use self::make::{MakeFile, MakeRule};
-pub use self::path::PathExt;
-pub use self::proc::{Child, Process};
-pub use self::queue::RandomQueue;
-pub use self::retry::{progress_dummy, progress_print, Retry};
-pub use self::sha256::{Sha256, ShaVerifyError};
+use bytes::BytesMut;
+use tokio::codec::{length_delimited::LengthDelimitedCodec, Decoder, Encoder};
+
+use super::error::Error;
+
+/// Shim for getting the right error type that we need.
+#[derive(Debug)]
+pub struct Codec(LengthDelimitedCodec);
+
+impl Codec {
+    pub fn new() -> Codec {
+        Codec(LengthDelimitedCodec::new())
+    }
+}
+
+impl Decoder for Codec {
+    type Item = <LengthDelimitedCodec as Decoder>::Item;
+    type Error = Error;
+
+    fn decode(
+        &mut self,
+        src: &mut BytesMut,
+    ) -> Result<Option<Self::Item>, Self::Error> {
+        Ok(self.0.decode(src)?)
+    }
+}
+
+impl Encoder for Codec {
+    type Item = <LengthDelimitedCodec as Encoder>::Item;
+    type Error = Error;
+
+    fn encode(
+        &mut self,
+        item: Self::Item,
+        dst: &mut BytesMut,
+    ) -> Result<(), Self::Error> {
+        Ok(self.0.encode(item, dst)?)
+    }
+}

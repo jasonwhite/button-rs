@@ -18,16 +18,17 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use serde::{Deserialize, Serialize};
+mod client;
+mod codec;
+mod error;
+mod protocol;
+mod server;
+mod service;
+mod shutdown;
+mod transport;
 
-#[derive(Debug, Deserialize)]
-pub enum Request {
-    /// Requests a build.
-    Build,
-
-    /// Requests the server to shut down.
-    Shutdown,
-}
-
-#[derive(Serialize)]
-pub struct Response;
+pub use client::Client;
+pub use error::Error;
+pub use protocol::{Request, Response};
+pub use server::Server;
+pub use transport::Message;
