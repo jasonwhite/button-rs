@@ -29,6 +29,7 @@
 //!     client can use this event stream to display the build output.
 
 use std::env;
+use std::time::Duration;
 
 use button::{self, Error};
 use humantime;
@@ -38,7 +39,7 @@ use structopt::StructOpt;
 
 use crate::opts::GlobalOpts;
 
-#[derive(StructOpt, Debug)]
+#[derive(StructOpt, Default, Debug)]
 pub struct Server {
     /// Port to use. By default a random, unused port is used.
     #[structopt(long = "port", short = "p", default_value = "0")]
@@ -46,8 +47,11 @@ pub struct Server {
 
     /// The amount of time to wait after the server has become idle before
     /// shutting down.
-    #[structopt(long = "idle-timeout", default_value = "1h")]
-    idle: humantime::Duration,
+    #[structopt(
+        long = "idle-timeout",
+        parse(try_from_str = "humantime::parse_duration")
+    )]
+    idle: Option<Duration>,
 
     /// Logging level to use.
     #[structopt(long = "log-level")]
@@ -70,15 +74,18 @@ impl Server {
         builder.filter_module("button", level);
         builder.init();
 
-        let server = button::Server::new(self.port)?;
+        let server = button::server::Server::new(self.port)?;
+
+        // Default of one hour.
+        let idle = self.idle.unwrap_or(Duration::from_secs(60 * 60));
 
         log::info!(
             "Listening on {}. Will shutdown if idle for {}.",
             server.local_addr().unwrap(),
-            self.idle
+            humantime::format_duration(idle)
         );
 
-        server.run(self.idle.into());
+        server.run(idle);
 
         Ok(())
     }

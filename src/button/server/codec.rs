@@ -54,6 +54,7 @@ impl Encoder for Codec {
         item: Self::Item,
         dst: &mut BytesMut,
     ) -> Result<(), Self::Error> {
-        Ok(self.0.encode(item, dst)?)
+        self.0.encode(item, dst)?;
+        Ok(())
     }
 }

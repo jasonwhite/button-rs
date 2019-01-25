@@ -71,6 +71,14 @@ pub enum Command {
     Test(Test),
 }
 
+// Simplifies creation of the command when spawned by a special environment
+// variable.
+impl From<Server> for Command {
+    fn from(server: Server) -> Self {
+        Command::Server(server)
+    }
+}
+
 impl Command {
     pub fn main(self, global: &GlobalOpts) -> Result<(), Error> {
         match self {

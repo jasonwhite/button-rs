@@ -24,7 +24,7 @@ use structopt::StructOpt;
 use termcolor as tc;
 
 /// Global command line options.
-#[derive(StructOpt, Debug)]
+#[derive(StructOpt, Default, Debug)]
 pub struct GlobalOpts {
     /// When to colorize the output.
     #[structopt(
@@ -41,6 +41,12 @@ pub struct GlobalOpts {
 /// A color choice.
 #[derive(Debug, Copy, Clone)]
 pub struct ColorChoice(tc::ColorChoice);
+
+impl Default for ColorChoice {
+    fn default() -> Self {
+        ColorChoice(tc::ColorChoice::Auto)
+    }
+}
 
 impl ColorChoice {
     pub fn variants() -> [&'static str; 4] {

@@ -21,10 +21,7 @@ use std::net::{Ipv4Addr, SocketAddr};
 
 use tokio;
 
-use futures::{
-    future::{self, Either},
-    Future, Stream,
-};
+use futures::Stream;
 
 use button::{
     server::{Client, Message, Request},
@@ -50,27 +47,22 @@ impl Test {
 
         println!("Connecting to {}", socket);
 
-        let task = Client::connect(&socket).and_then(|client| {
-            println!("Connected. Making a request.");
+        let client = Client::connect(&socket)?;
 
-            client.request(Request::Shutdown).and_then(
-                |message| match message {
-                    Message::WithBody(r, body) => {
-                        println!("Got response with body: {:?}", r);
-                        Either::A(body.for_each(|item| {
-                            println!("Received body item: {:?}", item);
-                            Ok(())
-                        }))
-                    }
-                    Message::WithoutBody(r) => {
-                        println!("Got response: {:?}", r);
-                        Either::B(future::ok(()))
-                    }
-                },
-            )
-        });
+        println!("Connected. Making a request.");
 
-        rt.block_on(task)?;
+        match client.request(Request::Shutdown)? {
+            Message::WithBody(r, body) => {
+                println!("Got response with body: {:?}", r);
+                rt.block_on(body.for_each(|item| {
+                    println!("Received body item: {:?}", item);
+                    Ok(())
+                }))?;
+            }
+            Message::WithoutBody(r) => {
+                println!("Got response: {:?}", r);
+            }
+        };
 
         Ok(())
     }

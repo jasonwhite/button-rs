@@ -37,5 +37,5 @@ pub mod util;
 pub use crate::build::{Build, BuildFailure};
 pub use crate::error::{Error, ResultExt};
 pub use crate::rules::Rules;
-pub use crate::server::Server;
+pub use crate::server::{Client, Server};
 pub use crate::state::BuildState;

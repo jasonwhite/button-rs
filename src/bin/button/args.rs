@@ -35,6 +35,13 @@ pub struct Args {
 }
 
 impl Args {
+    pub fn from_cmd(cmd: Command) -> Self {
+        Args {
+            global: GlobalOpts::default(),
+            cmd,
+        }
+    }
+
     // Delegate to a subcommand. If any errors occur, print out the error and
     // its chain of causes.
     pub fn main(self) -> i32 {

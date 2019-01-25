@@ -22,9 +22,25 @@ mod cmd;
 mod opts;
 mod paths;
 
+use std::env;
+use std::process::exit;
+
 use crate::args::Args;
+use crate::cmd::Server;
 use structopt::StructOpt;
 
 fn main() {
-    ::std::process::exit(Args::from_args().main())
+    // If the BUTTON_SERVER environment variable is present, skip all command
+    // line processing below and spawn the server instead.
+    if let Some(var) = env::var_os("BUTTON_SERVER") {
+        if var == "1" {
+            // Remove the variable so it doesn't get inherited by child
+            // processes (incase `button` is run as part of the build).
+            env::remove_var("BUTTON_SERVER");
+
+            exit(Args::from_cmd(Server::default().into()).main());
+        }
+    }
+
+    exit(Args::from_args().main())
 }

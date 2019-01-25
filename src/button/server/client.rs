@@ -20,7 +20,7 @@
 use std::net::SocketAddr;
 
 use futures::{Future, Sink, Stream};
-use tokio::net::TcpStream;
+use tokio::{net::TcpStream, runtime::Runtime};
 
 use super::error::Error;
 use super::protocol::{Request, Response, ResponseItem};
@@ -28,31 +28,37 @@ use super::transport::{Frame, Message, Transport};
 
 /// A connection to the server.
 pub struct Client {
+    runtime: Runtime,
     stream: Transport<TcpStream, Frame<Response, ResponseItem>, Request>,
 }
 
 impl Client {
-    pub fn connect(
-        addr: &SocketAddr,
-    ) -> impl Future<Item = Self, Error = Error> {
-        TcpStream::connect(addr)
-            .from_err::<Error>()
-            .map(|tcp| Client {
-                stream: Transport::new(tcp),
-            })
+    pub fn connect(addr: &SocketAddr) -> Result<Self, Error> {
+        let mut runtime = Runtime::new()?;
+
+        let tcp = runtime.block_on(TcpStream::connect(addr))?;
+
+        // TODO: Send a hello to the server to ensure we're really connected to
+        // the type of server that we're expecting. We may have unwittingly
+        // connected to some other server.
+
+        Ok(Client {
+            runtime,
+            stream: Transport::new(tcp),
+        })
     }
 
+    // TODO: Allow reusing the client after this function is called. In order to
+    // do that, we must ensure that the body stream of each request is read in
+    // its entirety.
     pub fn request(
-        self,
+        mut self,
         request: Request,
-    ) -> impl Future<
-        Item = Message<
-            Response,
-            impl Stream<Item = ResponseItem, Error = Error>,
-        >,
-        Error = Error,
+    ) -> Result<
+        Message<Response, impl Stream<Item = ResponseItem, Error = Error>>,
+        Error,
     > {
-        self.stream.send(request).and_then(move |stream| {
+        let task = self.stream.send(request).and_then(move |stream| {
             stream
                 .into_future()
                 .map_err(|(e, _)| e)
@@ -76,6 +82,8 @@ impl Client {
                     }
                     Frame::Body(_) => unreachable!(),
                 })
-        })
+        });
+
+        self.runtime.block_on(task)
     }
 }
