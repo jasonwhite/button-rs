@@ -27,6 +27,7 @@ mod shutdown;
 mod transport;
 
 pub use client::Client;
+pub use daemon::{connect_or_spawn, daemonize, run, run_daemon, try_connect};
 pub use error::Error;
 pub use protocol::{Request, Response};
 pub use transport::Message;
@@ -40,35 +41,40 @@ use std::time::Duration;
 use bincode;
 use futures::{sync::mpsc, Future, Stream};
 use log;
+use serde::Serialize;
 use tokio::net::TcpListener;
 
 use service::ButtonService;
 use shutdown::{Shutdown, ShutdownCause};
 
 #[cfg(unix)]
-fn notify_server_startup(
-    path: &Path,
-    message: Result<u16, String>,
-) -> Result<(), io::Error> {
+fn notify_server_startup<T>(path: &Path, message: &T) -> Result<(), io::Error>
+where
+    T: Serialize,
+{
     use std::os::unix::net::UnixStream;
     let mut stream = UnixStream::connect(path)?;
 
-    bincode::serialize_into(&mut stream, &message)
+    bincode::serialized_size(message)
+        .and_then(|size| bincode::serialize_into(&mut stream, &size))
+        .and_then(|_| bincode::serialize_into(&mut stream, message))
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
     Ok(())
 }
 
 #[cfg(windows)]
-fn notify_server_startup(
-    path: &Path,
-    message: Result<u16, String>,
-) -> Result<(), io::Error> {
+fn notify_server_startup<T>(path: &Path, message: &T) -> Result<(), io::Error>
+where
+    T: Serialize,
+{
     use std::fs::OpenOptions;
 
-    let mut f = OpenOptions::new().write(true).read(true).open(path);
+    let mut stream = OpenOptions::new().write(true).read(true).open(path);
 
-    bincode::serialize_into(&mut f, &message)
+    bincode::serialized_size(message)
+        .and_then(|size| bincode::serialize_into(&mut stream, &size))
+        .and_then(|_| bincode::serialize_into(&mut stream, message))
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
     Ok(())
@@ -90,11 +96,11 @@ impl Server {
         // server is ready instead of retrying the connection on a loop.
         if let Some(path) = env::var_os("BUTTON_STARTUP_NOTIFY") {
             let message = match &result {
-                Ok(server) => Ok(server.local_addr().unwrap().port()),
+                Ok(server) => Ok(server.port()),
                 Err(err) => Err(err.to_string()),
             };
 
-            notify_server_startup(path.as_ref(), message)?;
+            notify_server_startup(path.as_ref(), &message)?;
         }
 
         result
@@ -106,8 +112,12 @@ impl Server {
         })
     }
 
-    pub fn local_addr(&self) -> Result<SocketAddr, io::Error> {
-        self.socket.local_addr()
+    pub fn addr(&self) -> SocketAddr {
+        self.socket.local_addr().unwrap()
+    }
+
+    pub fn port(&self) -> u16 {
+        self.addr().port()
     }
 
     pub fn run(self, idle: Duration) {

@@ -29,12 +29,13 @@
 //!     client can use this event stream to display the build output.
 
 use std::env;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::time::Duration;
 
-use button::{self, Error};
+use button::{self, Error, ErrorKind};
 use humantime;
 use log;
-use pretty_env_logger;
 use structopt::StructOpt;
 
 use crate::opts::GlobalOpts;
@@ -56,36 +57,70 @@ pub struct Server {
     /// Logging level to use.
     #[structopt(long = "log-level")]
     log_level: Option<log::LevelFilter>,
+
+    /// Make this a daemon process.
+    #[structopt(long = "--daemon")]
+    daemon: bool,
+
+    /// Root directory for the daemon. Defaults to the current working
+    /// directory.
+    #[structopt(long = "root", parse(from_os_str))]
+    root: Option<PathBuf>,
+
+    /// Run the server in the foreground?
+    #[structopt(long = "foreground", short = "f")]
+    foreground: bool,
 }
 
 impl Server {
     pub fn main(self, _global: &GlobalOpts) -> Result<(), Error> {
-        let level = if let Some(level) = self.log_level {
-            level
-        } else {
-            match env::var("BUTTON_LOG_LEVEL") {
-                Ok(var) => var.parse::<log::LevelFilter>()?,
-                Err(_) => log::LevelFilter::Info,
+        if self.daemon {
+            button::server::run_daemon(self.port, self.idle, self.log_level)?;
+        } else if self.foreground {
+            // Can't run in the foreground if there is already a server running.
+            if let Some((_, port)) = button::server::try_connect(".")? {
+                return Err(ErrorKind::Other(
+                    format!("Server is already running on port {}", port)
+                        .into(),
+                )
+                .into());
             }
-        };
 
-        // Initialize the logger.
-        let mut builder = pretty_env_logger::formatted_timed_builder();
-        builder.filter_module("button", level);
-        builder.init();
+            if let Some(dir) = &self.root {
+                env::set_current_dir(dir)?;
+            }
 
-        let server = button::server::Server::new(self.port)?;
+            button::server::run(self.port, self.idle, self.log_level)?;
+        } else {
+            let root = self
+                .root
+                .as_ref()
+                .map(PathBuf::as_path)
+                .unwrap_or_else(|| Path::new("."));
 
-        // Default of one hour.
-        let idle = self.idle.unwrap_or(Duration::from_secs(60 * 60));
+            let client = button::server::connect_or_spawn(root, || {
+                // Run `button server --daemon` in order to spawn the daemon.
+                let mut command = Command::new(env::current_exe()?);
+                command.arg("server");
+                command.arg("--daemon");
+                command.args(&["--port", &self.port.to_string()]);
 
-        log::info!(
-            "Listening on {}. Will shutdown if idle for {}.",
-            server.local_addr().unwrap(),
-            humantime::format_duration(idle)
-        );
+                if let Some(log_level) = &self.log_level {
+                    command.args(&["--log-level", &log_level.to_string()]);
+                }
 
-        server.run(idle);
+                if let Some(idle) = &self.idle {
+                    command.args(&[
+                        "--idle-timeout",
+                        &humantime::format_duration(idle.clone()).to_string(),
+                    ]);
+                }
+
+                Ok(command)
+            })?;
+
+            println!("Server is running at {}.", client.peer_addr().unwrap());
+        }
 
         Ok(())
     }

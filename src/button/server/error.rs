@@ -31,6 +31,8 @@ pub enum Error {
     Bincode(bincode::Error),
     Io(io::Error),
     Shutdown(SendError<ShutdownMessage>),
+    Other(Box<dyn std::error::Error + Send + Sync>),
+    TimedOut,
     Unknown,
 }
 
@@ -66,6 +68,8 @@ impl fmt::Display for Error {
             Error::Shutdown(e) => {
                 write!(f, "Failed shutting down the server: {}", e)
             }
+            Error::Other(e) => write!(f, "{}", e),
+            Error::TimedOut => write!(f, "Timed out"),
             Error::Unknown => write!(f, "An unknown error occurred"),
         }?;
 

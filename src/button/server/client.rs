@@ -17,7 +17,8 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-use std::net::SocketAddr;
+use std::io;
+use std::net::{Ipv4Addr, SocketAddr};
 
 use futures::{Future, Sink, Stream};
 use tokio::{net::TcpStream, runtime::Runtime};
@@ -33,6 +34,11 @@ pub struct Client {
 }
 
 impl Client {
+    pub fn new(port: u16) -> Result<Self, Error> {
+        let addr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
+        Self::connect(&addr)
+    }
+
     pub fn connect(addr: &SocketAddr) -> Result<Self, Error> {
         let mut runtime = Runtime::new()?;
 
@@ -46,6 +52,21 @@ impl Client {
             runtime,
             stream: Transport::new(tcp),
         })
+    }
+
+    /// The client's address.
+    pub fn local_addr(&self) -> io::Result<SocketAddr> {
+        self.stream.get_ref().local_addr()
+    }
+
+    /// The server's address.
+    pub fn peer_addr(&self) -> io::Result<SocketAddr> {
+        self.stream.get_ref().peer_addr()
+    }
+
+    /// The port of the server we're connected to.
+    pub fn port(&self) -> u16 {
+        self.peer_addr().unwrap().port()
     }
 
     // TODO: Allow reusing the client after this function is called. In order to

@@ -17,13 +17,15 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-use std::io::Write;
+use std::io::{self, Write};
 
 use structopt::StructOpt;
 use termcolor::{self as tc, WriteColor};
 
+use button::Error;
+
 use crate::cmd::Command;
-use crate::opts::GlobalOpts;
+use crate::opts::{ColorChoice, GlobalOpts};
 
 #[derive(StructOpt, Debug)]
 pub struct Args {
@@ -34,48 +36,49 @@ pub struct Args {
     cmd: Command,
 }
 
-impl Args {
-    pub fn from_cmd(cmd: Command) -> Self {
-        Args {
-            global: GlobalOpts::default(),
-            cmd,
-        }
+/// Displays an error and its list of causes.
+pub fn display_error(
+    error: Error,
+    color: ColorChoice,
+) -> Result<(), io::Error> {
+    let mut red = tc::ColorSpec::new();
+    red.set_fg(Some(tc::Color::Red));
+    red.set_bold(true);
+
+    let mut stdout = tc::StandardStream::stdout(color.into());
+
+    let mut causes = error.iter_chain();
+
+    // Primary error.
+    if let Some(cause) = causes.next() {
+        stdout.set_color(&red)?;
+        write!(&mut stdout, "    Error")?;
+        stdout.reset()?;
+        writeln!(&mut stdout, ": {}", cause)?;
     }
 
+    // Rest of the causes.
+    for cause in causes {
+        stdout.set_color(&red)?;
+        write!(&mut stdout, "Caused by")?;
+        stdout.reset()?;
+        writeln!(&mut stdout, ": {}", cause)?;
+    }
+
+    writeln!(&mut stdout, "{}", error.backtrace())?;
+
+    Ok(())
+}
+
+impl Args {
     // Delegate to a subcommand. If any errors occur, print out the error and
     // its chain of causes.
     pub fn main(self) -> i32 {
         if let Err(error) = self.cmd.main(&self.global) {
-            let mut red = tc::ColorSpec::new();
-            red.set_fg(Some(tc::Color::Red));
-            red.set_bold(true);
-
-            let mut stdout =
-                tc::StandardStream::stdout(self.global.color.into());
-
-            let mut causes = error.iter_chain();
-
-            // Primary error.
-            if let Some(cause) = causes.next() {
-                let _ = stdout.set_color(&red);
-                let _ = write!(&mut stdout, "    Error");
-                let _ = stdout.reset();
-                let _ = writeln!(&mut stdout, ": {}", cause);
-            }
-
-            // Rest of the causes.
-            for cause in causes {
-                stdout.set_color(&red).unwrap();
-                let _ = write!(&mut stdout, "Caused by");
-                let _ = stdout.reset();
-                let _ = writeln!(&mut stdout, ": {}", cause);
-            }
-
-            let _ = writeln!(&mut stdout, "{}", error.backtrace());
-
-            return 1;
+            let _ = display_error(error, self.global.color);
+            1
+        } else {
+            0
         }
-
-        0
     }
 }

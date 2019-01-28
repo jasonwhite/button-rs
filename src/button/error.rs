@@ -126,7 +126,7 @@ pub enum ErrorKind {
     /// Failed creating build graph.
     BuildGraph,
 
-    Other(Error),
+    Other(Box<dyn std::error::Error + Send + Sync>),
 }
 
 impl Display for ErrorKind {
@@ -214,7 +214,7 @@ impl From<Context<ErrorKind>> for BuildError {
 impl From<Error> for BuildError {
     fn from(err: Error) -> Self {
         BuildError {
-            inner: Context::new(ErrorKind::Other(err)),
+            inner: Context::new(ErrorKind::Other(err.into())),
         }
     }
 }
@@ -229,6 +229,6 @@ impl From<SerError> for BuildError {
             err = err.context(cause).into();
         }
 
-        ErrorKind::Other(err).into()
+        ErrorKind::Other(err.into()).into()
     }
 }

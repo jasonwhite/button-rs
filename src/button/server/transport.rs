@@ -83,6 +83,10 @@ where
             ))),
         }
     }
+
+    pub fn get_ref(&self) -> &T {
+        self.inner.get_ref().get_ref().get_ref()
+    }
 }
 
 impl<T, R, W> Stream for Transport<T, R, W>
