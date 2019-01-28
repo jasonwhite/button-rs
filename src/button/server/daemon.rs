@@ -25,47 +25,16 @@ use std::process::Command;
 use std::time::Duration;
 
 use bincode;
-use futures::{Future, Stream};
+use futures::Future;
 use humantime;
 use log;
 use pretty_env_logger;
 use serde::Deserialize;
-use tokio::{self, runtime::Runtime, timer::Timeout};
+use tokio::{self, runtime::current_thread::Runtime, timer::Timeout};
 
 use super::client::Client;
 use super::error::Error;
 use super::Server;
-
-// We need to be able to do the following things with the daemon process:
-//  1. Check if it exists and connect to it.
-//  2. Create it if it doesn't exist and connect to it.
-//
-// To do this, we just need a starting directory. The daemon shall run with its
-// working directory at the root of the project (e.g., the directory which
-// contains `button.json`).
-//
-//  - Read `{root}/.button/daemon` to check if the daemon is running. This file
-//    will contain the PID and port that the daemon is running on.
-//  - We can use the PID to kill the daemon if necessary.
-//  - When starting up, the daemon will create `{root}/.button/daemon.lock` in
-//    order to avoid race conditions with another instance of the daemon
-//    starting. The lock file shall be renamed to `{root}/.button/daemon` when
-//    initialization is complete and the server is ready to connect to.
-//
-// Creating the daemon:
-//  1. After checking that another daemon is not running for the given root
-//     directory, we create the daemon in a couple of different ways depending
-//     on the platform.
-//  2. On Unix platforms:
-//     1. We create a socket for the daemon to notify when it has finished
-//        starting up.
-//     2. We `fork()`.
-//
-// Important files:
-//  - .button/pid     File with PID (locked when the daemon process is running).
-//  - .button/port    File with port number.
-//  - .button/stderr  Redirected stderr.
-//  - .button/stdout  Redirected stdout.
 
 /// Connects to the daemon or spawns if it isn't running and then connects to
 /// it.
@@ -93,14 +62,15 @@ pub fn connect_or_spawn<F>(root: &Path, command: F) -> Result<Client, Error>
 where
     F: FnOnce() -> Result<Command, Error>,
 {
-    // Try connecting to the daemon.
+    // Try connecting to the server.
     if let Some((client, _)) = try_connect(root)? {
         return Ok(client);
     }
 
+    // Spawn the server.
     let port = spawn(root, command()?)?;
 
-    // TODO: Retry connections to the daemon.
+    // TODO: Retry connections to the server?
     Client::new(port)
 }
 
@@ -133,6 +103,7 @@ where
 fn spawn(root: &Path, mut command: Command) -> Result<u16, Error> {
     use tempfile::TempDir;
     use tokio_uds::UnixListener;
+    use futures::Stream;
 
     let mut runtime = Runtime::new()?;
 
@@ -140,7 +111,7 @@ fn spawn(root: &Path, mut command: Command) -> Result<u16, Error> {
     // when it is fully started up.
     //
     // Note that the socket file must not exist before binding. We'll get
-    // a "Address already in use" error otherwise. When the temporary directory
+    // an "Address already in use" error otherwise. When the temporary directory
     // falls out of scope, the temporary socket file will get cleaned up
     // automatically.
     let tempdir = TempDir::new()?;
@@ -162,6 +133,70 @@ fn spawn(root: &Path, mut command: Command) -> Result<u16, Error> {
         .and_then(|(socket, _)| read_server_startup(socket.unwrap()));
 
     // Don't wait forever for the server to start up.
+    let task = Timeout::new(startup, Duration::from_secs(10)).map_err(|err| {
+        if err.is_elapsed() {
+            Error::TimedOut
+        } else {
+            err.into_inner().unwrap()
+        }
+    });
+
+    let message: Result<u16, String> = runtime.block_on(task)?;
+
+    let port = message.map_err(|e| Error::Other(e.into()))?;
+
+    Ok(port)
+}
+
+#[cfg(windows)]
+fn spawn(root: &Path, mut command: Command) -> Result<u16, Error> {
+    use std::process::Stdio;
+    use uuid::Uuid;
+    use tokio_named_pipes::NamedPipe;
+    use tokio::reactor::Handle;
+    use futures::future;
+    use std::os::windows::process::CommandExt;
+    use winapi::um::winbase::{DETACHED_PROCESS, CREATE_NEW_PROCESS_GROUP};
+
+    let mut runtime = Runtime::new()?;
+
+    let pipe_name = format!(r"\\.\pipe\{}", Uuid::new_v4().to_simple());
+
+    let pipe = runtime.block_on(future::lazy(|| {
+        // `Handle::default()` does not currently work with this. Not sure why
+        // yet. This is wrapped inside a lazy future so that this is executed
+        // within the context of our tokio Runtime.
+        #[allow(deprecated)]
+        let handle = &Handle::current();
+
+        NamedPipe::new(&pipe_name, handle)
+    }))?;
+
+    // Asynchronously enables the child process we're about to spawn to
+    // connect to the named pipe. Since this is async, this will return
+    // `WouldBlock`.
+    if let Err(err) = pipe.connect() {
+        if err.kind() != io::ErrorKind::WouldBlock {
+            return Err(err.into());
+        }
+    }
+
+    // Spawn the daemon process.
+    //
+    // FIXME: The daemon process should not inherit handles from this process.
+    // Unfortunately, there is currently no way to disable handle inheritance
+    // with `std::os::windows::process::CommandExt` on Windows. See
+    // https://github.com/rust-lang/rust/issues/38227 for more info.
+    let _child = command
+        .env("BUTTON_STARTUP_NOTIFY", &pipe_name)
+        .current_dir(root)
+        .creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)
+        .stdin(Stdio::null())
+        .stdout(fs::File::create(root.join(".button/stdout"))?)
+        .stderr(fs::File::create(root.join(".button/stderr"))?)
+        .spawn()?;
+
+    let startup = read_server_startup(pipe);
     let task = Timeout::new(startup, Duration::from_secs(10)).map_err(|err| {
         if err.is_elapsed() {
             Error::TimedOut
@@ -216,7 +251,7 @@ pub fn daemonize() -> Result<(), io::Error> {
 
 /// Runs the server in the foreground. Daemonizing the process should be done
 /// before this. It is assumed that the server is running from the current
-/// working directory.
+/// working directory and that the `.button` directory already exists.
 ///
 /// This will set up logging and create the server.
 pub fn run(
@@ -240,9 +275,6 @@ pub fn run(
     builder.init();
 
     let server = Server::new(port)?;
-
-    // Create the important files.
-    fs::create_dir_all(".button")?;
 
     // Create the `port` file. Note that the current process must lock this file
     // to prevent another daemon from spawning at the same time. The file handle
@@ -317,6 +349,8 @@ pub fn run_daemon(
     // Remove the variable so it doesn't get inherited by child
     // processes (incase `button` is run as part of the build).
     env::remove_var("BUTTON_SERVER");
+
+    fs::create_dir_all(".button")?;
 
     daemonize()?;
 

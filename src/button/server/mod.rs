@@ -70,7 +70,7 @@ where
 {
     use std::fs::OpenOptions;
 
-    let mut stream = OpenOptions::new().write(true).read(true).open(path);
+    let mut stream = OpenOptions::new().write(true).read(true).open(path)?;
 
     bincode::serialized_size(message)
         .and_then(|size| bincode::serialize_into(&mut stream, &size))

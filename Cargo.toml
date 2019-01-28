@@ -49,8 +49,9 @@ tokio-uds = "0.2"
 nix = "0.13"
 
 [target.'cfg(windows)'.dependencies]
-tokio-named-pipes = "0.1"
+tokio-named-pipes = { git = "https://github.com/NikVolf/tokio-named-pipes", branch = "stable" }
 winapi = "0.3"
+uuid = "0.7"
 
 [dependencies.tempfile]
 git = "https://github.com/Stebalien/tempfile"
