@@ -115,7 +115,7 @@ impl Server {
                 if let Some(idle) = &self.idle {
                     command.args(&[
                         "--idle-timeout",
-                        &humantime::format_duration(idle.clone()).to_string(),
+                        &humantime::format_duration(*idle).to_string(),
                     ]);
                 }
 
