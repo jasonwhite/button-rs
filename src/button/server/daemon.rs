@@ -36,14 +36,10 @@ use super::client::Client;
 use super::error::Error;
 use super::Server;
 
-/// Connects to the daemon or spawns if it isn't running and then connects to
-/// it.
+/// Tries to connect to the daemon.
 ///
 /// If the daemon already exists, returns the port for the existing daemon.
-
-pub fn try_connect<P: AsRef<Path>>(
-    root: P,
-) -> Result<Option<(Client, u16)>, Error> {
+pub fn try_connect<P: AsRef<Path>>(root: P) -> Result<Option<Client>, Error> {
     let root = root.as_ref();
 
     // Try connecting to the daemon.
@@ -51,19 +47,22 @@ pub fn try_connect<P: AsRef<Path>>(
         let port = bincode::deserialize_from(f)?;
 
         if let Ok(client) = Client::new(port) {
-            return Ok(Some((client, port)));
+            return Ok(Some(client));
         }
     }
 
     Ok(None)
 }
 
+/// Attempts to connect to the server at the given path, if any. If
+/// unsuccessful, spawns the daemon process using the given closure and attempts
+/// to connect to it.
 pub fn connect_or_spawn<F>(root: &Path, command: F) -> Result<Client, Error>
 where
     F: FnOnce() -> Result<Command, Error>,
 {
     // Try connecting to the server.
-    if let Some((client, _)) = try_connect(root)? {
+    if let Some(client) = try_connect(root)? {
         return Ok(client);
     }
 
@@ -101,9 +100,9 @@ where
 /// If this fails, the caller is responsible for retrying.
 #[cfg(unix)]
 fn spawn(root: &Path, mut command: Command) -> Result<u16, Error> {
+    use futures::Stream;
     use tempfile::TempDir;
     use tokio_uds::UnixListener;
-    use futures::Stream;
 
     let mut runtime = Runtime::new()?;
 
@@ -150,13 +149,13 @@ fn spawn(root: &Path, mut command: Command) -> Result<u16, Error> {
 
 #[cfg(windows)]
 fn spawn(root: &Path, mut command: Command) -> Result<u16, Error> {
-    use std::process::Stdio;
-    use uuid::Uuid;
-    use tokio_named_pipes::NamedPipe;
-    use tokio::reactor::Handle;
     use futures::future;
     use std::os::windows::process::CommandExt;
-    use winapi::um::winbase::{DETACHED_PROCESS, CREATE_NEW_PROCESS_GROUP};
+    use std::process::Stdio;
+    use tokio::reactor::Handle;
+    use tokio_named_pipes::NamedPipe;
+    use uuid::Uuid;
+    use winapi::um::winbase::{CREATE_NEW_PROCESS_GROUP, DETACHED_PROCESS};
 
     let mut runtime = Runtime::new()?;
 
@@ -196,6 +195,7 @@ fn spawn(root: &Path, mut command: Command) -> Result<u16, Error> {
         .stderr(fs::File::create(root.join(".button/stderr"))?)
         .spawn()?;
 
+    // Wait for the daemon to send back startup info.
     let startup = read_server_startup(pipe);
     let task = Timeout::new(startup, Duration::from_secs(10)).map_err(|err| {
         if err.is_elapsed() {

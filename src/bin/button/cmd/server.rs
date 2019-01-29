@@ -78,10 +78,13 @@ impl Server {
             button::server::run_daemon(self.port, self.idle, self.log_level)?;
         } else if self.foreground {
             // Can't run in the foreground if there is already a server running.
-            if let Some((_, port)) = button::server::try_connect(".")? {
+            if let Some(client) = button::server::try_connect(".")? {
                 return Err(ErrorKind::Other(
-                    format!("Server is already running on port {}", port)
-                        .into(),
+                    format!(
+                        "Server is already running on port {}",
+                        client.port()
+                    )
+                    .into(),
                 )
                 .into());
             }
