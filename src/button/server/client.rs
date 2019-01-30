@@ -21,16 +21,16 @@ use std::io;
 use std::net::{Ipv4Addr, SocketAddr};
 
 use futures::{Future, Sink, Stream};
-use tokio::{net::TcpStream, runtime::Runtime};
+use tokio::{net::TcpStream, runtime::current_thread::Runtime};
 
 use super::error::Error;
-use super::protocol::{Request, Response, ResponseItem};
-use super::transport::{Frame, Message, Transport};
+use super::protocol::{BodyItem, Request, Response};
+use super::transport::{Frame, Transport};
 
 /// A connection to the server.
 pub struct Client {
-    runtime: Runtime,
-    stream: Transport<TcpStream, Frame<Response, ResponseItem>, Request>,
+    rt: Runtime,
+    stream: Transport<TcpStream, Frame<Response, BodyItem>, Request>,
 }
 
 impl Client {
@@ -40,16 +40,12 @@ impl Client {
     }
 
     pub fn connect(addr: &SocketAddr) -> Result<Self, Error> {
-        let mut runtime = Runtime::new()?;
+        let mut rt = Runtime::new()?;
 
-        let tcp = runtime.block_on(TcpStream::connect(addr))?;
-
-        // TODO: Send a hello to the server to ensure we're really connected to
-        // the type of server that we're expecting. We may have unwittingly
-        // connected to some other server.
+        let tcp = rt.block_on(TcpStream::connect(addr))?;
 
         Ok(Client {
-            runtime,
+            rt,
             stream: Transport::new(tcp),
         })
     }
@@ -69,42 +65,47 @@ impl Client {
         self.peer_addr().unwrap().port()
     }
 
-    // TODO: Allow reusing the client after this function is called. In order to
-    // do that, we must ensure that the body stream of each request is read in
-    // its entirety.
+    /// Makes a request and returns the response and a boolean indicating the
+    /// presence of a body. If the response contains a body, the body *must* be
+    /// fully read in order to make another request.
     pub fn request(
-        mut self,
+        &mut self,
         request: Request,
-    ) -> Result<
-        Message<Response, impl Stream<Item = ResponseItem, Error = Error>>,
-        Error,
-    > {
-        let task = self.stream.send(request).and_then(move |stream| {
-            stream
-                .into_future()
-                .map_err(|(e, _)| e)
-                .map(|(item, stream)| match item.unwrap() {
-                    Frame::Message(r, has_body) => {
-                        if has_body {
-                            let body_stream = stream
-                                .take_while(|frame| match frame {
-                                    Frame::Body(Some(_)) => Ok(true),
-                                    _ => Ok(false),
-                                })
-                                .map(|frame| match frame {
-                                    Frame::Body(Some(b)) => b,
-                                    _ => unreachable!(),
-                                });
+    ) -> Result<(Response, bool), Error> {
+        // TODO: This is not truely async due to the complexity of reusing
+        // connections. Such a scheme requires maintaining a connection pool.
+        // When a response is fully read, the connection is put back into the
+        // pool to be reused by a future request. This is how Hyper works.
+        let stream = &mut self.stream;
 
-                            Message::WithBody(r, body_stream)
+        self.rt
+            .block_on(stream.send(request).and_then(move |stream| {
+                stream.into_future().map_err(|(e, _)| e).map(
+                    |(item, _stream)| {
+                        if let Frame::Message(r, has_body) = item.unwrap() {
+                            (r, has_body)
                         } else {
-                            Message::WithoutBody(r)
+                            unreachable!()
                         }
-                    }
-                    Frame::Body(_) => unreachable!(),
-                })
-        });
+                    },
+                )
+            }))
+    }
 
-        self.runtime.block_on(task)
+    /// Reads a single body item. Returns `None` when there are no more body
+    /// items.
+    pub fn read_body_item(&mut self) -> Result<Option<BodyItem>, Error> {
+        let stream = &mut self.stream;
+
+        self.rt
+            .block_on(stream.into_future().map_err(|(e, _)| e).map(
+                |(item, _stream)| {
+                    if let Some(Frame::Body(b)) = item {
+                        b
+                    } else {
+                        None
+                    }
+                },
+            ))
     }
 }

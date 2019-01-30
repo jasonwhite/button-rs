@@ -48,7 +48,7 @@ pub struct Rule {
     pub tasks: task::List,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Rules(Vec<Rule>);
 
 impl Rules {

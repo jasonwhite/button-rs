@@ -19,12 +19,8 @@
 // THE SOFTWARE.
 use std::net::{Ipv4Addr, SocketAddr};
 
-use tokio;
-
-use futures::Stream;
-
 use button::{
-    server::{Client, Message, Request},
+    server::{Client, Request},
     Error,
 };
 use structopt::StructOpt;
@@ -43,26 +39,17 @@ impl Test {
         let socket =
             SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), self.port);
 
-        let mut rt = tokio::runtime::Runtime::new()?;
+        let mut client = Client::connect(&socket)?;
 
-        println!("Connecting to {}", socket);
+        println!("Connected!");
 
-        let client = Client::connect(&socket)?;
-
-        println!("Connected. Making a request.");
-
-        match client.request(Request::Shutdown)? {
-            Message::WithBody(r, body) => {
-                println!("Got response with body: {:?}", r);
-                rt.block_on(body.for_each(|item| {
-                    println!("Received body item: {:?}", item);
-                    Ok(())
-                }))?;
+        let (response, has_body) = client.request(Request::Build)?;
+        println!("Got response: {:?}", response);
+        if has_body {
+            while let Some(item) = client.read_body_item()? {
+                println!("Got body item: {:?}", item);
             }
-            Message::WithoutBody(r) => {
-                println!("Got response: {:?}", r);
-            }
-        };
+        }
 
         Ok(())
     }

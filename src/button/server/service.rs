@@ -27,10 +27,11 @@ use tokio::{
 };
 use tower_service::Service;
 
+use crate::rules::Rules;
 use crate::util::Either;
 
 use super::error::Error;
-use super::protocol::{Request, Response, ResponseItem};
+use super::protocol::{BodyItem, Request, Response};
 use super::shutdown::ShutdownMessage;
 use super::transport::{Frame, Message, Transport};
 
@@ -83,10 +84,53 @@ impl ButtonService {
             .forward(sink)
             .map(|_| ())
     }
+
+    /// Handles a 'build' request.
+    fn build(&mut self) -> <Self as Service<Request>>::Future {
+        let (tx, rx) = mpsc::channel(1);
+
+        // Send some events.
+        tokio::spawn(
+            tx.send(BodyItem::BuildEvent(1))
+                .and_then(|tx| tx.send(BodyItem::BuildEvent(2)))
+                .map_err(|_| ())
+                .map(|_| ()),
+        );
+
+        let message = Message::WithBody(Ok(()), rx);
+
+        Box::new(future::ok(message))
+    }
+
+    /// Handles a 'clean' request.
+    fn clean(&mut self) -> <Self as Service<Request>>::Future {
+        Box::new(future::ok(Message::WithoutBody(Ok(()))))
+    }
+
+    /// Handles an 'update' request.
+    fn update(&mut self, _rules: Rules) -> <Self as Service<Request>>::Future {
+        Box::new(future::ok(Message::WithoutBody(Ok(()))))
+    }
+
+    /// Handles a 'watch' request.
+    fn watch(&mut self) -> <Self as Service<Request>>::Future {
+        Box::new(future::ok(Message::WithoutBody(Ok(()))))
+    }
+
+    /// Handles a 'shutdown' request.
+    fn shutdown(&mut self) -> <Self as Service<Request>>::Future {
+        Box::new(
+            self.shutdown
+                .clone()
+                .send(ShutdownMessage::Shutdown)
+                .from_err::<Error>()
+                .map(|_| Message::WithoutBody(Ok(()))),
+        )
+    }
 }
 
 impl Service<Request> for ButtonService {
-    type Response = Message<Response, mpsc::Receiver<ResponseItem>>;
+    type Response = Message<Response, mpsc::Receiver<BodyItem>>;
     type Error = Error;
     type Future =
         Box<Future<Item = Self::Response, Error = Self::Error> + Send>;
@@ -96,39 +140,20 @@ impl Service<Request> for ButtonService {
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        log::debug!("Got request: {:?}", request);
+        log::info!("Got request: {:?}", request);
 
-        // We received a request. Keep the server alive. Note that we
-        // don't care if `start_send` cannot complete
-        // the send. If the channel's buffer is full due
-        // to outstanding requests, then sending another reset message
+        // We received a request. Keep the server alive. Note that we don't care
+        // if `start_send` cannot complete the send. If the channel's buffer is
+        // full due to outstanding requests, then sending another reset message
         // isn't necessary.
         drop(self.shutdown.start_send(ShutdownMessage::ResetIdle));
 
         match request {
-            Request::Build => {
-                let (tx, rx) = mpsc::channel(0);
-
-                // Send some events.
-                tokio::spawn(
-                    tx.send(ResponseItem::BuildEvent(1))
-                        .and_then(|tx| tx.send(ResponseItem::BuildEvent(2)))
-                        .map_err(|_| ())
-                        .map(|_| ()),
-                );
-
-                let message = Message::WithBody(Response::Success, rx);
-
-                Box::new(future::ok(message))
-            }
-            Request::Shutdown => Box::new(
-                self.shutdown
-                    .clone()
-                    .send(ShutdownMessage::Shutdown)
-                    .from_err::<Error>()
-                    .map(|_| Message::WithoutBody(Response::Shutdown)),
-            ),
-            _ => Box::new(future::ok(Message::WithoutBody(Response::Success))),
+            Request::Build => self.build(),
+            Request::Clean => self.clean(),
+            Request::Update(rules) => self.update(rules),
+            Request::Watch => self.watch(),
+            Request::Shutdown => self.shutdown(),
         }
     }
 }

@@ -19,32 +19,40 @@
 // THE SOFTWARE.
 use serde::{Deserialize, Serialize};
 
+use crate::rules::Rules;
+
 /// A request for the server.
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Request {
     /// Requests a build.
     Build,
 
-    /// Requests a clean.
+    /// Requests that all output resources get deleted.
     Clean,
 
-    /// Requests the server to shut down.
-    Shutdown,
+    /// Updates the build graph with the on-disk rules.
+    Update(Rules),
 
     /// Requests a build to happen automatically whenever a file is changed.
     Watch,
-}
 
-/// The response sent back to the client afer a request is made.
-#[derive(Serialize, Deserialize, Debug)]
-pub enum Response {
-    Success,
+    /// Requests the server to shut down.
     Shutdown,
 }
 
+/// A generic response that is sent when an error occurs.
+#[derive(Serialize, Deserialize, Debug)]
+pub enum ResponseError {
+    Other(String),
+}
+
+/// The response sent back to the client afer a request is made. This is just an
+/// alias for `Result` to make handling errors that come from the server easier.
+pub type Response = Result<(), ResponseError>;
+
 /// An item in the response body. Zero or more items may follow a response.
 #[derive(Serialize, Deserialize, Debug)]
-pub enum ResponseItem {
+pub enum BodyItem {
     /// A build event. Sent by the server when a build event occurs.
     BuildEvent(usize),
 }
