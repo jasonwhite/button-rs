@@ -33,9 +33,11 @@ pub mod server;
 pub mod state;
 pub mod task;
 pub mod util;
+mod events;
 
 pub use crate::build::{Build, BuildFailure};
 pub use crate::error::{Error, ErrorKind, ResultExt};
 pub use crate::rules::Rules;
 pub use crate::server::{Client, Server};
 pub use crate::state::BuildState;
+pub use crate::events::{Event, Timestamped};

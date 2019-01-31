@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use crate::res;
 
 /// The sets of detected inputs and outputs of a process.
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
 pub struct Detected {
     pub inputs: HashSet<res::Any>,
     pub outputs: HashSet<res::Any>,
