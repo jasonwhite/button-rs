@@ -26,7 +26,7 @@ hex = "0.3"
 holyhashmap = { version = "0.1", features = ["serde"] }
 humantime = "1"
 log = "0.4"
-nom = "^4.1"
+nom = "^4.2"
 num_cpus = "1"
 os_pipe = "0.8"
 pretty_env_logger = "0.3"
