@@ -376,7 +376,9 @@ impl<'de> Deserialize<'de> for Command {
                         }
                         Field::Stdin => {
                             if stdin.is_some() {
-                                return Err(de::Error::duplicate_field("stdin"));
+                                return Err(de::Error::duplicate_field(
+                                    "stdin",
+                                ));
                             }
 
                             stdin = Some(map.next_value()?);
@@ -410,7 +412,9 @@ impl<'de> Deserialize<'de> for Command {
                         }
                         Field::Retry => {
                             if retry.is_some() {
-                                return Err(de::Error::duplicate_field("retry"));
+                                return Err(de::Error::duplicate_field(
+                                    "retry",
+                                ));
                             }
 
                             retry = Some(map.next_value()?);

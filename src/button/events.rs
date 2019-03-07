@@ -25,11 +25,11 @@
 use std::ops::Deref;
 
 use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
+use crate::detect::Detected;
 use crate::res;
 use crate::task;
-use crate::detect::Detected;
 
 /// A build has begun.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -103,13 +103,13 @@ pub enum Event {
 }
 
 macro_rules! from_event {
-    ($name:ident, $from:ident) => (
+    ($name:ident, $from:ident) => {
         impl From<$from> for Event {
             fn from(event: $from) -> Self {
                 Event::$name(event)
             }
         }
-    );
+    };
 }
 
 from_event!(BeginBuild, BeginBuildEvent);
@@ -117,7 +117,6 @@ from_event!(BeginTask, BeginTaskEvent);
 from_event!(TaskOutput, TaskOutputEvent);
 from_event!(EndTask, EndTaskEvent);
 from_event!(Delete, DeleteEvent);
-
 
 /// A wrapper to timestamp types.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -142,7 +141,7 @@ impl<T> From<T> for Timestamped<T> {
     fn from(inner: T) -> Self {
         Timestamped {
             timestamp: Utc::now(),
-            inner
+            inner,
         }
     }
 }
