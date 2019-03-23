@@ -64,7 +64,9 @@ impl File {
                 _ => Err(err),
             },
         }
-        .with_context(|_| format!("Could not open file {:?}", self.path))?;
+        .with_context(|_| {
+            format!("Could not open file '{}'", self.path.display())
+        })?;
 
         Ok(ResourceState::Checksum(util::Sha256::from_reader(f)?))
     }

@@ -68,7 +68,7 @@ impl Graph {
             state.graph
         } else {
             let rules = Rules::from_path(&rules).with_context(|_| {
-                format!("Failed loading rules from file {:?}", rules)
+                format!("Failed loading rules from '{}'", rules.display())
             })?;
 
             BuildGraph::from_rules(rules)?
@@ -77,7 +77,7 @@ impl Graph {
         if let Some(output) = &self.output {
             let mut stream =
                 io::BufWriter::new(fs::File::create(&output).with_context(
-                    |_| format!("Failed creating {:?}", output),
+                    |_| format!("Failed creating '{}'", output.display()),
                 )?);
             build_graph.graphviz(&mut stream)?;
             stream.flush() // Flush to catch write errors

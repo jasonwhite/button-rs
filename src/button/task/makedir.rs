@@ -77,7 +77,7 @@ impl MakeDir {
 
 impl fmt::Display for MakeDir {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "mkdir {:?}", self.path)
+        write!(f, "mkdir '{}'", self.path.display())
     }
 }
 

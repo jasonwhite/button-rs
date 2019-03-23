@@ -60,7 +60,12 @@ impl Copy {
 
 impl fmt::Display for Copy {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "copy {:?} -> {:?}", self.from, self.to)
+        write!(
+            f,
+            "copy '{}' -> '{}'",
+            self.from.display(),
+            self.to.display()
+        )
     }
 }
 

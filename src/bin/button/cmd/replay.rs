@@ -50,7 +50,7 @@ impl Replay {
 
         let logger = logger::Console::new(self.verbose, global.color.into());
         logger::log_from_path(&path, logger, self.realtime).with_context(
-            |_| format!("Failed loading binary log from {:?}", path),
+            |_| format!("Failed loading binary log from '{}'", path.display()),
         )?;
 
         Ok(())

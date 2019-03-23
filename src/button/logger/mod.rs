@@ -58,11 +58,13 @@ pub fn binary_file_logger<P>(path: P) -> Result<BinaryFile, Error>
 where
     P: AsRef<Path>,
 {
-    let f = fs::File::create(path.as_ref()).with_context(|_| {
-        format!("Failed creating file {:?}", path.as_ref())
+    let path = path.as_ref();
+
+    let f = fs::File::create(&path).with_context(|_| {
+        format!("Failed creating file '{}'", path.display())
     })?;
     Ok(BinaryFile::from_writer(io::BufWriter::new(f))
-        .with_context(|_| format!("Failed writing to {:?}", path.as_ref()))?)
+        .with_context(|_| format!("Failed writing to '{}'", path.display()))?)
 }
 
 /// Types of loggers. Useful for static dispatch of multiple loggers.
