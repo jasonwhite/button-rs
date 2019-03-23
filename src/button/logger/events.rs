@@ -25,6 +25,7 @@ use std::path::Path;
 
 use bincode;
 use chrono::{DateTime, Utc};
+use derive_more::From;
 use serde::{Deserialize, Serialize};
 
 use crate::detect::Detected;
@@ -76,7 +77,7 @@ pub struct ChecksumError {
 }
 
 /// A logging event.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, From)]
 pub enum LogEvent {
     BeginBuild(BeginBuild),
     EndBuild(EndBuild),
@@ -95,48 +96,6 @@ pub enum LogEvent {
 
     /// A checksum failed to be computed.
     ChecksumError(ChecksumError),
-}
-
-impl From<BeginBuild> for LogEvent {
-    fn from(event: BeginBuild) -> LogEvent {
-        LogEvent::BeginBuild(event)
-    }
-}
-
-impl From<EndBuild> for LogEvent {
-    fn from(event: EndBuild) -> LogEvent {
-        LogEvent::EndBuild(event)
-    }
-}
-
-impl From<StartTask> for LogEvent {
-    fn from(event: StartTask) -> LogEvent {
-        LogEvent::StartTask(event)
-    }
-}
-
-impl From<WriteTask> for LogEvent {
-    fn from(event: WriteTask) -> LogEvent {
-        LogEvent::WriteTask(event)
-    }
-}
-
-impl From<FinishTask> for LogEvent {
-    fn from(event: FinishTask) -> LogEvent {
-        LogEvent::FinishTask(event)
-    }
-}
-
-impl From<Delete> for LogEvent {
-    fn from(event: Delete) -> LogEvent {
-        LogEvent::Delete(event)
-    }
-}
-
-impl From<ChecksumError> for LogEvent {
-    fn from(event: ChecksumError) -> LogEvent {
-        LogEvent::ChecksumError(event)
-    }
 }
 
 /// Logs a stream of events from a file path.

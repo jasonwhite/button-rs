@@ -25,6 +25,7 @@
 use std::ops::Deref;
 
 use chrono::{DateTime, Utc};
+use derive_more::From;
 use serde::{Deserialize, Serialize};
 
 use crate::detect::Detected;
@@ -84,7 +85,7 @@ pub struct DeleteEvent {
 }
 
 /// A single build event.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, From)]
 pub enum Event {
     /// A build has begun.
     BeginBuild(BeginBuildEvent),
@@ -101,22 +102,6 @@ pub enum Event {
     /// A resource is getting deleted.
     Delete(DeleteEvent),
 }
-
-macro_rules! from_event {
-    ($name:ident, $from:ident) => {
-        impl From<$from> for Event {
-            fn from(event: $from) -> Self {
-                Event::$name(event)
-            }
-        }
-    };
-}
-
-from_event!(BeginBuild, BeginBuildEvent);
-from_event!(BeginTask, BeginTaskEvent);
-from_event!(TaskOutput, TaskOutputEvent);
-from_event!(EndTask, EndTaskEvent);
-from_event!(Delete, DeleteEvent);
 
 /// A wrapper to timestamp types.
 #[derive(Clone, Debug, Serialize, Deserialize)]

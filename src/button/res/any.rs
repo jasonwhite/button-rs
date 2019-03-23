@@ -22,6 +22,7 @@ use std::collections::BTreeSet;
 use std::fmt;
 use std::path::Path;
 
+use derive_more::From;
 use serde::{Deserialize, Serialize};
 
 use crate::error::Error;
@@ -36,7 +37,7 @@ pub type Set = BTreeSet<Any>;
 /// Complete list of resource types. This list is used for deserialization
 /// purposes.
 #[derive(
-    Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone,
+    Serialize, Deserialize, From, Ord, PartialOrd, Eq, PartialEq, Hash, Clone,
 )]
 #[serde(rename_all = "lowercase")]
 pub enum Any {
@@ -65,18 +66,6 @@ impl fmt::Debug for Any {
 impl<P: AsRef<Path>> From<P> for Any {
     fn from(path: P) -> Self {
         Any::File(File::new(path))
-    }
-}
-
-impl From<File> for Any {
-    fn from(res: File) -> Self {
-        Any::File(res)
-    }
-}
-
-impl From<Dir> for Any {
-    fn from(res: Dir) -> Self {
-        Any::Dir(res)
     }
 }
 

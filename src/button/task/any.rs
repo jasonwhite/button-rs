@@ -22,6 +22,7 @@ use std::fmt;
 use std::io;
 use std::path::Path;
 
+use derive_more::{Display, From};
 use serde::{Deserialize, Serialize};
 
 use super::batch_script::BatchScript;
@@ -38,7 +39,16 @@ use crate::res;
 
 /// Any possible task. This list is used for deserialization purposes.
 #[derive(
-    Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Hash, Clone,
+    Serialize,
+    Deserialize,
+    From,
+    Display,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+    Hash,
+    Clone,
 )]
 #[serde(rename_all = "lowercase")]
 pub enum Any {
@@ -58,18 +68,6 @@ pub enum Any {
     Copy(Copy),
 }
 
-impl fmt::Display for Any {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Any::BatchScript(ref x) => x.fmt(f),
-            Any::Command(ref x) => x.fmt(f),
-            Any::Download(ref x) => x.fmt(f),
-            Any::MakeDir(ref x) => x.fmt(f),
-            Any::Copy(ref x) => x.fmt(f),
-        }
-    }
-}
-
 impl fmt::Debug for Any {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -82,39 +80,9 @@ impl fmt::Debug for Any {
     }
 }
 
-impl From<BatchScript> for Any {
-    fn from(res: BatchScript) -> Self {
-        Any::BatchScript(res)
-    }
-}
-
 impl From<Command> for Any {
     fn from(res: Command) -> Self {
         Any::Command(Box::new(res))
-    }
-}
-
-impl From<Box<Command>> for Any {
-    fn from(res: Box<Command>) -> Self {
-        Any::Command(res)
-    }
-}
-
-impl From<Download> for Any {
-    fn from(res: Download) -> Self {
-        Any::Download(res)
-    }
-}
-
-impl From<MakeDir> for Any {
-    fn from(res: MakeDir) -> Self {
-        Any::MakeDir(res)
-    }
-}
-
-impl From<Copy> for Any {
-    fn from(res: Copy) -> Self {
-        Any::Copy(res)
     }
 }
 
