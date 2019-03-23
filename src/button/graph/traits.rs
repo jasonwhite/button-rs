@@ -252,12 +252,12 @@ impl<T> VisitMap<NodeIndex, T> for Vec<Option<T>> {
 
     fn get(&self, node: &NodeIndex) -> Option<&T> {
         let i: usize = (*node).into();
-        <[Option<T>]>::get(self.as_slice(), i).and_then(|v| v.as_ref())
+        <[Option<T>]>::get(self.as_slice(), i).and_then(Option::as_ref)
     }
 
     fn get_mut(&mut self, node: &NodeIndex) -> Option<&mut T> {
         let i: usize = (*node).into();
-        <[Option<T>]>::get_mut(self.as_mut_slice(), i).and_then(|v| v.as_mut())
+        <[Option<T>]>::get_mut(self.as_mut_slice(), i).and_then(Option::as_mut)
     }
 
     fn clear(&mut self) {

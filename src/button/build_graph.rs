@@ -365,7 +365,7 @@ impl<'a, G: 'a> BuildGraphExt<'a> for Subgraph<'a, G> where
 impl Graphviz for BuildGraph {
     fn graphviz(&self, f: &mut dyn io::Write) -> Result<(), io::Error> {
         fn escape_label(s: &str) -> String {
-            s.chars().flat_map(|c| c.escape_default()).collect()
+            s.chars().flat_map(char::escape_default).collect()
         }
 
         writeln!(f, "digraph G {{")?;

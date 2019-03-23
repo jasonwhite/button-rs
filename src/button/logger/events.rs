@@ -145,7 +145,7 @@ where
             }
 
             LogEvent::EndBuild(e) => {
-                let result = e.result.map_err(|e| e.into());
+                let result = e.result.map_err(Into::into);
                 logger.end_build(&result)?;
             }
 
@@ -161,7 +161,7 @@ where
 
             LogEvent::FinishTask(e) => {
                 if let Some(t) = mem::replace(&mut threads[e.thread], None) {
-                    let result = e.result.map_err(|e| e.into());
+                    let result = e.result.map_err(Into::into);
                     t.finish(&result)?;
                 }
             }
