@@ -24,6 +24,7 @@
 
 use std::ops::Deref;
 
+use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
@@ -60,7 +61,7 @@ pub struct TaskOutputEvent {
     pub id: usize,
 
     /// The chunk of data that has been output by the task.
-    pub chunk: Vec<u8>,
+    pub chunk: Bytes,
 }
 
 /// The task has finished.
@@ -139,9 +140,18 @@ impl<T> Deref for Timestamped<T> {
     }
 }
 
+/// Trait for receiving timestamped events.
+///
+/// Implementors of this can do interesting things like:
+///
+///  - Write to the events to stdout.
+///  - Write to a web page.
+///  - Write to a binary log file for later replay.
+///  - Send the events to another process for consumption.
+///  - Forward to another event handler.
 pub trait EventHandler {
     type Error: std::error::Error;
 
     /// Handles an event.
-    fn send(&mut self, item: Event) -> Result<Event, Self::Error>;
+    fn send(&mut self, item: Timestamped<Event>) -> Result<(), Self::Error>;
 }
