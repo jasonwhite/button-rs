@@ -20,6 +20,7 @@
 
 use std::collections::BTreeSet;
 use std::fmt;
+use std::io;
 use std::path::Path;
 
 use derive_more::From;
@@ -77,7 +78,7 @@ impl Resource for Any {
         }
     }
 
-    fn delete(&self, root: &Path) -> Result<(), Error> {
+    fn delete(&self, root: &Path) -> Result<(), io::Error> {
         match self {
             Any::File(ref x) => x.delete(root),
             Any::Dir(ref x) => x.delete(root),

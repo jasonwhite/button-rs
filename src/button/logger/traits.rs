@@ -60,7 +60,7 @@ pub trait EventLogger: Send + Sync {
         &self,
         thread: usize,
         resource: &res::Any,
-        result: &Result<(), Error>,
+        result: &Result<(), io::Error>,
     ) -> LogResult<()>;
 
     /// Called when a resource's checksum fails to be computed.

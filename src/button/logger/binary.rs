@@ -174,7 +174,7 @@ where
         &self,
         thread: usize,
         resource: &res::Any,
-        _result: &Result<(), Error>,
+        _result: &Result<(), io::Error>,
     ) -> LogResult<()> {
         let mut writer = self.writer.lock().unwrap();
         writer.dump(

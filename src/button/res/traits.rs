@@ -19,6 +19,7 @@
 // THE SOFTWARE.
 
 use std::fmt;
+use std::io;
 use std::hash::Hash;
 use std::path::Path;
 
@@ -72,5 +73,5 @@ pub trait Resource:
     /// error if the resource already does not exist. Output resources should be
     /// deleting in reverse topological order such that files can get deleted
     /// before directories.
-    fn delete(&self, root: &Path) -> Result<(), Error>;
+    fn delete(&self, root: &Path) -> Result<(), io::Error>;
 }

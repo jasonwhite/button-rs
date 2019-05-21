@@ -21,6 +21,7 @@
 use std::fmt::{self, Debug, Display};
 use std::path::PathBuf;
 
+use derive_more::Display;
 use failure::{Backtrace, Context};
 use serde::{Deserialize, Serialize};
 
@@ -87,87 +88,50 @@ impl Display for InvalidEdges {
     }
 }
 
-#[derive(Debug)]
-pub struct ChecksumError(Error);
-
-#[derive(Debug)]
-pub struct DeletionError(Error);
-
-#[derive(Debug)]
-pub struct EdgeError(NodeIndex, NodeIndex);
-
 /// An error that can occur during a build.
-#[derive(Fail, Debug)]
+#[derive(Fail, Display, Debug)]
 pub enum ErrorKind {
     /// A failure parsing rules.
+    #[display(fmt = "Failed loading build rules")]
     ParsingRules,
 
     /// A failure reading the build state.
+    #[display(fmt = "Failed loading build state from '{}'", "_0.display()")]
     LoadState(PathBuf),
 
     /// A failure writing the build state.
+    #[display(fmt = "Failed saving build state to '{}'", "_0.display()")]
     SaveState(PathBuf),
 
     /// A failure deleting the build state.
+    #[display(fmt = "Failed deleting build state '{}'", "_0.display()")]
     CleanState(PathBuf),
 
     /// A failure synchronizing the build state.
+    #[display(fmt = "Failed updating build graph")]
     SyncState,
 
     /// Detected edges that would have caused the build order to change.
+    #[display(
+        fmt = "{} detected edge(s) would have changed build order",
+        "_0.len()"
+    )]
     InvalidEdges(Vec<(String, String)>),
 
     /// One or more failed tasks.
+    #[display(fmt = "{} task(s) failed", "_0.len()")]
     TaskErrors(Vec<(NodeIndex, Error)>),
 
     /// One or more failed deletions.
+    #[display(fmt = "{} resource(s) could not be deleted", "_0.len()")]
     DeleteErrors(Vec<(NodeIndex, Error)>),
 
     /// Failed creating build graph.
+    #[display(fmt = "Failed creating build graph")]
     BuildGraph,
 
+    #[display(fmt = "{}", _0)]
     Other(Box<dyn std::error::Error + Send + Sync>),
-}
-
-impl Display for ErrorKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ErrorKind::ParsingRules => write!(f, "Could not parse build rules"),
-            ErrorKind::LoadState(path) => write!(
-                f,
-                "Failed loading build state from '{}'",
-                path.display()
-            ),
-            ErrorKind::SaveState(path) => {
-                write!(f, "Failed saving build state to '{}'", path.display())
-            }
-            ErrorKind::CleanState(path) => {
-                write!(f, "Failed deleting build state '{}'", path.display())
-            }
-            ErrorKind::SyncState => write!(f, "Failed updating build graph"),
-            ErrorKind::InvalidEdges(edges) => {
-                writeln!(
-                    f,
-                    "{} detected edge(s) would have changed build order:",
-                    edges.len()
-                )?;
-
-                for (from, to) in edges {
-                    writeln!(f, "- {} -> {}", from, to)?;
-                }
-
-                Ok(())
-            }
-            ErrorKind::TaskErrors(errors) => {
-                write!(f, "{} task(s) failed", errors.len())
-            }
-            ErrorKind::DeleteErrors(errors) => {
-                write!(f, "{} resources(s) could not be deleted", errors.len())
-            }
-            ErrorKind::BuildGraph => write!(f, "Failed creating build graph"),
-            ErrorKind::Other(err) => write!(f, "{}", err),
-        }
-    }
 }
 
 #[derive(Debug)]

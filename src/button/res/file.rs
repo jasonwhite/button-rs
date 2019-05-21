@@ -166,7 +166,7 @@ impl Resource for File {
 
     /// If a file, simply deletes the file. If a directory, deletes the
     /// directory if it is empty.
-    fn delete(&self, root: &Path) -> Result<(), Error> {
+    fn delete(&self, root: &Path) -> Result<(), io::Error> {
         let path = root.join(&self.path);
 
         let metadata = match fs::metadata(&path) {

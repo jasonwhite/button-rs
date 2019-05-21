@@ -45,7 +45,7 @@ impl Dir {
         }
     }
 
-    fn delete_impl(&self, root: &Path) -> Result<(), Error> {
+    fn delete_impl(&self, root: &Path) -> Result<(), io::Error> {
         let path = root.join(&self.path);
 
         match fs::remove_dir(&path) {
@@ -133,7 +133,7 @@ impl Resource for Dir {
     /// Deletes the directory if it is empty. Resources are deleted in reverse
     /// topological order. Thus, if all output resource are accounted for,
     /// directory deletion will always succeed.
-    fn delete(&self, root: &Path) -> Result<(), Error> {
+    fn delete(&self, root: &Path) -> Result<(), io::Error> {
         use crate::util::{progress_dummy, Retry};
         use std::time::Duration;
 

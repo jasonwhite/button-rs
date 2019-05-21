@@ -196,7 +196,7 @@ impl EventLogger for Console {
         &self,
         thread: usize,
         resource: &res::Any,
-        result: &Result<(), Error>,
+        result: &Result<(), io::Error>,
     ) -> LogResult<()> {
         if let Err(err) = result {
             println!("[{}] Failed to delete: {} ({})", thread, resource, err);

@@ -159,7 +159,7 @@ impl EventLogger for Any {
         &self,
         thread: usize,
         resource: &res::Any,
-        result: &Result<(), Error>,
+        result: &Result<(), io::Error>,
     ) -> LogResult<()> {
         match self {
             Any::Console(l) => l.delete(thread, resource, result),
@@ -312,7 +312,7 @@ where
         &self,
         thread: usize,
         resource: &res::Any,
-        result: &Result<(), Error>,
+        result: &Result<(), io::Error>,
     ) -> LogResult<()> {
         for logger in &self.inner {
             logger.delete(thread, resource, result)?;
