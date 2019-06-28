@@ -18,7 +18,7 @@ bit-set = "0.5"
 bytes = { version = "0.4", features = ["serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 crossbeam = "0.7"
-derive_more = "0.14"
+derive_more = "0.15"
 failure = "0.1"
 failure_derive = "0.1"
 futures = "0.1"
