@@ -22,7 +22,7 @@ derive_more = "0.14"
 failure = "0.1"
 failure_derive = "0.1"
 futures = "0.1"
-generic-array = { version = "0.12", features = ["serde"] }
+generic-array = { version = "0.13", features = ["serde"] }
 hex = "0.3"
 holyhashmap = { version = "0.1", features = ["serde"] }
 humantime = "1"
