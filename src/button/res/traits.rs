@@ -19,8 +19,8 @@
 // THE SOFTWARE.
 
 use std::fmt;
-use std::io;
 use std::hash::Hash;
+use std::io;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
