@@ -40,9 +40,6 @@ pub struct BeginBuildEvent {
     pub threads: usize,
 }
 
-/// The build has finished with a result.
-pub struct EndBuildEvent {}
-
 /// A task has started executing.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BeginTaskEvent {

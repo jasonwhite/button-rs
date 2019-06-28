@@ -125,8 +125,6 @@ where
     N: NodeTrait + Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use crate::graph::Indexable;
-
         writeln!(
             f,
             "{} cycle(s) detected in the build graph...\n",

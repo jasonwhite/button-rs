@@ -54,7 +54,7 @@ impl Dir {
                 match err.kind() {
                     // Don't care if it doesn't exist.
                     io::ErrorKind::NotFound => Ok(()),
-                    _ => Err(err.into()),
+                    _ => Err(err),
                 }
             }
         }
