@@ -50,7 +50,7 @@ pub struct Server {
     /// shutting down.
     #[structopt(
         long = "idle-timeout",
-        parse(try_from_str = "humantime::parse_duration")
+        parse(try_from_str = humantime::parse_duration)
     )]
     idle: Option<Duration>,
 

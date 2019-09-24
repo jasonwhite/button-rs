@@ -30,10 +30,7 @@ pub struct GlobalOpts {
     #[structopt(
         long = "color",
         default_value = "auto",
-        raw(
-            possible_values = "&ColorChoice::variants()",
-            case_insensitive = "true"
-        )
+        possible_values = &ColorChoice::variants(),
     )]
     pub color: ColorChoice,
 }
