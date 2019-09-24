@@ -133,7 +133,7 @@ impl Service<Request> for ButtonService {
     type Response = Message<Response, mpsc::Receiver<BodyItem>>;
     type Error = Error;
     type Future =
-        Box<Future<Item = Self::Response, Error = Self::Error> + Send>;
+        Box<dyn Future<Item = Self::Response, Error = Self::Error> + Send>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         Ok(Async::Ready(()))
