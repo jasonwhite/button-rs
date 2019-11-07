@@ -31,12 +31,16 @@ pub struct MakeRule {
 pub struct MakeFile(Vec<MakeRule>);
 
 impl FromStr for MakeFile {
-    type Err = String;
+    type Err = nom::Err<nom::error::ErrorKind>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match make_rules(s) {
             Ok((_, rules)) => Ok(MakeFile(rules)),
-            Err(err) => Err(err.to_string()),
+            Err(err) => Err(match err {
+                nom::Err::Incomplete(n) => nom::Err::Incomplete(n),
+                nom::Err::Error(e) => nom::Err::Error(e.1),
+                nom::Err::Failure(e) => nom::Err::Failure(e.1),
+            }),
         }
     }
 }
@@ -77,7 +81,7 @@ named!(pub filename<&str, String>,
             | tag!("r") => { |_| "\r" }
             | tag!("n") => { |_| "\n" }
             | tag!("t") => { |_| "\t" }
-            | nom::line_ending => { |_| "" }
+            | nom::character::complete::line_ending => { |_| "" }
         )
     )
 );
@@ -87,7 +91,7 @@ named!(make_targets<&str, Vec<String>>,
         escaped!(
             take_while1!(is_space),
             '\\',
-            nom::line_ending
+            nom::character::complete::line_ending
         ),
         filename
     )
