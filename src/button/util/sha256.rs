@@ -28,7 +28,7 @@ use generic_array::{typenum, GenericArray};
 use hex::{FromHex, FromHexError, ToHex};
 use serde::{
     de::{self, Deserializer, Visitor},
-    ser::{self, Serializer},
+    ser::Serializer,
     Deserialize, Serialize,
 };
 use sha2::{self, Digest};
@@ -131,11 +131,7 @@ impl Serialize for Sha256 {
     {
         if serializer.is_human_readable() {
             // Serialize as a hex string.
-            let mut hex = String::new();
-            self.inner
-                .as_ref()
-                .write_hex(&mut hex)
-                .map_err(ser::Error::custom)?;
+            let hex: String = self.inner.encode_hex();
             serializer.serialize_str(&hex)
         } else {
             // Serialize as a byte array with known length.
