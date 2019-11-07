@@ -109,10 +109,14 @@ named!(make_rule<&str, MakeRule>,
 );
 
 named!(make_rules<&str, Vec<MakeRule>>,
-    ws!(separated_list!(
-        take_while!(is_rule_separator),
-        make_rule
-    ))
+    delimited!(
+        nom::character::complete::multispace0,
+        separated_list!(
+            take_while!(is_rule_separator),
+            make_rule
+        ),
+        nom::character::complete::multispace0
+    )
 );
 
 #[cfg(test)]
