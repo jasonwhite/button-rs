@@ -18,11 +18,12 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 use std::path::{Path, PathBuf};
+use std::sync::mpsc;
 
 use num_cpus;
 use structopt::StructOpt;
 
-use button::{self, logger, Error, ResultExt};
+use button::{self, events, Error, ResultExt};
 
 use crate::opts::GlobalOpts;
 use crate::paths;
@@ -48,7 +49,7 @@ pub struct Clean {
 }
 
 impl Clean {
-    pub fn main(self, global: &GlobalOpts) -> Result<(), Error> {
+    pub fn main(self, _global: &GlobalOpts) -> Result<(), Error> {
         let rules = paths::rules_or(self.rules)
             .context("Failed to find build rules")?;
 
@@ -60,11 +61,13 @@ impl Clean {
 
         let root = rules.parent().unwrap_or_else(|| Path::new("."));
 
-        let logger = logger::Console::new(self.verbose, global.color.into());
+        let event_handler = events::Console::new();
+        let (sender, receiver) = mpsc::channel();
+        let _event_thread = events::EventThread::new(event_handler, receiver);
 
         let state_path = root.join(paths::STATE);
-        let build = button::Build::new(root, &state_path);
-        build.clean(self.dryrun, threads, &logger)?;
+        let build = button::Build::new(root, &state_path, threads, sender);
+        build.clean(self.dryrun)?;
 
         Ok(())
     }

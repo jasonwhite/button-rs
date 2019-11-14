@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Jason White
+// Copyright (c) 2019 Jason White
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -17,26 +17,41 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+use std::fs;
+use std::io::{self, Write as _};
 
-#[macro_use]
-extern crate nom;
+use bincode;
 
-mod build;
-pub mod build_graph;
-mod detect;
-pub mod error;
-pub mod events;
-pub mod graph;
-pub mod res;
-pub mod rules;
-pub mod server;
-pub mod state;
-pub mod task;
-pub mod util;
+use super::{Event, EventHandler, Timestamp};
 
-pub use crate::build::{Build, BuildFailure};
-pub use crate::error::{Error, ErrorKind, ResultExt};
-pub use crate::events::{Event, EventHandler, Timestamp};
-pub use crate::rules::Rules;
-pub use crate::server::{Client, Server};
-pub use crate::state::BuildState;
+/// Serializes events to a file. This is useful for being able to replay events
+/// later through a different event handler.
+pub struct Binary {
+    writer: io::BufWriter<fs::File>,
+}
+
+impl Binary {
+    pub fn new(file: fs::File) -> Self {
+        Binary {
+            writer: io::BufWriter::new(file),
+        }
+    }
+}
+
+impl EventHandler for Binary {
+    type Error = bincode::Error;
+
+    fn call(
+        &mut self,
+        timestamp: Timestamp,
+        event: Event,
+    ) -> Result<(), Self::Error> {
+        bincode::serialize_into(&mut self.writer, &(timestamp, event))?;
+        Ok(())
+    }
+
+    fn finish(&mut self) -> Result<(), Self::Error> {
+        self.writer.flush()?;
+        Ok(())
+    }
+}

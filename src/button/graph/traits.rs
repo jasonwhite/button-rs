@@ -520,22 +520,31 @@ where
     /// visited. If it returns `false`, then its child nodes will not be
     /// visited. This is useful if a resource is determined to be
     /// unchanged, obviating the need to do additional work.
-    fn traverse<F, Error>(
+    ///
+    /// If `reverse` is `true`, then the graph is traversed in reverse
+    /// topological order.
+    ///
+    /// The `init` parameter is cloned for each worker thread and is passed to
+    /// the visitor function. This is useful for passing a `Sender` to each
+    /// thread.
+    fn traverse<F, Error, T>(
         &'a self,
         visit: F,
         must_visit: &IndexSet<NodeIndex>,
         threads: usize,
         reverse: bool,
+        init: T,
     ) -> Result<(), Vec<(NodeIndex, Error)>>
     where
         Self: Sync + Visitable<bool> + Indexable<'a>,
         Self::Node: Sync,
         Self::Edge: Sync,
         Self::Map: Send + Sync,
-        F: Fn(usize, NodeIndex, &Self::Node) -> Result<bool, Error>
+        F: Fn(usize, NodeIndex, &Self::Node, &T) -> Result<bool, Error>
             + Send
             + Sync,
         Error: Send,
+        T: Clone + Send,
     {
         let threads = cmp::max(threads, 1);
 
@@ -546,9 +555,11 @@ where
             let visit = &visit;
 
             for tid in 0..threads {
+                let init = init.clone();
+
                 scope.spawn(move |_| {
                     traversal_worker(
-                        self, tid, state, visit, must_visit, reverse,
+                        self, tid, state, visit, must_visit, reverse, init,
                     )
                 });
             }
@@ -634,16 +645,17 @@ where
 }
 
 /// Graph traversal worker thread.
-fn traversal_worker<'a, G, F, Error>(
+fn traversal_worker<'a, G, F, T, Error>(
     g: &'a G,
     tid: usize,
     state: &TraversalState<G, Error>,
     visit: &F,
     must_visit: &IndexSet<NodeIndex>,
     reverse: bool,
+    init: T,
 ) where
     G: Neighbors<'a> + Indexable<'a> + Visitable<bool> + Algo<'a>,
-    F: Fn(usize, NodeIndex, &G::Node) -> Result<bool, Error> + Sync,
+    F: Fn(usize, NodeIndex, &G::Node, &T) -> Result<bool, Error> + Sync,
     Error: Send,
 {
     while let Some(index) = state.queue.pop() {
@@ -668,7 +680,7 @@ fn traversal_worker<'a, G, F, Error>(
         };
 
         let keep_going = if do_visit {
-            visit(tid, index, g.node_from_index(index))
+            visit(tid, index, g.node_from_index(index), &init)
         } else {
             Ok(false)
         };

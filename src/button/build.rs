@@ -27,19 +27,17 @@ use std::sync::Mutex;
 
 use crate::build_graph::{BuildGraph, BuildGraphExt, Edge, FromRules, Node};
 use crate::detect::Detected;
-use crate::logger::{EventLogger, TaskLogger};
+use crate::error::{
+    BuildError, Error, ErrorKind, Fail, InvalidEdges, ResultExt,
+};
+use crate::events::{EventSender, EventSink};
+use crate::graph::{
+    Algo, Edges, IndexSet, Indexable, Neighbors, NodeIndex, Nodes, Subgraph,
+};
 use crate::res::{self, Resource, ResourceState};
 use crate::rules::Rules;
 use crate::state::BuildState;
 use crate::task::{self, Task};
-
-use crate::graph::{
-    Algo, Edges, IndexSet, Indexable, Neighbors, NodeIndex, Nodes, Subgraph,
-};
-
-use crate::error::{
-    BuildError, Error, ErrorKind, Fail, InvalidEdges, ResultExt,
-};
 
 /// A build failure. Contains each of the node indexes that failed and the
 /// associated error.
@@ -74,17 +72,14 @@ struct BuildContext<'a> {
     detected: Mutex<Vec<(NodeIndex, Detected)>>,
 }
 
-fn delete_resources<L>(
+fn delete_resources(
     state: &BuildState,
     to_remove: &IndexSet<NodeIndex>,
     root: &Path,
     threads: usize,
-    logger: &L,
+    events: EventSender,
     dryrun: bool,
-) -> Result<(), BuildError>
-where
-    L: EventLogger,
-{
+) -> Result<(), BuildError> {
     if to_remove.is_empty() {
         return Ok(());
     }
@@ -94,7 +89,7 @@ where
 
     graph
         .traverse(
-            |tid, index, node| {
+            |tid, index, node, events| {
                 if let Node::Resource(r) = node {
                     // Only delete the resource if its in our set of removed
                     // resources and if the state has been computed. A computed
@@ -107,7 +102,7 @@ where
                         let result =
                             if dryrun { Ok(()) } else { r.delete(root) };
 
-                        logger.delete(tid, r, &result)?;
+                        events.delete(tid, r.clone(), &result);
 
                         result?;
                     }
@@ -119,6 +114,7 @@ where
             &IndexSet::new(),
             threads,
             true,
+            events,
         )
         .map_err(ErrorKind::DeleteErrors)?;
 
@@ -126,17 +122,14 @@ where
 }
 
 /// Updates the build state with the build graph loaded from the on-disk rules.
-fn sync_state<L>(
+fn sync_state(
     state: &mut BuildState,
     graph: &BuildGraph,
     root: &Path,
     threads: usize,
-    logger: &L,
+    events: EventSender,
     dryrun: bool,
-) -> Result<(), BuildError>
-where
-    L: EventLogger,
-{
+) -> Result<(), BuildError> {
     // Diff with the explicit subgraph in order to have a one-to-one comparison
     // with the rules build graph.
     let diff = state.graph.explicit_subgraph().diff(graph);
@@ -153,7 +146,7 @@ where
     let nodes_to_delete: IndexSet<_> = nodes_to_delete.into_iter().collect();
 
     // Delete the non-root resources that we own in reverse-topological order.
-    delete_resources(state, &nodes_to_delete, root, threads, logger, dryrun)?;
+    delete_resources(state, &nodes_to_delete, root, threads, events, dryrun)?;
 
     // Non-destructive sync of the state's data structures.
     state.update(graph, &diff);
@@ -255,13 +248,12 @@ fn sync_added_inputs(
 /// Note that there is one case where this can fail: adding a dependency on
 /// a non-root node. Such a scenario can change the build order or create a race
 /// condition.
-fn sync_detected<L>(
+fn sync_detected(
     graph: &mut BuildGraph,
     detected: Vec<(NodeIndex, Detected)>,
     checksums: &mut HashMap<NodeIndex, ResourceState>,
     root: &Path,
     _threads: usize,
-    _logger: &L,
     _dryrun: bool,
 ) -> Result<(), BuildError> {
     for (node, Detected { inputs, .. }) in detected {
@@ -374,27 +366,44 @@ pub struct Build<'a> {
     /// Path to the build state. If this has a parent directory, the parent
     /// directory must exist.
     state: &'a Path,
+
+    /// Number of threads to use for the build.
+    threads: usize,
+
+    /// Channel for sending events to the event thread.
+    event_sender: EventSender,
 }
 
 impl<'a> Build<'a> {
     /// Creates a new `Build`.
-    pub fn new(root: &'a Path, state: &'a Path) -> Build<'a> {
-        Build { root, state }
+    pub fn new(
+        root: &'a Path,
+        state: &'a Path,
+        threads: usize,
+        event_sender: EventSender,
+    ) -> Build<'a> {
+        Build {
+            root,
+            state,
+            threads,
+            event_sender,
+        }
     }
 
     /// Cleans all outputs of the build and the build state.
     ///
     /// This does *not* clean up build logs or anything else. Since the client
     /// is creating these things, it's up to the client to clean them up.
-    pub fn clean<L>(
-        &self,
-        dryrun: bool,
-        threads: usize,
-        logger: &L,
-    ) -> Result<(), BuildError>
-    where
-        L: EventLogger,
-    {
+    pub fn clean(&self, dryrun: bool) -> Result<(), BuildError> {
+        self.event_sender.begin_build(self.threads, "clean");
+
+        let result = self.clean_impl(dryrun);
+
+        self.event_sender.end_build(&result);
+        result
+    }
+
+    pub fn clean_impl(&self, dryrun: bool) -> Result<(), BuildError> {
         let state = match fs::File::open(self.state) {
             Ok(f) => BuildState::from_reader(io::BufReader::new(f))
                 .with_context(|_| {
@@ -413,11 +422,13 @@ impl<'a> Build<'a> {
             }
         };
 
+        let root = self.root;
+
         // Delete resources in reverse topological order.
         state
             .graph
             .traverse(
-                |tid, index, node| {
+                |tid, index, node, events| {
                     if let Node::Resource(r) = node {
                         // Only delete the resource if the state has been
                         // computed. A computed state indicates that the build
@@ -425,13 +436,10 @@ impl<'a> Build<'a> {
                         if !state.graph.is_root_node(index)
                             && state.checksums.contains_key(&index)
                         {
-                            let result = if dryrun {
-                                Ok(())
-                            } else {
-                                r.delete(self.root)
-                            };
+                            let result =
+                                if dryrun { Ok(()) } else { r.delete(root) };
 
-                            logger.delete(tid, r, &result)?;
+                            events.delete(tid, r.clone(), &result);
 
                             result?;
                         }
@@ -441,8 +449,9 @@ impl<'a> Build<'a> {
                     Ok(true)
                 },
                 &IndexSet::new(),
-                threads,
+                self.threads,
                 true,
+                self.event_sender.clone(),
             )
             .map_err(ErrorKind::DeleteErrors)?;
 
@@ -491,34 +500,16 @@ impl<'a> Build<'a> {
     ///
     ///  6. Persist the build state to disk. This is done atomically using a
     ///     temporary file and rename.
-    pub fn build<L>(
-        &self,
-        rules: Rules,
-        dryrun: bool,
-        threads: usize,
-        logger: &mut L,
-    ) -> Result<(), BuildError>
-    where
-        L: EventLogger,
-    {
-        logger.begin_build(threads)?;
+    pub fn build(&self, rules: Rules, dryrun: bool) -> Result<(), BuildError> {
+        self.event_sender.begin_build(self.threads, "build");
 
-        let result = self.build_impl(rules, dryrun, threads, logger);
+        let result = self.build_impl(rules, dryrun);
 
-        logger.end_build(&result)?;
+        self.event_sender.end_build(&result);
         result
     }
 
-    fn build_impl<L>(
-        &self,
-        rules: Rules,
-        dryrun: bool,
-        threads: usize,
-        logger: &L,
-    ) -> Result<(), BuildError>
-    where
-        L: EventLogger,
-    {
+    fn build_impl(&self, rules: Rules, dryrun: bool) -> Result<(), BuildError> {
         let graph =
             BuildGraph::from_rules(rules).context(ErrorKind::BuildGraph)?;
 
@@ -537,7 +528,12 @@ impl<'a> Build<'a> {
                             })?;
 
                     sync_state(
-                        &mut state, &graph, self.root, threads, logger, dryrun,
+                        &mut state,
+                        &graph,
+                        self.root,
+                        self.threads,
+                        self.event_sender.clone(),
+                        dryrun,
                     )
                     .context(ErrorKind::SyncState)?;
 
@@ -587,12 +583,13 @@ impl<'a> Build<'a> {
 
             // Build the subgraph.
             subgraph.traverse(
-                |tid, index, node| {
-                    build_node(&context, tid, index, node, logger)
+                |tid, index, node, events| {
+                    build_node(&context, tid, index, node, events)
                 },
                 &must_visit,
-                threads,
+                self.threads,
                 false,
+                self.event_sender.clone(),
             )
         };
 
@@ -623,8 +620,7 @@ impl<'a> Build<'a> {
             detected,
             &mut checksums,
             self.root,
-            threads,
-            logger,
+            self.threads,
             dryrun,
         )?;
 
@@ -646,36 +642,30 @@ impl<'a> Build<'a> {
     }
 }
 
-fn build_node<L>(
+fn build_node(
     context: &BuildContext<'_>,
     tid: usize,
     index: NodeIndex,
     node: &Node,
-    logger: &L,
-) -> Result<bool, Error>
-where
-    L: EventLogger,
-{
+    events: &EventSender,
+) -> Result<bool, Error> {
     match node {
-        Node::Resource(r) => build_resource(context, tid, index, r, logger),
-        Node::Task(t) => build_task(context, tid, index, t, logger),
+        Node::Resource(r) => build_resource(context, tid, index, r, events),
+        Node::Task(t) => build_task(context, tid, index, t, events),
     }
 }
 
-fn build_resource<L>(
+fn build_resource(
     context: &BuildContext<'_>,
     tid: usize,
     index: NodeIndex,
     node: &res::Any,
-    logger: &L,
-) -> Result<bool, Error>
-where
-    L: EventLogger,
-{
+    events: &EventSender,
+) -> Result<bool, Error> {
     let state = match node.state(context.root) {
         Ok(state) => state,
         Err(err) => {
-            logger.checksum_error(tid, node, &err)?;
+            events.checksum_error(tid, node.clone(), &err);
             return Err(err);
         }
     };
@@ -734,23 +724,21 @@ fn check_detected(
     }
 }
 
-fn build_task<L>(
+fn build_task(
     context: &BuildContext<'_>,
     tid: usize,
     index: NodeIndex,
     node: &task::List,
-    logger: &L,
-) -> Result<bool, Error>
-where
-    L: EventLogger,
-{
+    events: &EventSender,
+) -> Result<bool, Error> {
     for task in node.iter() {
-        let mut task_logger = logger.start_task(tid, &task)?;
+        let mut task_events = events.begin_task(tid, task.clone());
 
         if context.dryrun {
-            task_logger.finish(&Ok(Detected::new()))?;
+            let result: Result<_, &'static str> = Ok(Detected::new());
+            task_events.finish(&result);
         } else {
-            let result = task.execute(context.root, &mut task_logger).and_then(
+            let result = task.execute(context.root, &mut task_events).and_then(
                 |detected| {
                     // Check for detected edges that would change the build
                     // order. It's better to fail an individual task than the
@@ -759,12 +747,12 @@ where
                         context.graph,
                         index,
                         detected,
-                        &mut task_logger,
+                        &mut task_events,
                     )
                 },
             );
 
-            task_logger.finish(&result)?;
+            task_events.finish(&result);
 
             // Accumulate the detected inputs/outputs such that we can add them
             // to the implicit resources to the graph later. (We cannot modify

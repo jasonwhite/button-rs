@@ -1,0 +1,140 @@
+[
+    {
+        "inputs": [
+            {"file": "src/a.c"}
+        ],
+        "tasks": [
+            {
+                "command": {
+                    "program": "sleep",
+                    "args": ["2"],
+                    "display": "clang src/a.c"
+                }
+            }
+        ],
+        "outputs": [
+            {"file": "obj/a.o"}
+        ]
+    },
+    {
+        "inputs": [
+            {"file": "src/b.c"}
+        ],
+        "tasks": [
+            {
+                "command": {
+                    "program": "sleep",
+                    "args": ["2"],
+                    "display": "clang src/b.c"
+                }
+            }
+        ],
+        "outputs": [
+            {"file": "obj/b.o"}
+        ]
+    },
+    {
+        "inputs": [
+            {"file": "src/c.c"}
+        ],
+        "tasks": [
+            {
+                "command": {
+                    "program": "sleep",
+                    "args": ["2"],
+                    "display": "clang src/c.c"
+                }
+            }
+        ],
+        "outputs": [
+            {"file": "obj/c.o"}
+        ]
+    },
+    {
+        "inputs": [
+            {"file": "src/d.c"}
+        ],
+        "tasks": [
+            {
+                "command": {
+                    "program": "sleep",
+                    "args": ["2"],
+                    "display": "clang src/d.c"
+                }
+            }
+        ],
+        "outputs": [
+            {"file": "obj/d.o"}
+        ]
+    },
+    {
+        "inputs": [
+            {"file": "src/e.c"}
+        ],
+        "tasks": [
+            {
+                "command": {
+                    "program": "sleep",
+                    "args": ["2"],
+                    "display": "clang src/e.c"
+                }
+            }
+        ],
+        "outputs": [
+            {"file": "obj/e.o"}
+        ]
+    },
+    {
+        "inputs": [
+            {"file": "src/f.c"}
+        ],
+        "tasks": [
+            {
+                "command": {
+                    "program": "sleep",
+                    "args": ["2"],
+                    "display": "clang src/f.c"
+                }
+            }
+        ],
+        "outputs": [
+            {"file": "obj/f.o"}
+        ]
+    },
+    {
+        "inputs": [
+            {"file": "obj/a.o"},
+            {"file": "obj/b.o"},
+            {"file": "obj/c.o"},
+            {"file": "obj/d.o"},
+            {"file": "obj/e.o"},
+            {"file": "obj/f.o"}
+        ],
+        "tasks": [
+            {
+                "command": {
+                    "program": "sleep",
+                    "args": ["4"],
+                    "display": "link foobar"
+                }
+            }
+        ],
+        "outputs": [
+            {"file": "foobar"}
+        ]
+    },
+    {
+        "inputs": [
+            {"file": "foobar"}
+        ],
+        "tasks": [
+            {
+                "command": {
+                    "program": "sleep",
+                    "args": ["2"],
+                    "display": "./foobar"
+                }
+            }
+        ]
+    }
+]

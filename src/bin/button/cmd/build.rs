@@ -17,12 +17,14 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::mpsc;
 
 use num_cpus;
 use structopt::StructOpt;
 
-use button::{self, logger, Error, ResultExt, Rules};
+use button::{self, events, Error, ResultExt, Rules};
 
 use crate::opts::GlobalOpts;
 use crate::paths;
@@ -37,10 +39,6 @@ pub struct Build {
     /// Doesn't run the build. Just prints the tasks that will be executed.
     #[structopt(short = "n", long = "dryrun")]
     dryrun: bool,
-
-    /// Print additional information.
-    #[structopt(short = "v", long = "verbose")]
-    verbose: bool,
 
     /// The number of threads to use. Defaults to the number of logical cores.
     #[structopt(short = "t", long = "threads", default_value = "0")]
@@ -70,7 +68,7 @@ pub struct Build {
 }
 
 impl Build {
-    pub fn main(self, global: &GlobalOpts) -> Result<(), Error> {
+    pub fn main(self, _global: &GlobalOpts) -> Result<(), Error> {
         let rules = paths::rules_or(self.rules)
             .context("Failed to find build rules")?;
 
@@ -85,23 +83,26 @@ impl Build {
         // Ensure the .button directory exists.
         paths::init(&root).context("Failed initializing .button directory")?;
 
-        // Log to both the console and a binary file for later analysis.
-        let mut loggers = logger::List::<logger::Any>::new();
-        loggers.push(
-            logger::Console::new(self.verbose, global.color.into()).into(),
-        );
-        loggers.push(logger::binary_file_logger(root.join(paths::LOG))?.into());
+        let f = fs::File::create(paths::LOG)
+            .with_context(|_| format!("Failed to create '{}'", paths::LOG))?;
+
+        // TODO: If stderr is not a TTY, use an event handler that dumps the
+        // full output to a file.
+        let event_handler: Vec<events::AnyHandler> =
+            vec![events::Console::new().into(), events::Binary::new(f).into()];
+        let (sender, receiver) = mpsc::channel();
+        let _event_thread = events::EventThread::new(event_handler, receiver);
 
         let state_path = root.join(paths::STATE);
-        let build = button::Build::new(root, &state_path);
+        let build = button::Build::new(root, &state_path, threads, sender);
 
         if self.clean {
-            build.clean(self.dryrun, threads, &loggers)?;
+            build.clean(self.dryrun)?;
         }
 
         let rules = Rules::from_path(&rules)?;
 
-        build.build(rules, self.dryrun, threads, &mut loggers)?;
+        build.build(rules, self.dryrun)?;
 
         Ok(())
     }

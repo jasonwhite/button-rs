@@ -17,13 +17,19 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
 use structopt::StructOpt;
 
-use button::{logger, Error, ResultExt};
+use button::{
+    events::{Console, EventHandler},
+    Error, ResultExt,
+};
 
 use crate::opts::GlobalOpts;
+use crate::paths;
 
 #[derive(StructOpt, Debug)]
 pub struct Replay {
@@ -42,16 +48,17 @@ pub struct Replay {
 }
 
 impl Replay {
-    pub fn main(self, global: &GlobalOpts) -> Result<(), Error> {
+    pub fn main(self, _global: &GlobalOpts) -> Result<(), Error> {
         let path = match &self.path {
             Some(path) => path,
-            None => Path::new(".button/log"),
+            None => Path::new(paths::LOG),
         };
 
-        let logger = logger::Console::new(self.verbose, global.color.into());
-        logger::log_from_path(&path, logger, self.realtime).with_context(
-            |_| format!("Failed loading binary log from '{}'", path.display()),
-        )?;
+        let f = fs::File::open(path)
+            .with_context(|_| format!("Failed opening '{}'", path.display()))?;
+        Console::new()
+            .read_bincode(io::BufReader::new(f), self.realtime)
+            .context("Failed reading events")?;
 
         Ok(())
     }
