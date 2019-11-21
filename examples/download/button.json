@@ -16,7 +16,7 @@
             {
                 "command": {
                     "program": "rm",
-                    "args": ["-rf", "sqlite-amalgamation-3240000"]
+                    "args": ["-rf", "sqlite-amalgamation-3240000", "sqlite"]
                 }
             },
             {
