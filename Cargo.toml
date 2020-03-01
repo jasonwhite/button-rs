@@ -26,7 +26,7 @@ futures = "0.1"
 generic-array = { version = "0.12", features = ["serde"] }
 hex = "0.4"
 holyhashmap = { version = "0.1", features = ["serde"] }
-humantime = "1"
+humantime = "2"
 indicatif = "0.14"
 log = "0.4"
 nom = "5"
