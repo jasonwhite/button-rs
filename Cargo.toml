@@ -15,7 +15,7 @@ path = "src/button/lib.rs"
 atty = "0.2"
 bincode = "1"
 bit-set = "0.5"
-bytes = { version = "0.4", features = ["serde"] }
+bytes = { version = "0.5", features = ["serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 console = "0.10"
 crossbeam = "0.7"
