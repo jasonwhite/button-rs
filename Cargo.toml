@@ -17,7 +17,7 @@ bincode = "1"
 bit-set = "0.5"
 bytes = { version = "0.4", features = ["serde"] }
 chrono = { version = "0.4", features = ["serde"] }
-console = "0.12"
+console = "0.14"
 crossbeam = "0.8"
 derive_more = "0.99"
 failure = "0.1"
