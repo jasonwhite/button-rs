@@ -50,7 +50,7 @@ tower-service = "0.2"
 [target.'cfg(unix)'.dependencies]
 daemonize = "0.4"
 tokio-uds = "0.2"
-nix = "0.17"
+nix = "0.19"
 
 [target.'cfg(windows)'.dependencies]
 tokio-named-pipes = { git = "https://github.com/NikVolf/tokio-named-pipes", branch = "stable" }
