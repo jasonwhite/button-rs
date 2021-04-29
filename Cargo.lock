@@ -186,7 +186,7 @@ dependencies = [
  "structopt",
  "tempfile",
  "termcolor",
- "tokio",
+ "tokio 0.3.7",
  "tokio-named-pipes",
  "tokio-serde-bincode",
  "tokio-signal",
@@ -779,7 +779,7 @@ dependencies = [
  "net2",
  "rustc_version",
  "time",
- "tokio",
+ "tokio 0.1.22",
  "tokio-buf",
  "tokio-executor",
  "tokio-io",
@@ -1220,6 +1220,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
 
 [[package]]
+name = "pin-project-lite"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc0e1f259c92177c30a4c9d177246edd0a3568b25756a977d0632cf8fa37e905"
+
+[[package]]
 name = "pkg-config"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1517,7 +1523,7 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "time",
- "tokio",
+ "tokio 0.1.22",
  "tokio-executor",
  "tokio-io",
  "tokio-threadpool",
@@ -1866,6 +1872,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46409491c9375a693ce7032101970a54f8a2010efb77e13f70788f0d84489e39"
+dependencies = [
+ "autocfg 1.0.0",
+ "pin-project-lite",
+]
+
+[[package]]
 name = "tokio-buf"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1938,7 +1954,7 @@ dependencies = [
  "futures",
  "mio",
  "mio-named-pipes",
- "tokio",
+ "tokio 0.1.22",
 ]
 
 [[package]]
