@@ -27,7 +27,7 @@ generic-array = { version = "0.12", features = ["serde"] }
 hex = "0.4"
 holyhashmap = { version = "0.1", features = ["serde"] }
 humantime = "2"
-indicatif = "0.15"
+indicatif = "0.16"
 log = "0.4"
 nom = "5"
 num_cpus = "1"
