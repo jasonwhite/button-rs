@@ -55,4 +55,4 @@ nix = "0.19"
 [target.'cfg(windows)'.dependencies]
 tokio-named-pipes = { git = "https://github.com/NikVolf/tokio-named-pipes", branch = "stable" }
 winapi = "0.3"
-uuid = "0.8"
+uuid = "1.2"
